@@ -1,7 +1,9 @@
 package cloud.twoidiotz.app.v1.domain.station;
 
-import cloud.twoidiotz.app.api.SnakeCase;
+import cloud.twoidiotz.app.shared.serialization.SnakeCase;
+import cloud.twoidiotz.app.shared.validation.AbsoluteUri;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 
 @SnakeCase
 @Schema(
@@ -18,11 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record StationResponse(
     @Schema(accessMode = Schema.AccessMode.READ_ONLY) long id,
     @Schema(minLength = 1, maxLength = 255) String name,
-    @Schema(
-            types = {"string", "null"},
-            format = "uri",
-            maxLength = 255)
-        String imageUrl,
+    @AbsoluteUri @Size(max = 255) String imageUrl,
     boolean wheelchairAccessible,
     boolean hasShelter,
     boolean hasTicketMachine) {}

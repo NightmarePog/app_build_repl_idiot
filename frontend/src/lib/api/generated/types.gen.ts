@@ -51,7 +51,7 @@ export type GetHealthData = {
 
 export type GetHealthResponses = {
     /**
-     * OK
+     * Health detail
      */
     200: HealthResponse;
 };
@@ -210,7 +210,7 @@ export type GetTeamData = {
 
 export type GetTeamResponses = {
     /**
-     * OK
+     * Team detail
      */
     200: TeamResponse;
 };

@@ -1,4 +1,4 @@
-package cloud.twoidiotz.app.v1.domain.station;
+package cloud.twoidiotz.app.shared.error;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -6,4 +6,4 @@ import io.swagger.v3.oas.annotations.media.Schema;
     name = "Error",
     additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
     requiredProperties = {"error"})
-public record StopError(@Schema(example = "Stop not found") String error) {}
+public record ApiError(@Schema(example = "Stop not found") String error) {}

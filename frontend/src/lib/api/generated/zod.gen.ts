@@ -14,7 +14,7 @@ export const zStop = z.object({
     has_shelter: z.boolean(),
     has_ticket_machine: z.boolean(),
     id: z.int().readonly(),
-    image_url: z.url().max(255).nullable(),
+    image_url: z.url().min(0).max(255).nullable(),
     name: z.string().min(1).max(255),
     wheelchair_accessible: z.boolean()
 }).strict();
@@ -35,13 +35,13 @@ export const zTeamResponse = z.object({
 export const zStopWritable = z.object({
     has_shelter: z.boolean(),
     has_ticket_machine: z.boolean(),
-    image_url: z.url().max(255).nullable(),
+    image_url: z.url().min(0).max(255).nullable(),
     name: z.string().min(1).max(255),
     wheelchair_accessible: z.boolean()
 }).strict();
 
 /**
- * OK
+ * Health detail
  */
 export const zGetHealthResponse = zHealthResponse;
 
@@ -87,6 +87,6 @@ export const zUpdateStopPath = z.object({
 export const zUpdateStopResponse = zStop;
 
 /**
- * OK
+ * Team detail
  */
 export const zGetTeamResponse = zTeamResponse;

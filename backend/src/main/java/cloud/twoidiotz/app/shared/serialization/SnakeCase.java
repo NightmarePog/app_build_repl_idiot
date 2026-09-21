@@ -1,4 +1,4 @@
-package cloud.twoidiotz.app.api;
+package cloud.twoidiotz.app.shared.serialization;
 
 import com.fasterxml.jackson.annotation.JacksonAnnotationsInside;
 import java.lang.annotation.Documented;

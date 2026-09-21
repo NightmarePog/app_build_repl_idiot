@@ -21,6 +21,9 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
 
+/**
+ * Get health detail
+ */
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     requestValidator: async (data) => await z.object({
         body: z.never().optional(),
@@ -112,6 +115,9 @@ export const updateStop = <ThrowOnError extends boolean = false>(options: Option
     }
 });
 
+/**
+ * Get team detail
+ */
 export const getTeam = <ThrowOnError extends boolean = false>(options?: Options<GetTeamData, ThrowOnError>): RequestResult<GetTeamResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTeamResponses, unknown, ThrowOnError>({
     requestValidator: async (data) => await z.object({
         body: z.never().optional(),

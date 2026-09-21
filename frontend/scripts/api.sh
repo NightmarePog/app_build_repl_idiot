@@ -18,14 +18,14 @@ prettier --stdin-filepath openapi.json < "$api_tmp/raw.json" > "$api_tmp/openapi
 API_INPUT="$api_tmp/openapi.json" API_OUTPUT="$api_tmp/generated" openapi-ts
 
 if [ "${1-}" = "--check" ]; then
-  if ! diff -u openapi.json "$api_tmp/openapi.json" ||
+  if ! diff -u ../backend/openapi/openapi.json "$api_tmp/openapi.json" ||
      ! diff -ru src/lib/api/generated "$api_tmp/generated"; then
     echo 'API files are stale or missing. Run pnpm api:generate.' >&2
     exit 1
   fi
   echo 'API contract and client are synchronized.'
 else
-  cp "$api_tmp/openapi.json" openapi.json
+  cp "$api_tmp/openapi.json" ../backend/openapi/openapi.json
   rm -rf src/lib/api/generated
   mkdir -p src/lib/api
   cp -R "$api_tmp/generated" src/lib/api/generated

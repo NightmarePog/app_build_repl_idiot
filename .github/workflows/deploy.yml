@@ -75,11 +75,15 @@ jobs:
             CONTRACT_BASE=$(git rev-parse HEAD^)
           fi
           git cat-file -e "$CONTRACT_BASE^{commit}"
-          if git cat-file -e "$CONTRACT_BASE:frontend/openapi.json" 2>/dev/null; then
-            git show "$CONTRACT_BASE:frontend/openapi.json" > backend/build/openapi/base.json
+          contract_path=backend/openapi/openapi.json
+          if ! git cat-file -e "$CONTRACT_BASE:$contract_path" 2>/dev/null; then
+            contract_path=frontend/openapi.json
+          fi
+          if git cat-file -e "$CONTRACT_BASE:$contract_path" 2>/dev/null; then
+            git show "$CONTRACT_BASE:$contract_path" > backend/build/openapi/base.json
             docker run --rm -v "$PWD:/specs:ro" tufin/oasdiff:v1.32.1 \
               breaking --fail-on WARN \
-              /specs/backend/build/openapi/base.json /specs/frontend/openapi.json
+              /specs/backend/build/openapi/base.json /specs/backend/openapi/openapi.json
           else
             echo 'No previous OpenAPI contract; this change establishes the baseline.'
           fi

@@ -1,4 +1,4 @@
-package cloud.twoidiotz.app.api;
+package cloud.twoidiotz.app.shared.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,14 +17,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@RequestMapping(
-    method = RequestMethod.PUT,
-    consumes = MediaType.APPLICATION_JSON_VALUE,
-    produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
 @ResponseStatus(HttpStatus.OK)
 @Operation
 @ApiResponse(responseCode = "200", description = "OK")
-public @interface ApiPut {
+public @interface ApiGet {
   @AliasFor(annotation = RequestMapping.class, attribute = "path")
   String[] value() default {};
 

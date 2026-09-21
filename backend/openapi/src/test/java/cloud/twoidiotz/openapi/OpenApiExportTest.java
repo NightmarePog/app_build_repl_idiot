@@ -1,7 +1,8 @@
-package cloud.twoidiotz.app;
+package cloud.twoidiotz.openapi;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import cloud.twoidiotz.app.Application;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -22,8 +23,13 @@ import tools.jackson.databind.node.ObjectNode;
 @Tag("openapi")
 @ActiveProfiles("test")
 @SpringBootTest(
+    classes = {Application.class, OpenApiConfiguration.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = {"springdoc.api-docs.enabled=true", "springdoc.writer-with-order-by-keys=true"})
+    properties = {
+      "springdoc.api-docs.enabled=true",
+      "springdoc.writer-with-order-by-keys=true",
+      "springdoc.override-with-generic-response=false"
+    })
 class OpenApiExportTest {
   @LocalServerPort int port;
 
@@ -72,6 +78,9 @@ class OpenApiExportTest {
     assertEquals("1.1.0", contract.at("/info/version").asString());
     for (var method : new String[] {"get", "put", "delete"}) {
       var operation = contract.at("/paths/~1stops~1{id}/" + method);
+      assertEquals("Stop not found", operation.at("/responses/404/description").asString());
+      assertEquals(
+          "Invalid stop ID or input data", operation.at("/responses/400/description").asString());
       assertEquals(1, operation.at("/parameters/0/schema/minimum").asInt());
       for (var status : new String[] {"400", "404"}) {
         assertEquals(
@@ -80,6 +89,12 @@ class OpenApiExportTest {
                 .at("/responses/" + status + "/content/application~1json/schema/$ref")
                 .asString());
       }
+    }
+    assertFalse(contract.at("/paths/~1stops/post/responses").has("404"));
+    for (var path : new String[] {"~1health", "~1team", "~1stops"}) {
+      var responses = contract.at("/paths/" + path + "/get/responses");
+      assertFalse(responses.has("400"));
+      assertFalse(responses.has("404"));
     }
     assertEquals(
         "#/components/schemas/Error",

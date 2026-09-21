@@ -93,4 +93,8 @@ backend ani databázi. Adresu aplikace vypíše do terminálu; změny testovací
 se při restartu serveru ztratí.
 
 
+OpenAPI kontrakt a dokumentační nástroje jsou v [backend/openapi/](backend/openapi/README.md).
+Kontrakt se generuje z backendu; příkazy `pnpm api:generate` a `pnpm api:check`
+ve frontendu aktualizují nebo ověří kontrakt i generovaného klienta.
+
 Aplikace sse vyvíjí v rámci soutěže Tour de App

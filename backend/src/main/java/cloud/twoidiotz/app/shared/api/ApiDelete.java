@@ -1,4 +1,4 @@
-package cloud.twoidiotz.app.api;
+package cloud.twoidiotz.app.shared.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -9,7 +9,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -17,14 +16,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@RequestMapping(
-    method = RequestMethod.PATCH,
-    consumes = MediaType.APPLICATION_JSON_VALUE,
-    produces = MediaType.APPLICATION_JSON_VALUE)
-@ResponseStatus(HttpStatus.OK)
+@RequestMapping(method = RequestMethod.DELETE)
+@ResponseStatus(HttpStatus.NO_CONTENT)
 @Operation
-@ApiResponse(responseCode = "200", description = "OK")
-public @interface ApiPatch {
+@ApiResponse(responseCode = "204", description = "No Content")
+public @interface ApiDelete {
   @AliasFor(annotation = RequestMapping.class, attribute = "path")
   String[] value() default {};
 
@@ -41,5 +37,5 @@ public @interface ApiPatch {
   String description() default "";
 
   @AliasFor(annotation = ApiResponse.class, attribute = "description")
-  String responseDescription() default "OK";
+  String responseDescription() default "No Content";
 }

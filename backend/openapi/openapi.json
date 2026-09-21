@@ -12,6 +12,14 @@
   ],
   "tags": [
     {
+      "description": "Service health",
+      "name": "Health"
+    },
+    {
+      "description": "Team information",
+      "name": "Team"
+    },
+    {
       "description": "Stop management",
       "name": "Stops"
     }
@@ -29,10 +37,11 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Health detail"
           }
         },
-        "tags": ["health-controller"]
+        "summary": "Get health detail",
+        "tags": ["Health"]
       }
     },
     "/stops": {
@@ -262,10 +271,11 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Team detail"
           }
         },
-        "tags": ["team-controller"]
+        "summary": "Get team detail",
+        "tags": ["Team"]
       }
     }
   },
@@ -310,7 +320,8 @@
           "image_url": {
             "type": ["string", "null"],
             "format": "uri",
-            "maxLength": 255
+            "maxLength": 255,
+            "minLength": 0
           },
           "name": {
             "type": "string",

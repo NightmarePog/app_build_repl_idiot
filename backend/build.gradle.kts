@@ -6,14 +6,18 @@ plugins {
 
 group = "cloud.twoidiotz"
 
-version = "0.0.1-SNAPSHOT"
+version = "1.0.0"
 
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(21)) } }
+
+// Documentation tooling is available to tests and exports, never the production jar.
+sourceSets.test { java.srcDirs("openapi/src/main/java", "openapi/src/test/java") }
 
 tasks.test { useJUnitPlatform { excludeTags("openapi") } }
 
 spotless {
   java {
+    target("src/**/*.java", "openapi/src/**/*.java")
     googleJavaFormat("1.25.2")
     removeUnusedImports()
     trimTrailingWhitespace()
@@ -38,15 +42,17 @@ dependencies {
   implementation(libs.postgresql)
   implementation(libs.spring.web)
   implementation(libs.spring.validation)
-  implementation(libs.springdoc)
+  implementation(libs.swagger.annotations)
+  implementation(libs.jackson2.databind)
   testImplementation(libs.spring.test)
+  testImplementation(libs.springdoc)
   testRuntimeOnly(libs.junit.launcher)
 }
 
 tasks.bootJar { archiveFileName.set("app.jar") }
 
 tasks.register<Test>("exportOpenApi") {
-  description = "Exports the OpenAPI contract and a live health response from this checkout."
+  description = "Exports the backend contract and live responses for frontend contract tests."
   group = "verification"
   testClassesDirs = sourceSets.test.get().output.classesDirs
   classpath = sourceSets.test.get().runtimeClasspath

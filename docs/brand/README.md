@@ -1,7 +1,4 @@
 # Think different Academy — pravidla vizuální identity
-
-Veškeré nové a upravované UI musí dodržovat tento manuál. Platí pro stránky, komponenty, formuláře, stavy načítání/chyb, responzivní varianty i další vizuální výstupy aplikace.
-
 ## Zdroje
 
 - [Sdílená složka značky](https://drive.google.com/drive/folders/1_YiVHEABBMP7sALb5oukPVZqxszg9Z2U)

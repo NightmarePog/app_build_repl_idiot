@@ -1,6 +1,8 @@
 package cloud.twoidiotz.app.v1.domain.team;
 
-import cloud.twoidiotz.app.api.ApiGet;
+import cloud.twoidiotz.app.shared.api.ApiGet;
+import cloud.twoidiotz.app.shared.api.ApiResource;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -10,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
+@ApiResource("Team")
+@Tag(name = "Team", description = "Team information")
 public class TeamController {
   private final TeamRepository teams;
 
@@ -19,7 +23,7 @@ public class TeamController {
 
   @ApiGet("/team")
   @Transactional(readOnly = true)
-  public ResponseEntity<TeamResponse> getTeam() {
+  public ResponseEntity<TeamResponse> get() {
     var team =
         teams.findById(1L).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     return ResponseEntity.ok()
