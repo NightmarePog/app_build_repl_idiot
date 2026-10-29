@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="cs" class="dark">
+<html lang="cs">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#1a1a1a" />
+    <meta name="theme-color" content="#fcfbf9" />
     <link
       rel="preload"
       href="/api/v1/assets/fonts/dosis-variable.ttf"
@@ -12,14 +12,22 @@
       crossorigin
     />
     <script>
-      try {
-        document.documentElement.classList.toggle(
-          'dark',
-          localStorage.getItem('theme') !== 'light'
-        );
-      } catch {
-        // Dark is the default when storage is unavailable.
-      }
+      // A stored choice wins; otherwise follow the system preference (light when unknown).
+      (function () {
+        var stored = null;
+        try {
+          stored = localStorage.getItem('theme');
+        } catch {
+          // Storage can be unavailable; the system preference still applies.
+        }
+        var dark =
+          stored === 'dark' ||
+          (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute('content', dark ? '#141210' : '#fcfbf9');
+      })();
     </script>
     %sveltekit.head%
   </head>

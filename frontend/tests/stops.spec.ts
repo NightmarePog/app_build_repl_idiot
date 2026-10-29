@@ -43,6 +43,16 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
   await expect(
     page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
   ).toHaveCount(2);
+  // The transfer stop is preselected; it has no photo.
+  await expect(
+    page
+      .getByRole('article', { name: 'Vybraná zastávka Ada Exchange' })
+      .getByText('Obrázek zastávky není k dispozici')
+  ).toBeVisible();
+  await page
+    .getByRole('list', { name: 'Seznam zastávek' })
+    .getByRole('button', { name: 'Cejl' })
+    .click();
   const image = page.getByRole('img', { name: 'Zastávka Cejl' });
   await expect(image).toBeVisible();
   await expect
@@ -51,30 +61,15 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
     )
     .toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect(page.getByText('Obrázek zastávky není k dispozici')).toBeVisible();
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-    );
-    await Promise.all(
-      document.getAnimations().map((animation) => animation.finished.catch(() => {}))
-    );
-  });
-  for (const wrapper of await page
-    .getByRole('list', { name: 'Seznam zastávek' })
-    .locator('li > div')
-    .all()) {
-    await expect(wrapper).toHaveCSS('opacity', '1');
-  }
   await page.screenshot({
     path: `/tmp/tda-stops-${testInfo.project.name}.png`,
     fullPage: true,
     animations: 'allow'
   });
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
-  await expect(page).toHaveURL(/\/stops\/12$/);
+  await expect(page).toHaveURL(/\/stops\/12\?stop=12$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
-  await expect(page.getByText('Bezbariérový přístup')).toBeVisible();
+  await expect(page.getByText('Nástup bez schodů')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('html')).not.toHaveAttribute('data-route-transition', 'true');
   await expect(page.locator('.detail-amenities')).toHaveCSS('opacity', '1');
@@ -85,6 +80,51 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
   });
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
+});
+
+test('map finder selects stops from the list, keyboard and map', async ({ page }) => {
+  await page.route('**/api/v1/stops/13', (route) => route.fulfill({ json: stops[1] }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/stops');
+  const list = page.getByRole('list', { name: 'Seznam zastávek' });
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  // A transfer stop is preselected; its place card shows plain-language amenities.
+  const summary = page.getByRole('article', { name: 'Vybraná zastávka Ada Exchange' });
+  await expect(summary.getByText('Jízdenky na místě')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Vybrat zastávku Ada Exchange' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+
+  await list.getByRole('button', { name: 'Cejl' }).click();
+  await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
+  await expect(page).toHaveURL(/\?stop=12$/);
+  await page.keyboard.press('j');
+  await expect(summary).toBeVisible();
+  await expect(page).toHaveURL(/\?stop=13$/);
+  await page.keyboard.press('k');
+  await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Linka A', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(page).toHaveURL(/line=A/);
+  await page.getByRole('button', { name: 'Linka A', exact: true }).click();
+  await page.getByRole('button', { name: 'Jízdenky na místě', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await page.getByRole('searchbox', { name: 'Hledat zastávku' }).fill('cejl');
+  await expect(page.getByRole('heading', { name: 'Takovou zastávku tu nemáme' })).toBeVisible();
+  await page.getByRole('button', { name: 'Zobrazit všechny zastávky' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Vybrat zastávku Ada Exchange' }).click();
+  await expect(summary).toBeVisible();
+  await expect(page).toHaveURL(/stop=13/);
+  await page.getByRole('link', { name: 'Podrobnosti zastávky' }).click();
+  await expect(page).toHaveURL(/\/stops\/13$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ada Exchange');
 });
 
 test('shows an understandable empty state', async ({ page }) => {
@@ -129,9 +169,13 @@ test('broken images retain a usable link and layout fits narrow screens', async 
   await page.route('**/api/v1/stops-images/turingTerminal.png', (route) => route.abort());
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto('/stops');
+  await page.goto('/stops?stop=12');
+  await expect(
+    page
+      .getByRole('article', { name: 'Vybraná zastávka Cejl' })
+      .getByText('Obrázek zastávky není k dispozici')
+  ).toBeVisible();
   const card = page.getByRole('link', { name: 'Detail zastávky Cejl' });
-  await expect(card.getByText('Obrázek zastávky není k dispozici')).toBeVisible();
   await card.focus();
   await expect(card).toBeFocused();
   expect(await card.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid');
@@ -143,7 +187,7 @@ test('images load directly from the backend without local derivatives', async ({
   page.on('request', (request) => {
     if (new URL(request.url()).pathname.startsWith('/images/')) localImages.push(request.url());
   });
-  await page.goto('/stops');
+  await page.goto('/stops?stop=12');
   const image = page.getByRole('img', { name: 'Zastávka Cejl' });
   await expect
     .poll(() =>
@@ -186,13 +230,13 @@ test('search ignores accents and filter combinations work from the keyboard', as
   await expect(page).toHaveURL(/q=ziz/);
 
   await search.fill('');
-  const accessible = page.getByRole('button', { name: 'Bezbariérový přístup', exact: true });
+  const accessible = page.getByRole('button', { name: 'Nástup bez schodů', exact: true });
   await accessible.focus();
   await page.keyboard.press('Space');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
   await expect(list.getByRole('listitem')).toHaveCount(2);
 
-  const shelter = page.getByRole('button', { name: 'Přístřešek', exact: true });
+  const shelter = page.getByRole('button', { name: 'Střecha nad hlavou', exact: true });
   await shelter.focus();
   await page.keyboard.press('Space');
   await expect(shelter).toHaveAttribute('aria-pressed', 'true');
@@ -233,7 +277,7 @@ test('deep-linked filters survive reload and detail navigation', async ({ page }
   await page.route('**/api/v1/stops/12', (route) => route.fulfill({ json: stops[0] }));
   await page.goto('/stops?q=cejl&filter=accessible%2Cshelter');
   const search = page.getByRole('searchbox', { name: 'Hledat zastávku' });
-  const accessible = page.getByRole('button', { name: 'Bezbariérový přístup', exact: true });
+  const accessible = page.getByRole('button', { name: 'Nástup bez schodů', exact: true });
   await expect(search).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
   await page.reload();
@@ -268,18 +312,14 @@ test('detail keeps the selected image while validating the stop and removes a st
   await page.goto('/stops');
   const card = page.getByRole('link', { name: 'Detail zastávky Cejl' });
   await expect(card).toBeVisible();
-  const transitionName = await card
-    .locator('.stop-image-frame')
-    .evaluate((element) => getComputedStyle(element).viewTransitionName);
-  expect(transitionName).not.toBe('none');
 
   try {
     await card.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
     await expect(page.getByRole('img', { name: 'Zastávka Cejl' })).toBeVisible();
-    await expect(page.locator('main .stop-image-frame')).toHaveCSS(
+    await expect(page.locator('main .stop-image-frame')).not.toHaveCSS(
       'view-transition-name',
-      transitionName
+      'none'
     );
     await expect(page.getByText('Načítáme detail zastávky…')).toHaveCount(0);
   } finally {

@@ -20,6 +20,17 @@ async function input(request: IncomingMessage) {
   return zStopInput.parse(JSON.parse(body));
 }
 
+/** Mirrors the backend: mutations need this key, reads stay public. */
+export const adminApiKey = 'Kyqc49jIM+5+D0Sed8ZQ671gxkd7W/bBTWjDtZ0Zrgk=';
+
+function authorized(request: IncomingMessage) {
+  if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
+    return true;
+  }
+  const [scheme, token, ...rest] = (request.headers.authorization ?? '').trim().split(/\s+/);
+  return scheme?.toLowerCase() === 'bearer' && token === adminApiKey && rest.length === 0;
+}
+
 /** A development-only API: no Spring process, database, or external image service. */
 export function devApi(): Plugin {
   return {
@@ -31,13 +42,19 @@ export function devApi(): Plugin {
         .filter((name) => name.endsWith('.png'))
         .sort();
       faker.seed(20260918);
-      const stops: Stop[] = images.map((image, index) => ({
-        id: index + 1,
-        name: faker.location.street(),
-        image_url: `/api/v1/stops-images/${encodeURIComponent(image)}`,
-        wheelchair_accessible: faker.datatype.boolean(),
-        has_shelter: faker.datatype.boolean(),
-        has_ticket_machine: faker.datatype.boolean()
+      // Use the backend's campus seed so stop names match the line network in the UI.
+      const [header, ...rows] = (await readFile(resolve(resources, 'seed/v5/stops.csv'), 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => line.split(','));
+      const column = (row: string[], key: string) => row[header.indexOf(key)];
+      const stops: Stop[] = rows.map((row) => ({
+        id: Number(column(row, 'id')),
+        name: column(row, 'name'),
+        image_url: column(row, 'image_url'),
+        wheelchair_accessible: column(row, 'wheelchair_accessible') === 'true',
+        has_shelter: column(row, 'has_shelter') === 'true',
+        has_ticket_machine: column(row, 'has_ticket_machine') === 'true'
       }));
       let nextId = stops.length + 1;
       const team = {
@@ -73,6 +90,10 @@ export function devApi(): Plugin {
         });
 
         void (async () => {
+          if (!authorized(request)) {
+            response.setHeader('WWW-Authenticate', 'Bearer');
+            return json(response, 401, { error: 'Unauthorized' });
+          }
           const asset = assets.get(path);
           if (asset && (request.method === 'GET' || request.method === 'HEAD')) {
             const bytes = await readFile(asset.path);

@@ -29,8 +29,14 @@ test.beforeEach(async ({ page }) => {
 
 test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávkyv kampusu.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
   await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toHaveAttribute(
+    'href',
+    '/stops'
+  );
+  await expect(page.getByRole('link', { name: 'Seznam linek' })).toHaveAttribute('href', '#lines');
+  await expect(page.getByRole('heading', { level: 2, name: 'Linky' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: `/tmp/tda-home-${testInfo.project.name}.png`,
@@ -39,32 +45,57 @@ test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
   });
 });
 
-test('dark mode is the default and keyboard theme choice persists', async ({ page }, testInfo) => {
+// The theme now follows the system preference until the user picks one (light by default).
+test('system theme is the default and keyboard theme choice persists', async ({
+  page
+}, testInfo) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
   const root = page.locator('html');
-  await expect(root).toHaveClass(/dark/);
+  await expect(root).not.toHaveClass(/dark/);
 
   await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
-  const lightSwitch = page.getByRole('button', { name: 'Přepnout na světlý režim' });
-  await lightSwitch.focus();
+  const darkSwitch = page.getByRole('button', { name: 'Přepnout na tmavý režim' });
+  await darkSwitch.focus();
   await page.keyboard.press('Enter');
-  await expect(root).not.toHaveClass(/dark/);
-  await expect(page.getByRole('button', { name: 'Přepnout na tmavý režim' })).toBeVisible();
+  await expect(root).toHaveClass(/dark/);
+  await expect(page.getByRole('button', { name: 'Přepnout na světlý režim' })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await page.reload();
+  await expect(root).toHaveClass(/dark/);
+
+  await page.getByRole('button', { name: 'Přepnout na světlý režim' }).click();
+  await expect(root).not.toHaveClass(/dark/);
   await page.screenshot({
     path: `/tmp/tda-home-light-${testInfo.project.name}.png`,
     fullPage: true,
     animations: 'allow'
   });
+  // An explicit light choice wins over a dark system preference.
+  await page.emulateMedia({ colorScheme: 'dark' });
   await page.reload();
   await expect(root).not.toHaveClass(/dark/);
+  await expect(page.getByRole('button', { name: 'Přepnout na tmavý režim' })).toBeVisible();
+});
 
-  await page.getByRole('button', { name: 'Přepnout na tmavý režim' }).click();
-  await expect(root).toHaveClass(/dark/);
-  await page.reload();
-  await expect(root).toHaveClass(/dark/);
-  await expect(page.getByRole('button', { name: 'Přepnout na světlý režim' })).toBeVisible();
+test('dark system preference applies without a stored choice', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveClass(/dark/);
+});
+
+test('command palette finds a stop by keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  // The status is fetched client-side, so it also signals that the page is hydrated.
+  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await page.keyboard.press('ControlOrMeta+k');
+  const dialog = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox').fill(featuredStop.name);
+  await expect(dialog.getByRole('option').first()).toContainText(featuredStop.name);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 });
 
 test('reduced motion keeps the small-screen homepage readable and keyboard accessible', async ({
@@ -141,39 +172,65 @@ for (const invalid of [false, true]) {
   });
 }
 
-test('landing page has one primary action leading to the directory', async ({ page }) => {
+test('landing quick search opens the stop map with the query', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('searchbox')).toHaveCount(0);
-  await expect(page.getByRole('img', { name: `Zastávka ${featuredStop.name}` })).toBeVisible();
-  await page.getByRole('link', { name: 'Najít zastávku', exact: true }).click();
-  await expect(page).toHaveURL(/\/stops$/);
-  await expect(page.getByRole('searchbox', { name: 'Hledat zastávku' })).toBeVisible();
+  const search = page.getByRole('searchbox', { name: 'Hledat zastávku podle názvu' });
+  const query = featuredStop.name.slice(0, 4);
+  await search.fill(query);
+  await search.press('Enter');
+  await expect(page).toHaveURL(/\/stops\?q=/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('searchbox', { name: 'Hledat zastávku', exact: true })).toHaveValue(
+    query
+  );
   await expect(
-    page.getByRole('link', { name: `Detail zastávky ${featuredStop.name}` })
-  ).toBeVisible();
+    page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
+  ).toHaveCount(1);
 });
 
-for (const failure of ['empty', 'api', 'image']) {
-  test(`landing action remains usable with ${failure} preview failure`, async ({ page }) => {
-    if (failure === 'image') {
-      await page.route('**/api/v1/stops-images/**', (route) => route.abort());
-    } else {
-      await page.route('**/api/v1/stops', (route) =>
-        route.fulfill({
-          status: failure === 'api' ? 503 : 200,
-          json: []
-        })
-      );
-    }
-    await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Najít zastávku', exact: true })).toBeVisible();
-    await expect(page.getByRole('img', { name: `Zastávka ${featuredStop.name}` })).toHaveCount(0);
-  });
-}
+test('landing map preview and primary action lead to the stop map', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Otevřít mapu zastávek' }).click();
+  await expect(page).toHaveURL(/\/stops$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await page.getByRole('link', { name: 'Domů' }).click();
+  await page.getByRole('link', { name: 'Otevřít mapu', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+});
 
-test('footer links open contact and terms, and the excuse button works', async ({
-  page
-}, testInfo) => {
+test('landing stays usable when stops fail to load', async ({ page }) => {
+  await page.route('**/api/v1/stops', (route) => route.fulfill({ status: 503, json: [] }));
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
+  await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+});
+
+test('header menus list stops by line and lines as routes', async ({ page }) => {
+  await page.route('**/api/v1/stops', (route) =>
+    route.fulfill({
+      json: [featuredStop, createStop(43, { name: 'Ada Exchange', image_url: null })]
+    })
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  const stopsMenu = page.getByRole('button', { name: 'Zastávky' });
+  await stopsMenu.click();
+  await expect(stopsMenu).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.locator('#menu-stops');
+  await expect(panel.getByRole('link', { name: 'Ada Exchange' })).toHaveCount(2);
+  await expect(panel.getByText('Další zastávky')).toBeVisible();
+  await expect(panel.getByRole('link', { name: featuredStop.name })).toBeVisible();
+  await stopsMenu.press('Escape');
+  await expect(stopsMenu).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', { name: 'Linky' }).click();
+  const lines = page.locator('#menu-lines');
+  await expect(lines.getByLabel('Linka A')).toBeVisible();
+  await expect(lines.getByText('Turing Terminal')).toBeVisible();
+});
+
+test('footer links open contact and terms', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
   const footer = page.getByRole('contentinfo', { name: 'Patička webu' });
@@ -181,8 +238,6 @@ test('footer links open contact and terms, and the excuse button works', async (
     'href',
     'https://github.com/NightmarePog/2idiotz'
   );
-  await footer.getByRole('button', { name: 'Potřebuju výmluvu' }).click();
-  await expect(footer.getByText('Čekal/a jsem na spoj. Myšlenkový.')).toBeVisible();
   await footer.screenshot({ path: `/tmp/tda-footer-${testInfo.project.name}.png` });
   await footer.getByRole('link', { name: 'Kontakt' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ozvěte se.');

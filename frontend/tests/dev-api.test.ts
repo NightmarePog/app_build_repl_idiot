@@ -1,5 +1,50 @@
 import { expect, test } from '@playwright/test';
+import { adminApiKey } from '../dev/api';
 import { zStop, zTeamResponse } from '../src/lib/api/generated/zod.gen';
+
+// Mutations below need the admin key; reads ignore the header exactly like the backend.
+test.use({ extraHTTPHeaders: { Authorization: `Bearer ${adminApiKey}` } });
+
+test('dev API rejects mutations without the admin key and keeps reads public', async ({
+  playwright
+}) => {
+  // A new context inherits the project's `use` options, so drop the key explicitly.
+  const anonymous = await playwright.request.newContext({
+    baseURL: test.info().project.use.baseURL,
+    extraHTTPHeaders: {}
+  });
+  try {
+    const input = {
+      name: 'Test stop',
+      wheelchair_accessible: true,
+      has_shelter: false,
+      has_ticket_machine: true
+    };
+    const stops = zStop.array().parse(await (await anonymous.get('/api/v1/stops')).json());
+    expect((await anonymous.get(`/api/v1/stops/${stops[0].id}`)).status()).toBe(200);
+    for (const headers of [
+      {} as Record<string, string>,
+      { Authorization: 'Bearer wrong' },
+      { Authorization: `Basic ${adminApiKey}` },
+      { Authorization: adminApiKey }
+    ]) {
+      for (const response of [
+        await anonymous.post('/api/v1/stops', { data: input, headers }),
+        await anonymous.put(`/api/v1/stops/${stops[0].id}`, { data: input, headers }),
+        await anonymous.put(`/api/v1/stops/${stops[0].id}`, { data: {}, headers }),
+        await anonymous.delete(`/api/v1/stops/${stops[0].id}`, { headers }),
+        await anonymous.delete('/api/v1/stops/abc', { headers })
+      ]) {
+        expect(response.status()).toBe(401);
+        expect(response.headers()['www-authenticate']).toBe('Bearer');
+        expect(await response.json()).toEqual({ error: expect.any(String) });
+      }
+    }
+    expect(zStop.array().parse(await (await anonymous.get('/api/v1/stops')).json())).toEqual(stops);
+  } finally {
+    await anonymous.dispose();
+  }
+});
 
 test('Faker dev API serves the app and assets without backend dependencies', async ({ page }) => {
   const response = await page.request.get('/api/v1/stops');
@@ -12,7 +57,8 @@ test('Faker dev API serves the app and assets without backend dependencies', asy
     expect(image.status()).toBe(200);
     expect(image.headers()['content-type']).toBe('image/png');
   }
-  await page.goto('/stops');
+  // List rows carry no photos; the selected stop's place card shows its image.
+  await page.goto(`/stops?stop=${stops[0].id}`);
   await expect(
     page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
   ).toHaveCount(stops.length);

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import * as Empty from '$lib/ui/empty';
   import { Button } from '$lib/ui/button';
 
   let {
@@ -15,23 +14,44 @@
     error?: boolean;
     onretry?: () => void;
   } = $props();
+
+  const text = $derived(
+    description ?? (error && onretry ? 'Zkontrolujte připojení a zkuste to znovu.' : undefined)
+  );
 </script>
 
-<Empty.Root
-  class="items-start rounded-xl border border-solid bg-muted p-8 text-left sm:p-12"
-  role={error ? undefined : 'status'}
->
-  <Empty.Header class="max-w-none items-start text-left">
-    <Empty.Title>
-      <svelte:element this={headingLevel === 1 ? 'h1' : 'h2'} role={error ? 'alert' : undefined}
-        >{title}</svelte:element
-      >
-    </Empty.Title>
-    {#if description}<Empty.Description>{description}</Empty.Description>{/if}
-  </Empty.Header>
+<div class="page-state" role={error ? undefined : 'status'}>
+  <svelte:element this={headingLevel === 1 ? 'h1' : 'h2'} role={error ? 'alert' : undefined}
+    >{title}</svelte:element
+  >
+  {#if text}<p>{text}</p>{/if}
   {#if onretry}
-    <Empty.Content class="items-start">
-      <Button onclick={onretry}>Zkusit znovu</Button>
-    </Empty.Content>
+    <Button variant="outline" onclick={onretry}>Zkusit znovu</Button>
   {/if}
-</Empty.Root>
+</div>
+
+<style>
+  .page-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .page-state :global(h1),
+  .page-state :global(h2) {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+  .page-state :global(h1) {
+    font-size: 1.75rem;
+  }
+  p {
+    max-width: 36rem;
+    color: var(--muted-foreground);
+  }
+  .page-state :global([data-slot='button']) {
+    margin-top: 0.5rem;
+  }
+</style>
