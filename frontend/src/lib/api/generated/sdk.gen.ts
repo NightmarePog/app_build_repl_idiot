@@ -59,6 +59,7 @@ export const createStop = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zCreateStopResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/stops',
     ...options,
     headers: {
@@ -77,6 +78,7 @@ export const deleteStop = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zDeleteStopResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/stops/{id}',
     ...options
 });
@@ -107,6 +109,7 @@ export const updateStop = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zUpdateStopResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/stops/{id}',
     ...options,
     headers: {

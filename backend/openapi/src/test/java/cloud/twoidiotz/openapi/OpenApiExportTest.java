@@ -75,7 +75,24 @@ class OpenApiExportTest {
     assertEquals("deleteStop", contract.at("/paths/~1stops~1{id}/delete/operationId").asString());
     assertTrue(contract.at("/paths/~1stops/post/responses").has("201"));
     assertTrue(contract.at("/paths/~1stops~1{id}/delete/responses").has("204"));
-    assertEquals("1.1.0", contract.at("/info/version").asString());
+    assertEquals("1.2.0", contract.at("/info/version").asString());
+    assertEquals("http", contract.at("/components/securitySchemes/bearerAuth/type").asString());
+    assertEquals("bearer", contract.at("/components/securitySchemes/bearerAuth/scheme").asString());
+    for (var path : new String[] {"~1stops/post", "~1stops~1{id}/put", "~1stops~1{id}/delete"}) {
+      var operation = contract.at("/paths/" + path);
+      assertTrue(operation.at("/security/0").has("bearerAuth"), path);
+      assertEquals(
+          "Missing or invalid admin API key",
+          operation.at("/responses/401/description").asString());
+      assertEquals(
+          "#/components/schemas/Error",
+          operation.at("/responses/401/content/application~1json/schema/$ref").asString());
+    }
+    for (var path : new String[] {"~1health", "~1team", "~1stops", "~1stops~1{id}"}) {
+      var operation = contract.at("/paths/" + path + "/get");
+      assertFalse(operation.has("security"), path);
+      assertFalse(operation.at("/responses").has("401"), path);
+    }
     for (var method : new String[] {"get", "put", "delete"}) {
       var operation = contract.at("/paths/~1stops~1{id}/" + method);
       assertEquals("Stop not found", operation.at("/responses/404/description").asString());

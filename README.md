@@ -74,6 +74,11 @@ Data PostgreSQL zůstávají ve svazku `postgres_data` i po odstranění kontejn
 **Přepínač `-v` u `docker compose down` smaže i databázová data.** Změna hesla
 v `.env` sama nezmění heslo v již vytvořené databázi.
 
+Čtení přes API (`GET`) je veřejné. Operace `POST`, `PUT` a `DELETE` vyžadují
+administrátorský klíč v hlavičce `Authorization: Bearer <klíč>`; bez něj vrací API
+`401 Unauthorized`. Výchozí klíč ze zadání je v `backend/src/main/resources/application.yaml`
+a lze jej přepsat proměnnou prostředí `ADMIN_API_KEY`.
+
 Compose zpřístupňuje aplikaci přes HTTP na portu `8080`; HTTPS zde není nastavené.
 Konfigurace pro Tour de Cloud je v souboru [tourdeapp.yaml](tourdeapp.yaml)
 a používá tajnou proměnnou `POSTGRES_PASSWORD`.

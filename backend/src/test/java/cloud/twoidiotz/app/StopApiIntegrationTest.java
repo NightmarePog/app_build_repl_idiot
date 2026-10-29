@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,6 +22,10 @@ import tools.jackson.databind.json.JsonMapper;
 class StopApiIntegrationTest {
   @LocalServerPort int port;
   @Autowired StationRepository stations;
+
+  @Value("${app.admin-api-key}")
+  String adminKey;
+
   private final JsonMapper mapper = JsonMapper.builder().build();
   private static final String INPUT =
       """
@@ -254,6 +259,7 @@ class StopApiIntegrationTest {
   private HttpResponse<String> request(String method, String path, String body) throws Exception {
     var builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1" + path));
     if (body != null) builder.header("Content-Type", "application/json");
+    if (!method.equals("GET")) builder.header("Authorization", "Bearer " + adminKey);
     return HttpClient.newHttpClient()
         .send(
             builder

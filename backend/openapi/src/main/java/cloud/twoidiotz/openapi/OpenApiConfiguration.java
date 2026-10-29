@@ -10,13 +10,14 @@ import org.springframework.context.annotation.Import;
     info =
         @Info(
             title = "Think different Transit API",
-            version = "1.1.0",
+            version = "1.2.0",
             description = "API for managing public transport stops in Think different Academy."),
     servers = @Server(url = "/api/v1"))
 @Configuration(proxyBeanMethods = false)
 @Import({
   OpenApiOperationConfiguration.class,
   OpenApiErrorConfiguration.class,
+  OpenApiSecurityConfiguration.class,
   OpenApiParameterConfiguration.class,
   OpenApiValidationConfiguration.class
 })

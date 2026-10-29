@@ -86,6 +86,10 @@ export type CreateStopErrors = {
      * Invalid stop ID or input data
      */
     400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
 };
 
 export type CreateStopError = CreateStopErrors[keyof CreateStopErrors];
@@ -116,6 +120,10 @@ export type DeleteStopErrors = {
      * Invalid stop ID or input data
      */
     400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
     /**
      * Stop not found
      */
@@ -184,6 +192,10 @@ export type UpdateStopErrors = {
      * Invalid stop ID or input data
      */
     400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
     /**
      * Stop not found
      */

@@ -68,7 +68,7 @@ public class OpenApiErrorConfiguration {
     return "Invalid " + resource.toLowerCase(Locale.ROOT) + " ID or input data";
   }
 
-  private static void addErrorResponse(Operation operation, String status, String description) {
+  static void addErrorResponse(Operation operation, String status, String description) {
     // An explicitly documented response takes precedence over the shared default.
     responses(operation).computeIfAbsent(status, ignored -> response(description));
   }
