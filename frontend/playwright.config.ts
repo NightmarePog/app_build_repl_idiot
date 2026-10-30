@@ -6,6 +6,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // The map is software-rendered WebGL on CI runners; parallel pages starve each other.
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: 'http://127.0.0.1:3301', trace: 'retain-on-failure' },
   projects: [
