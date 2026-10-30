@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fade, fly } from 'svelte/transition';
+  import { motionMs } from '$lib/motion';
   import { resolve } from '$app/paths';
   import { Accessibility, House, Ticket } from '@lucide/svelte';
   import { routesFrom, isTransfer } from '$lib/features/network/lines';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
-  import RouteStrips from '$lib/features/network/RouteStrips.svelte';
+  import LineCards from '$lib/features/network/LineCards.svelte';
   import { rememberStop } from '$lib/features/stops/selected-stop';
 
   let { kind, id, onclose }: { kind: 'stops' | 'lines'; id: string; onclose: () => void } =
@@ -15,16 +17,22 @@
   onMount(() => void loadStops());
 </script>
 
-<div class="menu-panel" class:routes={kind === 'stops'} {id}>
+<div
+  class="menu-panel"
+  class:routes={kind === 'stops'}
+  {id}
+  in:fly|global={{ y: -8, duration: motionMs(200) }}
+  out:fade|global={{ duration: motionMs(120) }}
+>
   {#if kind === 'lines'}
-    <RouteStrips compact />
+    <LineCards compact />
   {:else if stopsList() === null}
     <p class="menu-note">Načítáme zastávky…</p>
   {:else}
     {#each grouped.routes as route (route.id)}
       <div class="route" style:--lc={route.color}>
         <p class="route-head">
-          <LineBadge id={route.id} /> Linka {route.id} · {route.stops.length} zastávek
+          <LineBadge id={route.id} /> Linka {route.id}, {route.stops.length} zastávek
         </p>
         {#each route.stops as stop (stop.id)}
           <a

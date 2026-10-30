@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/motion';
   import { resolve } from '$app/paths';
   import { ArrowLeft, ArrowUpRight } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
@@ -16,7 +17,7 @@
   {#if kind === 'contact'}
     <h1>Ozvěte se.</h1>
     <p class="intro">Chyby a návrhy na zlepšení přijímáme přes GitHub.</p>
-    <section>
+    <section {@attach reveal()}>
       <h2>Hlášení chyb</h2>
       <p>
         Založte issue v repozitáři projektu. Uveďte stránku, co se stalo a co jste čekali. Pomůže i
@@ -29,36 +30,54 @@
         Potřebujete účet na GitHubu. Issues jsou veřejné, nepište do nich osobní údaje.
       </p>
     </section>
-    <section>
+    <section {@attach reveal()}>
       <h2>Zdrojový kód</h2>
       <p>
         Kód je veřejný v <a href="https://github.com/NightmarePog/2idiotz">repozitáři projektu</a>.
       </p>
     </section>
   {:else}
-    <h1>Podmínky. V klidu.</h1>
+    <h1>Podmínky.</h1>
     <p class="intro">Pravidla používání studentského projektu.</p>
     <p class="note">Nejde o právní smlouvu, jen o shrnutí, jak aplikaci používat.</p>
-    <section>
+    <section {@attach reveal()}>
       <h2>Co aplikace umí</h2>
       <p>
         Ukazuje zastávky v kampusu, linky, které jimi projíždějí, a jejich vybavení. Jízdní řády ani
         odjezdy neobsahuje.
       </p>
     </section>
-    <section>
+    <section {@attach reveal()}>
       <h2>Přesnost dat</h2>
       <p>
         Schéma linek je zjednodušené a neodpovídá přesné poloze zastávek. Spoje a odjezdy si ověřte
         u dopravce. Vybavení zastávek se může změnit.
       </p>
     </section>
-    <section>
+    <section {@attach reveal()}>
       <h2>Hlášení chyb</h2>
       <p>
         Když najdete chybu, <a href={resolve('/contact')}>napište nám</a>. Uveďte stránku a postup,
         jak chybu zopakovat.
       </p>
+    </section>
+    <section {@attach reveal()}>
+      <h2>Technologie</h2>
+      <p>
+        S HTML jsme se posunuli do budoucnosti. Layout už neskládáme z tabulek a
+        <code>&lt;marquee&gt;</code> jsme vypnuli. Skoro bez slz.
+      </p>
+    </section>
+    <section {@attach reveal()}>
+      <h2>Lokalita</h2>
+      <p>
+        Mapa ukazuje město, které je MOŽNÁ Praha. Možná ne. Kdo ví. Zastávky jsou vymyšlené, ulice
+        podezřele povědomé.
+      </p>
+    </section>
+    <section {@attach reveal()}>
+      <h2>Pozdrav</h2>
+      <p>Ahoj Herniku :333</p>
     </section>
   {/if}
 </article>
@@ -97,6 +116,13 @@
   .note {
     font-size: 0.875rem;
     margin-top: 1rem;
+  }
+  p code {
+    padding: 0.0625rem 0.3125rem;
+    border-radius: 0.25rem;
+    background: var(--muted);
+    color: var(--foreground);
+    font-size: 0.875em;
   }
   p a {
     color: var(--primary);

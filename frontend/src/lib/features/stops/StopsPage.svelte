@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { flip } from 'svelte/animate';
+  import { fade, fly } from 'svelte/transition';
+  import { motionMs, prefersReducedMotion } from '$lib/motion';
   import { afterNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
@@ -30,6 +33,93 @@
 
   let list = $state<HTMLUListElement>();
   let search = $state<HTMLInputElement>();
+
+  // Phones: the list is a bottom sheet over a full-screen map, collapsed or expanded.
+  let mobile = $state(false);
+  let expanded = $state(false);
+  let dragHeight = $state<number | null>(null);
+  let finderHeight = $state(0);
+  let panel = $state<HTMLDivElement>();
+  const COLLAPSED = 0.42;
+  /** The map keeps the selected stop above the sheet and the floating stop card. */
+  const mapInset = $derived(mobile ? Math.round(finderHeight * COLLAPSED) + 120 : 0);
+
+  /**
+   * Sideways filter row on phones: fade whichever edge has more chips, and nudge the row once
+   * per session so it is clear it scrolls.
+   */
+  const scrollHint = (row: HTMLElement) => {
+    const update = () => {
+      const max = row.scrollWidth - row.clientWidth;
+      row.classList.toggle('more-left', row.scrollLeft > 4);
+      row.classList.toggle('more-right', row.scrollLeft < max - 4);
+    };
+    update();
+    row.addEventListener('scroll', update, { passive: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(row);
+    let nudge = 0;
+    let seen: boolean;
+    try {
+      seen = sessionStorage.getItem('filters-nudged') === '1';
+    } catch {
+      // Without storage, nudge every visit.
+      seen = false;
+    }
+    if (!seen && !prefersReducedMotion() && row.scrollWidth > row.clientWidth + 8) {
+      nudge = window.setTimeout(() => {
+        // Snap points would turn the small peek into a jump to the next chip.
+        row.style.scrollSnapType = 'none';
+        row.scrollTo({ left: 56, behavior: 'smooth' });
+        nudge = window.setTimeout(() => {
+          row.scrollTo({ left: 0, behavior: 'smooth' });
+          nudge = window.setTimeout(() => (row.style.scrollSnapType = ''), 600);
+        }, 650);
+        try {
+          sessionStorage.setItem('filters-nudged', '1');
+        } catch {
+          // Not remembered; harmless.
+        }
+      }, 900);
+    }
+    return () => {
+      clearTimeout(nudge);
+      row.removeEventListener('scroll', update);
+      resize.disconnect();
+    };
+  };
+
+  function startDrag(event: PointerEvent) {
+    if (!mobile || !panel || event.button !== 0) return;
+    const handle = event.currentTarget as HTMLElement;
+    const startY = event.clientY;
+    const startHeight = panel.offsetHeight;
+    const min = finderHeight * 0.2;
+    const max = finderHeight - 12;
+    let moved = false;
+    handle.setPointerCapture(event.pointerId);
+    const move = (e: PointerEvent) => {
+      const dy = e.clientY - startY;
+      if (!moved && Math.abs(dy) < 6) return;
+      moved = true;
+      dragHeight = Math.min(max, Math.max(min, startHeight - dy));
+    };
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      if (moved && dragHeight !== null) {
+        // Snap to whichever state is closer.
+        expanded = dragHeight > finderHeight * ((COLLAPSED + 1) / 2);
+      } else {
+        expanded = !expanded;
+      }
+      dragHeight = null;
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
   let highlighted = $state<number | null>(null);
 
   function readFilters(url: URL): AmenityValue[] {
@@ -63,8 +153,12 @@
   const stops = $derived(stopsList() ?? []);
   const visible = $derived(filterStops(stops, query, filters, line));
   const dimmed = $derived(stops.filter((s) => !visible.includes(s)).map((s) => s.id));
+  // Filtered-out stops are not on the map, so keep the selection among the visible ones.
   const selected = $derived(
-    stops.find((stop) => stop.id === selectedId) ??
+    visible.find((stop) => stop.id === selectedId) ??
+      visible.find((stop) => isTransfer(stop.name)) ??
+      visible[0] ??
+      stops.find((stop) => stop.id === selectedId) ??
       stops.find((stop) => isTransfer(stop.name)) ??
       stops[0] ??
       null
@@ -102,6 +196,8 @@
 
   function select(stop: Stop) {
     selectedId = stop.id;
+    // On a phone, picking from the list drops the sheet so the map and the stop card show.
+    expanded = false;
     writeUrl((params) => params.set('stop', String(stop.id)));
   }
 
@@ -159,9 +255,16 @@
   }
 
   onMount(() => {
+    const phone = matchMedia('(max-width: 767px)');
+    const syncPhone = () => (mobile = phone.matches);
+    syncPhone();
+    phone.addEventListener('change', syncPhone);
     const controller = new AbortController();
     void loadStops(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      phone.removeEventListener('change', syncPhone);
+    };
   });
 </script>
 
@@ -176,11 +279,35 @@
   />
 </svelte:head>
 
-<section class="finder" aria-labelledby="stops-title">
-  <div class="panel">
+<section
+  class="finder"
+  class:sheet-open={expanded}
+  aria-labelledby="stops-title"
+  bind:clientHeight={finderHeight}
+>
+  <div
+    class="panel"
+    class:expanded
+    class:dragging={dragHeight !== null}
+    style:height={dragHeight !== null ? `${dragHeight}px` : undefined}
+    bind:this={panel}
+  >
+    <button
+      type="button"
+      class="sheet-handle"
+      aria-expanded={expanded}
+      aria-label={expanded ? 'Sbalit seznam zastávek' : 'Rozbalit seznam zastávek'}
+      onpointerdown={startDrag}
+      onkeydown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          expanded = !expanded;
+        }
+      }}
+    ></button>
     <header class="panel-head">
       <h1 id="stops-title">Zastávky</h1>
-      <p class="tabular">{LINE_IDS.length} linky · {networkStopCount} zastávek</p>
+      <p class="tabular">{LINE_IDS.length} linky, {networkStopCount} zastávek</p>
     </header>
 
     {#if stopsFailed()}
@@ -206,7 +333,7 @@
           />
           {#if !query}<kbd aria-hidden="true">/</kbd>{/if}
         </label>
-        <div class="filter-row">
+        <div class="filter-row" {@attach scrollHint}>
           <div class="line-chips" role="group" aria-label="Linka">
             {#each LINE_IDS as id (id)}
               <button
@@ -258,7 +385,12 @@
         <ul class="stop-list" aria-label="Seznam zastávek" bind:this={list}>
           {#each visible as stop (stop.id)}
             {@const lines = linesOf(stop.name)}
-            <li class:active={selected?.id === stop.id}>
+            <li
+              class:active={selected?.id === stop.id}
+              animate:flip={{ duration: motionMs(240) }}
+              in:fade={{ duration: motionMs(180), delay: motionMs(60) }}
+              out:fade={{ duration: motionMs(120) }}
+            >
               <button
                 type="button"
                 class="row"
@@ -309,12 +441,18 @@
         {highlighted}
         {dimmed}
         onselect={select}
+        {line}
+        inset={mapInset}
         focus
       />
     </div>
     {#if selected}
       <div class="summary">
-        <StopSummary stop={selected} compact />
+        {#key selected.id}
+          <div in:fly={{ y: 10, duration: motionMs(260) }}>
+            <StopSummary stop={selected} compact />
+          </div>
+        {/key}
       </div>
     {/if}
   </div>
@@ -615,7 +753,177 @@
       border-right: 0;
     }
   }
+  .sheet-handle {
+    display: none;
+  }
+
+  /* Phones: full-screen map, the list in a draggable bottom sheet, the stop card floating above. */
+  @media (max-width: 767px) {
+    .finder {
+      position: relative;
+      display: block;
+      height: calc(100dvh - var(--header-h) - var(--tabbar-h) - env(safe-area-inset-bottom));
+      min-height: 26rem;
+      overflow: hidden;
+    }
+    .map {
+      position: absolute;
+      inset: 0;
+      display: block;
+    }
+    .map-canvas {
+      height: 100%;
+      min-height: 0;
+      border-bottom: 0;
+    }
+    .panel {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 3;
+      height: 42%;
+      gap: 0.875rem;
+      padding: 0 1rem 1.25rem;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border-radius: 1.375rem 1.375rem 0 0;
+      background: var(--background);
+      box-shadow:
+        0 -1px 0 var(--border),
+        0 -12px 32px -8px rgb(0 0 0 / 0.35);
+      transition: height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .panel.expanded {
+      height: calc(100% - 0.75rem);
+    }
+    .panel.dragging {
+      transition: none;
+    }
+    /* Grab bar: sticks to the top of the sheet while its content scrolls. */
+    .sheet-handle {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      height: 1.75rem;
+      margin: 0 -1rem -0.5rem;
+      background: var(--background);
+      touch-action: none;
+      cursor: grab;
+    }
+    .sheet-handle::before {
+      content: '';
+      width: 2.5rem;
+      height: 0.3125rem;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+      transition: width var(--motion-fast) var(--ease-out);
+    }
+    .sheet-handle:active::before {
+      width: 3rem;
+    }
+    .sheet-handle:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -4px;
+      border-radius: 0.75rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+    }
+    .search :global(kbd) {
+      display: none;
+    }
+    /* Filters: one row of chips that scrolls sideways instead of wrapping. */
+    .filter-row {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      margin-inline: -1rem;
+      padding: 0.125rem 1rem;
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+    }
+    .filter-row::-webkit-scrollbar {
+      display: none;
+    }
+    /* Faded edges show there is more to swipe to. */
+    .filter-row:global(.more-right) {
+      mask-image: linear-gradient(90deg, #000 calc(100% - 3rem), transparent);
+    }
+    .filter-row:global(.more-left) {
+      mask-image: linear-gradient(90deg, transparent, #000 2rem);
+    }
+    .filter-row:global(.more-left.more-right) {
+      mask-image: linear-gradient(
+        90deg,
+        transparent,
+        #000 2rem,
+        #000 calc(100% - 3rem),
+        transparent
+      );
+    }
+    .filter-row > :global(*) {
+      flex-shrink: 0;
+    }
+    .filter-row :global(.amenity-filter) {
+      flex-wrap: nowrap;
+    }
+    .filter-row :global(.amenity-toggle) {
+      white-space: nowrap;
+      scroll-snap-align: start;
+    }
+    .summary {
+      position: absolute;
+      inset: auto 0.75rem calc(42% + 0.75rem);
+      z-index: 2;
+      width: auto;
+      padding: 0;
+      box-shadow: var(--shadow-pop);
+      transition:
+        opacity var(--motion-normal) var(--ease-out),
+        transform var(--motion-normal) var(--ease-out),
+        visibility 0s linear;
+    }
+    .sheet-open .summary {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(12px);
+      transition:
+        opacity var(--motion-fast) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out),
+        visibility 0s linear var(--motion-fast);
+    }
+    /* Compact place card: photo, name and lines, one button. */
+    .summary :global(.stop-summary) {
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0.75rem;
+      padding: 0.625rem;
+    }
+    .summary :global(.summary-image) {
+      aspect-ratio: auto;
+      height: 100%;
+      min-height: 5.5rem;
+    }
+    .summary :global(.summary-image p) {
+      padding: 0.25rem;
+      font-size: 0.6875rem;
+    }
+    .summary :global(.summary-body) {
+      gap: 0.5rem;
+    }
+    .summary :global(dl) {
+      display: none;
+    }
+    .summary :global(h3) {
+      font-size: 1.125rem;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
+    .panel,
+    .summary,
+    .sheet-handle::before {
+      transition: none;
+    }
     .line-chip,
     .stop-list li,
     .detail-link,

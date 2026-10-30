@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { reveal } from '$lib/motion';
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import { ArrowRight, Search } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import NetworkView from '$lib/features/network/NetworkView.svelte';
-  import RouteStrips from '$lib/features/network/RouteStrips.svelte';
+  import LineCards from '$lib/features/network/LineCards.svelte';
   import { isTransfer, LINES, LINE_IDS, POSITIONS } from '$lib/features/network/lines';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
 
   const stopCount = Object.keys(POSITIONS).length;
+  let highlightLines = $state(0);
   const transfers = [
     ...new Set(LINE_IDS.flatMap((id) => LINES[id].stops).filter((name) => isTransfer(name)))
   ];
@@ -49,7 +51,7 @@
           Otevřít mapu <ArrowRight data-icon="inline-end" aria-hidden="true" />
         </Button>
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- in-page fragment -->
-        <a href="#lines" class="text-link">Seznam linek</a>
+        <a href="#lines" class="text-link" onclick={() => highlightLines++}>Seznam linek</a>
       </div>
 
       <form class="quick-search" role="search" method="GET" action={resolve('/stops')}>
@@ -71,11 +73,11 @@
   </section>
 
   <section id="lines" class="lines" aria-labelledby="lines-title">
-    <div>
+    <div {@attach reveal()}>
       <h2 id="lines-title">Linky</h2>
-      <p>Přestupní zastávky: {transfers.join(', ')}.</p>
+      <p>Vyberte linku a ukážeme vám ji na mapě i se všemi zastávkami.</p>
     </div>
-    <RouteStrips />
+    <LineCards highlight={highlightLines} />
   </section>
 </div>
 
@@ -197,10 +199,9 @@
     outline-offset: -3px;
   }
   .lines {
-    display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
-    gap: 1.25rem 3.5rem;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
     padding-top: 3rem;
   }
   .lines h2 {
@@ -217,8 +218,7 @@
     .landing {
       padding: 2rem 1.25rem 0;
     }
-    .intro,
-    .lines {
+    .intro {
       grid-template-columns: minmax(0, 1fr);
     }
   }

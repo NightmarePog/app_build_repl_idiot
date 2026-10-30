@@ -246,6 +246,6 @@ test('footer links open contact and terms', async ({ page }, testInfo) => {
     'https://github.com/NightmarePog/2idiotz/issues/new'
   );
   await footer.getByRole('link', { name: 'Podmínky používání' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Podmínky. V klidu.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Podmínky.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

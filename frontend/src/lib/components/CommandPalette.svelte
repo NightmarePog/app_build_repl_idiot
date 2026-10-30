@@ -47,6 +47,7 @@
   import { tick, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import { CornerDownLeft, Search } from '@lucide/svelte';
+  import { prefersReducedMotion } from '$lib/motion';
 
   let {
     open = $bindable(false),
@@ -94,7 +95,14 @@
       dialog.showModal();
       void tick().then(() => input?.focus());
     } else if (!open && dialog.open) {
-      dialog.close();
+      const closing = dialog;
+      if (prefersReducedMotion()) return closing.close();
+      closing.classList.add('closing');
+      const done = setTimeout(() => {
+        closing.classList.remove('closing');
+        closing.close();
+      }, 140);
+      return () => clearTimeout(done);
     }
   });
 
@@ -153,6 +161,11 @@
   class="palette"
   aria-label="Hledat v aplikaci"
   {onclose}
+  oncancel={(event) => {
+    // Escape: animate out like every other way of closing.
+    event.preventDefault();
+    open = false;
+  }}
   {onkeydown}
   onclick={(event) => event.target === dialog && (open = false)}
 >
@@ -174,6 +187,8 @@
         spellcheck="false"
       />
       <kbd aria-hidden="true">Esc</kbd>
+      <!-- Touch screens have no Escape key: a real close button instead of the hint. -->
+      <button type="button" class="palette-close" onclick={() => (open = false)}>Zavřít</button>
     </label>
     {#if results.length}
       <ul id="palette-results" role="listbox" aria-label="Výsledky">
@@ -232,8 +247,26 @@
   .palette[open] {
     animation: palette-in 160ms var(--ease-spring-out) both;
   }
+  .palette:global(.closing) {
+    animation: palette-out 140ms var(--ease-out) both;
+  }
   .palette::backdrop {
     background: oklch(0.2 0.01 70 / 0.28);
+    animation: backdrop-in 200ms var(--ease-out) both;
+  }
+  .palette:global(.closing)::backdrop {
+    animation: backdrop-in 140ms var(--ease-out) reverse both;
+  }
+  @keyframes palette-out {
+    to {
+      opacity: 0;
+      transform: scale(0.97) translateY(-4px);
+    }
+  }
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
   }
   @keyframes palette-in {
     from {
@@ -246,7 +279,9 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .palette[open] {
+    .palette[open],
+    .palette:global(.closing),
+    .palette::backdrop {
       animation: none;
     }
   }
@@ -263,6 +298,40 @@
     padding: 0 0.875rem;
     border-bottom: 1px solid var(--border);
     color: var(--muted-foreground);
+  }
+  .palette-close {
+    display: none;
+    flex-shrink: 0;
+    min-height: 2.75rem;
+    margin-right: -0.375rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    color: var(--primary);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      transform var(--motion-fast) var(--ease-out);
+  }
+  .palette-close:active {
+    background: var(--muted);
+    transform: scale(0.95);
+  }
+  .palette-close:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Touch: keyboard hints mean nothing, so show the close button and drop the hints. */
+  @media (pointer: coarse) {
+    .palette-search kbd,
+    .result :global(.result-enter) {
+      display: none;
+    }
+    .palette-close {
+      display: inline-flex;
+      align-items: center;
+    }
   }
   .palette-search input {
     flex: 1;
@@ -343,9 +412,26 @@
     align-items: center;
     gap: 0.25rem;
   }
-  @media (max-width: 639px) {
+  @media (max-width: 767px) {
     .palette {
-      margin-top: 1rem;
+      width: 100%;
+      max-width: none;
+      max-height: min(85dvh, 40rem);
+      margin: auto 0 0;
+      border-width: 1px 0 0;
+      border-radius: 1.375rem 1.375rem 0 0;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .palette[open] {
+      animation: palette-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .palette:global(.closing) {
+      animation: palette-up 180ms var(--ease-out) reverse both;
+    }
+    @keyframes palette-up {
+      from {
+        transform: translateY(100%);
+      }
     }
     .palette-hints {
       display: none;

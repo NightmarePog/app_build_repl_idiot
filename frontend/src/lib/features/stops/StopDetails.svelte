@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/motion';
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import { Check, X } from '@lucide/svelte';
@@ -86,10 +87,15 @@
 
     <div class="detail-side">
       {#if onMap}
-        <NetworkView stops={mapStops} selected={stop.id} focus />
+        <!-- Decorative: the camera circles the stop; the page itself carries the information. -->
+        <NetworkView stops={mapStops} selected={stop.id} focus interactive={false} />
       {/if}
       {#if strips.length}
-        <section aria-labelledby="neighbours-title" class="neighbours">
+        <section
+          aria-labelledby="neighbours-title"
+          class="neighbours"
+          {@attach reveal({ delay: 0.08 })}
+        >
           <h2 id="neighbours-title">Sousední zastávky</h2>
           {#each strips as strip (strip.id)}
             <div class="strip" style:--lc={strip.color}>
@@ -271,6 +277,19 @@
     .detail-layout {
       grid-template-columns: minmax(0, 1fr);
       gap: 2.5rem;
+    }
+  }
+  @media (max-width: 767px) {
+    .detail-image {
+      margin: -2rem -1.25rem 0;
+    }
+    .detail-image :global(.detail-image-frame) {
+      aspect-ratio: 4 / 3;
+      min-height: 0;
+      border-radius: 0;
+    }
+    .detail-heading {
+      margin-top: 1.25rem;
     }
   }
 </style>

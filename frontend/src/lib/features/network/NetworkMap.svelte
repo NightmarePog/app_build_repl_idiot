@@ -9,7 +9,8 @@
     Marker
   } from 'maplibre-gl';
   import type { Stop } from '$lib/api/generated';
-  import { prefersReducedMotion } from '$lib/motion';
+  import { fade } from 'svelte/transition';
+  import { motionMs, prefersReducedMotion } from '$lib/motion';
   import {
     LINES,
     LINE_IDS,
@@ -17,7 +18,8 @@
     isTransfer,
     linesOf,
     primaryLine,
-    routeCoordinates
+    routeCoordinates,
+    type LineId
   } from './lines';
   import { BOUNDS, MAX_BOUNDS, STYLE_URL } from './campus';
   import LineBadge from './LineBadge.svelte';
@@ -30,19 +32,31 @@
     dimmed = [],
     onselect,
     focus = false,
-    interactive = true
+    interactive = true,
+    line = null,
+    inset = 0
   }: {
     stops: Stop[];
     selected?: number | null;
     highlighted?: number | null;
-    /** Stops filtered out of the current result set are drawn faded. */
+    /** Stops filtered out of the current result set (search, amenities) are hidden. */
     dimmed?: number[];
     onselect?: (stop: Stop) => void;
     /** Fly the camera to the selected stop. */
     focus?: boolean;
     /** false = decorative live preview: no input, hidden from AT, slow bearing drift. */
     interactive?: boolean;
+    /** Line filter: only this line's route and stops are drawn. */
+    line?: LineId | null;
+    /** Pixels at the bottom covered by an overlay (a mobile sheet); the camera centres above it. */
+    inset?: number;
   } = $props();
+
+  const padding = () => ({ ...PADDING, bottom: PADDING.bottom + inset });
+
+  /** Not on the chosen line, or filtered out: hidden from the map. */
+  const offLine = (stop: Stop) =>
+    (line !== null && !LINES[line].stops.includes(stop.name)) || dimmed.includes(stop.id);
 
   type MapLib = typeof import('maplibre-gl');
 
@@ -108,6 +122,8 @@
   let map = $state.raw<MapLibreMap | null>(null);
   let ready = $state(false);
   let failed = $state(false);
+  /** False until the first complete frame; a placeholder covers the empty canvas until then. */
+  let painted = $state(false);
   let lib: MapLib | null = null;
 
   type Entry = { stop: Stop; marker: Marker; el: HTMLButtonElement };
@@ -140,7 +156,12 @@
           id,
           color: resolveColor(LINES[id].color),
           offset: LINES[id].offset,
-          opacity: current && !LINES[id].stops.includes(current.name) ? 0.25 : 1
+          opacity:
+            line !== null && id !== line
+              ? 0
+              : current && !LINES[id].stops.includes(current.name)
+                ? 0.25
+                : 1
         },
         geometry: { type: 'LineString' as const, coordinates: routeCoordinates(id) }
       }))
@@ -329,11 +350,12 @@
     for (const { stop, el } of entries) {
       const active = stop.id === selected;
       el.setAttribute('aria-pressed', String(active));
-      el.tabIndex = interactive && onselect && stop.id === tabbable ? 0 : -1;
+      const hidden = offLine(stop) && !active;
+      el.tabIndex = interactive && onselect && !hidden && stop.id === tabbable ? 0 : -1;
       el.toggleAttribute('aria-hidden', !interactive);
       el.classList.toggle('active', active);
       el.classList.toggle('hot', stop.id === highlighted);
-      el.classList.toggle('dim', dimmed.includes(stop.id) && !active);
+      el.classList.toggle('off-line', hidden);
       el.style.zIndex = active ? '3' : stop.id === highlighted ? '2' : '';
     }
   }
@@ -354,7 +376,7 @@
     let best: Entry | null = null;
     let score = Infinity;
     for (const entry of entries) {
-      if (entry.stop.id === from.id) continue;
+      if (entry.stop.id === from.id || offLine(entry.stop)) continue;
       const point = m.project(POSITIONS[entry.stop.name]);
       const vx = point.x - origin.x;
       const vy = point.y - origin.y;
@@ -396,6 +418,8 @@
             maxPitch: 65,
             interactive: live,
             keyboard: live,
+            // Resizing is handled below so the redraw happens in the same frame.
+            trackResize: false,
             attributionControl: { compact: false }
           });
         } catch {
@@ -412,12 +436,20 @@
           applyTheme();
         });
 
-        const resize = new ResizeObserver(() => m.resize());
+        m.once('load', () => (painted = true));
+
+        // Resize and repaint synchronously: a resize clears the canvas, and waiting a frame for
+        // the next render shows it blank while the window is being resized.
+        const resize = new ResizeObserver(() => {
+          m.resize();
+          if (m.isStyleLoaded()) m.redraw();
+        });
         resize.observe(container);
         const theme = new MutationObserver(() => applyTheme());
         theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-        // Decorative preview: slow bearing drift while on screen.
+        // Decorative preview: slow bearing drift while on screen. With `focus` the camera is
+        // centred on the selected stop, so the drift circles around it.
         let frame = 0;
         let visible = true;
         let last = 0;
@@ -467,6 +499,7 @@
       entries = [];
       map = null;
       ready = false;
+      painted = false;
     };
   });
 
@@ -488,7 +521,7 @@
 
   // Marker state and route emphasis.
   $effect(() => {
-    void [selected, highlighted, dimmed, onselect, interactive];
+    void [selected, highlighted, dimmed, onselect, interactive, line];
     updateMarkers();
     untrack(() => {
       if (ready) refreshRoutes();
@@ -513,7 +546,7 @@
           center: POSITIONS[stop.name],
           zoom: first ? 15.4 : 16.2,
           pitch: 50,
-          padding: PADDING
+          padding: padding()
         };
         if (first || instant) m.jumpTo(options);
         else m.flyTo({ ...options, duration: 1200, curve: 1.3 });
@@ -528,6 +561,19 @@
     });
   });
 
+  // Overlay height changed (sheet dragged or snapped): keep the stop centred in what is visible.
+  let lastInset: number | undefined;
+  $effect(() => {
+    const m = map;
+    const value = inset;
+    if (!m) return;
+    untrack(() => {
+      if (lastInset === undefined || lastInset === value) return void (lastInset = value);
+      lastInset = value;
+      m.easeTo({ padding: padding(), duration: prefersReducedMotion() ? 0 : 350 });
+    });
+  });
+
   const current = $derived(stops.find((stop) => stop.id === selected));
 </script>
 
@@ -537,7 +583,13 @@
   aria-hidden={interactive ? undefined : 'true'}
   aria-label={current ? `Mapa kampusu, vybraná zastávka ${current.name}` : 'Mapa kampusu'}
 >
-  <div class="canvas" bind:this={container}></div>
+  <div class="canvas" class:painted bind:this={container}></div>
+  {#if !painted && !failed}
+    <div class="loading" out:fade={{ duration: motionMs(300) }}>
+      <span class="loading-grid" aria-hidden="true"></span>
+      {#if interactive}<span class="loading-label">Načítáme mapu…</span>{/if}
+    </div>
+  {/if}
   <span class="probe" bind:this={probe} hidden></span>
   {#if failed && interactive}
     <ul class="fallback" aria-label="Zastávky">
@@ -585,6 +637,58 @@
   .canvas {
     position: absolute;
     inset: 0;
+    opacity: 0;
+    transition: opacity var(--motion-slow) var(--ease-out);
+  }
+  .canvas.painted {
+    opacity: 1;
+  }
+  /* Placeholder in the map's own colours: a faint street grid that drifts while tiles load. */
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .loading-grid {
+    position: absolute;
+    inset: -40px;
+    opacity: 0.5;
+    background:
+      repeating-linear-gradient(
+        28deg,
+        transparent 0 46px,
+        color-mix(in oklch, var(--muted-foreground) 22%, transparent) 46px 48px
+      ),
+      repeating-linear-gradient(
+        -62deg,
+        transparent 0 70px,
+        color-mix(in oklch, var(--muted-foreground) 16%, transparent) 70px 72px
+      );
+    animation: loading-pan 6s linear infinite;
+  }
+  @keyframes loading-pan {
+    to {
+      transform: translate(40px, 20px);
+    }
+  }
+  .loading-label {
+    position: relative;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--background) 85%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loading-grid {
+      animation: none;
+    }
+    .canvas {
+      transition: none;
+    }
   }
   .legend {
     position: absolute;
@@ -680,8 +784,13 @@
   .network-map :global(.stop-pin.active .plate) {
     transform: scale(1.3);
   }
-  .network-map :global(.stop-pin.dim) {
-    opacity: 0.3;
+  .network-map :global(.stop-pin.off-line) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity var(--motion-normal) var(--ease-out),
+      visibility 0s linear var(--motion-normal);
   }
   .network-map :global(.stop-pin:focus-visible) {
     outline: none;

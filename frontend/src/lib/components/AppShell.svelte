@@ -3,7 +3,7 @@
   import { afterNavigate, onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ChevronDown, Moon, Search, Sun } from '@lucide/svelte';
+  import { ChevronDown, House, Map as MapIcon, Moon, Route, Search, Sun } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import { prefersReducedMotion } from '$lib/motion';
   import { cn } from '$lib/utils';
@@ -11,12 +11,15 @@
 
   let {
     children,
-    footer,
+    footerCredits,
+    footerLines,
     menus,
     paletteOpen = $bindable(false)
   }: {
     children: Snippet;
-    footer?: Snippet;
+    /** Footer content owned by features: project status and team, line links. */
+    footerCredits?: Snippet;
+    footerLines?: Snippet;
     /** Dropdown content for the header; the shell only owns open/close state. */
     menus?: Snippet<[kind: 'stops' | 'lines', close: () => void]>;
     /** Whether the search palette (rendered by the layout) is open; the shell owns shortcuts. */
@@ -118,7 +121,7 @@
 
   afterNavigate(closeMenu);
 
-  function toggleTheme() {
+  function flipTheme() {
     document.documentElement.classList.toggle('dark');
     syncTheme();
     try {
@@ -126,6 +129,32 @@
     } catch {
       // The current theme still works when storage is unavailable.
     }
+  }
+
+  /** The new theme spreads out in a circle from the toggle. */
+  function toggleTheme(event: MouseEvent) {
+    const root = document.documentElement;
+    if (!document.startViewTransition || prefersReducedMotion()) return flipTheme();
+    const x = event.clientX || innerWidth - 40;
+    const y = event.clientY || 28;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    transition?.skipTransition();
+    root.dataset.themeTransition = 'true';
+    const current = document.startViewTransition(flipTheme);
+    transition = current;
+    void current.ready
+      .then(() =>
+        root.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+          {
+            duration: 520,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            pseudoElement: '::view-transition-new(root)'
+          }
+        )
+      )
+      .catch(() => {});
+    void current.finished.finally(() => delete root.dataset.themeTransition).catch(() => {});
   }
 
   onNavigate((navigation) => {
@@ -156,6 +185,29 @@
   });
 
   const onHome = $derived(page.url.pathname === '/');
+  /** The landing page scrolled to its line cards counts as the "Linky" tab. */
+  let atLines = $state(false);
+  $effect(() => {
+    if (!onHome) return void (atLines = false);
+    const target = document.getElementById('lines');
+    if (!target) return;
+    const seen = new IntersectionObserver(([entry]) => (atLines = entry.isIntersecting), {
+      rootMargin: '-40% 0px -40% 0px'
+    });
+    seen.observe(target);
+    return () => seen.disconnect();
+  });
+  const activeTab = $derived(
+    paletteOpen
+      ? 'search'
+      : page.url.pathname.startsWith('/stops')
+        ? 'map'
+        : onHome
+          ? atLines
+            ? 'lines'
+            : 'home'
+          : null
+  );
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
   /** The landing and the map page manage their own width; everything else gets the column. */
   const fullBleed = $derived(onHome || page.url.pathname === '/stops');
@@ -166,7 +218,7 @@
 <a href="#main" class="sr-only z-50 bg-background p-4 focus:not-sr-only focus:absolute"
   >Přejít na obsah</a
 >
-<div class="flex min-h-dvh flex-col">
+<div class="flex min-h-dvh flex-col" class:map-page={page.url.pathname === '/stops'}>
   <header class="site-header">
     <div class="header-inner">
       <a href={resolve('/')} class="brand-mark" aria-label="Think different Academy — úvod">
@@ -264,11 +316,49 @@
   >
     {@render children()}
   </main>
-  <SiteFooter credits={footer} />
+  <SiteFooter credits={footerCredits} lines={footerLines} />
 </div>
 
+<!-- Phones: app-style tab bar within thumb reach; the header keeps only the logo and actions. -->
+<nav class="tabbar" aria-label="Rychlá navigace">
+  <a
+    href={resolve('/')}
+    class="tab"
+    class:active={activeTab === 'home'}
+    aria-current={activeTab === 'home' ? 'page' : undefined}
+  >
+    <House aria-hidden="true" /><span>Úvod</span>
+  </a>
+  <a
+    href={resolve('/stops')}
+    class="tab"
+    class:active={activeTab === 'map'}
+    aria-current={activeTab === 'map' ? 'page' : undefined}
+  >
+    <MapIcon aria-hidden="true" /><span>Mapa</span>
+  </a>
+  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
+  <a href={`${resolve('/')}#lines`} class="tab" class:active={activeTab === 'lines'}>
+    <Route aria-hidden="true" /><span>Linky</span>
+  </a>
+  <button
+    type="button"
+    class="tab"
+    class:active={activeTab === 'search'}
+    onclick={() => (paletteOpen = true)}
+  >
+    <Search aria-hidden="true" /><span>Hledat</span>
+  </button>
+</nav>
+
 <style>
+  /* During the theme reveal the header is part of the page snapshot, so it changes with it. */
+  :global(:root[data-theme-transition]) .site-header,
+  :global(:root[data-theme-transition]) .tabbar {
+    view-transition-name: none;
+  }
   .site-header {
+    view-transition-name: site-header;
     position: sticky;
     top: 0;
     z-index: 30;
@@ -390,10 +480,16 @@
     .header-inner {
       gap: 0.5rem;
     }
+    /* The tab bar takes over navigation; the header keeps the logo, search and theme. */
     .main-nav {
-      gap: 0.75rem;
-      overflow-x: auto;
-      scrollbar-width: none;
+      display: none;
+    }
+    /* Search lives in the tab bar on phones. */
+    .search-trigger {
+      display: none;
+    }
+    .header-inner > :global(:last-child) {
+      margin-left: auto;
     }
     .nav-link {
       white-space: nowrap;
@@ -418,6 +514,98 @@
       overflow: hidden;
       clip-path: inset(50%);
       white-space: nowrap;
+    }
+  }
+
+  .tabbar {
+    display: none;
+  }
+  @media (max-width: 767px) {
+    .tabbar {
+      position: fixed;
+      inset: auto 0 0;
+      z-index: 40;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+      padding: 0.375rem 0.5rem env(safe-area-inset-bottom);
+      border-top: 1px solid var(--border);
+      /* Solid, not frosted: page-transition snapshots drop backdrop blur, which made the bar
+         turn see-through for a moment on every tab change. */
+      background: var(--background);
+      box-shadow: 0 -6px 20px -12px rgb(0 0 0 / 0.35);
+      view-transition-name: tabbar;
+    }
+    .tab {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.1875rem;
+      min-height: 3rem;
+      border-radius: 0.875rem;
+      color: var(--muted-foreground);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
+    }
+    .tab :global(svg) {
+      width: 1.375rem;
+      height: 1.375rem;
+      transition: transform var(--motion-normal) var(--ease-spring-out);
+    }
+    /* Active tab: a soft pill behind the icon, like native tab bars. */
+    .tab::before {
+      content: '';
+      position: absolute;
+      top: 0.25rem;
+      left: 50%;
+      width: 3.5rem;
+      height: 1.875rem;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--primary) 18%, transparent);
+      transform: translateX(-50%) scaleX(0.4);
+      opacity: 0;
+      transition:
+        transform var(--motion-normal) var(--ease-spring-out),
+        opacity var(--motion-fast) var(--ease-out);
+    }
+    .tab.active {
+      color: var(--foreground);
+    }
+    .tab.active::before {
+      transform: translateX(-50%) scaleX(1);
+      opacity: 1;
+    }
+    .tab.active :global(svg) {
+      color: var(--primary);
+      transform: translateY(-1px);
+    }
+    .tab:active {
+      transform: scale(0.94);
+    }
+    .tab:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+    /* The map page is a full-screen app view: no footer to scroll to under it. */
+    .map-page :global(.site-footer) {
+      display: none;
+    }
+    /* Room for the tab bar under the last content. */
+    .flex.min-h-dvh {
+      padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab,
+    .tab::before,
+    .tab :global(svg) {
+      transition: none;
     }
   }
 </style>

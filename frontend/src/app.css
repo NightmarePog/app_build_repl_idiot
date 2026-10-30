@@ -50,6 +50,8 @@
   --font-display-weight: 650;
   --tracking-display: -0.02em;
   --header-h: 3.5rem;
+  /* Mobile bottom tab bar, not counting the home-indicator safe area. */
+  --tabbar-h: 0px;
   --chart-1: #0070bb;
   --chart-2: #6dd4b1;
   --chart-3: #49b3b4;
@@ -57,8 +59,9 @@
   --chart-5: #0257a5;
   --radius: 0.5rem;
   --map: oklch(0.975 0.004 85);
-  --line-a: #0070bb;
-  --line-a-ink: #ffffff;
+  /* Dark ink on every line colour, so A, B and C badges read as one set. */
+  --line-a: #2b90d9;
+  --line-a-ink: #1a1a1a;
   --line-b: #91f5ad;
   --line-b-ink: #1a1a1a;
   --line-c: #49b3b4;
@@ -99,7 +102,7 @@
   --map: oklch(0.195 0.005 70);
   /* Slightly brighter lines so they keep their weight on the dark map. */
   --line-a: #2b90d9;
-  --line-a-ink: #ffffff;
+  --line-a-ink: #121413;
   --line-b: #a4f8bc;
   --line-b-ink: #121413;
   --line-c: #5cc8c9;
@@ -222,9 +225,59 @@ kbd {
   animation-timing-function: var(--ease-out);
 }
 
-::view-transition-old(root),
+/* Page changes: the header stays, the old page lifts away and the new one settles in. */
+::view-transition-old(root) {
+  animation: 160ms var(--ease-out) both page-out;
+}
 ::view-transition-new(root) {
-  animation-duration: 180ms;
+  animation: 300ms var(--ease-out) 60ms both page-in;
+}
+::view-transition-group(site-header),
+::view-transition-group(tabbar) {
+  animation: none;
+}
+/* Persistent chrome swaps straight to its new state: crossfading the old and new snapshots
+   would briefly show two highlighted tabs. */
+::view-transition-old(site-header),
+::view-transition-old(tabbar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(tabbar) {
+  animation: none;
+}
+/* Theme switch: the clip-path reveal is run from script; the snapshots themselves stay still. */
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 767px) {
+  :root {
+    --tabbar-h: 4rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 ::view-transition {

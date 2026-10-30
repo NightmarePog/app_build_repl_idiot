@@ -1,11 +1,11 @@
 <script lang="ts">
   import '../app.css';
-  import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { FileText } from '@lucide/svelte';
-  import ProjectCredits from '$lib/features/about/ProjectCredits.svelte';
   import AppShell from '$lib/components/AppShell.svelte';
   import CommandPalette, { type PaletteItem } from '$lib/components/CommandPalette.svelte';
+  import ProjectCredits from '$lib/features/about/ProjectCredits.svelte';
+  import FooterLines from '$lib/features/network/FooterLines.svelte';
   import NavMenus from '$lib/features/network/NavMenus.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { describeStop, LINES, LINE_IDS, linesOf, type LineId } from '$lib/features/network/lines';
@@ -37,7 +37,7 @@
     return {
       key: `line-${id}`,
       label: `Linka ${id}`,
-      sub: `${stops[0]} – ${stops[stops.length - 1]} · ${stops.length} zastávek`,
+      sub: `${stops[0]} → ${stops[stops.length - 1]}, ${stops.length} zastávek`,
       href: `${resolve('/stops')}?line=${id}`,
       lines: [id],
       suggested: true
@@ -64,12 +64,12 @@
   }
 </script>
 
-{#snippet footer()}
-  {#if page.url.pathname === resolve('/')}
-    <ProjectCredits />
-  {:else}
-    <p>Zastávky kampusu Think different Academy.</p>
-  {/if}
+{#snippet footerCredits()}
+  <ProjectCredits />
+{/snippet}
+
+{#snippet footerLines()}
+  <FooterLines />
 {/snippet}
 
 {#snippet menus(kind: 'stops' | 'lines', close: () => void)}
@@ -89,7 +89,7 @@
   {/if}
 {/snippet}
 
-<AppShell {footer} {menus} bind:paletteOpen>{@render children()}</AppShell>
+<AppShell {menus} {footerCredits} {footerLines} bind:paletteOpen>{@render children()}</AppShell>
 <CommandPalette
   bind:open={paletteOpen}
   items={paletteItems}
