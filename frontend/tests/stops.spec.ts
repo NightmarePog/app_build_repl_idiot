@@ -130,7 +130,9 @@ test('map finder selects stops from the list, keyboard and map', async ({ page }
 test('shows an understandable empty state', async ({ page }) => {
   await page.route('**/api/v1/stops', (route) => route.fulfill({ json: [] }));
   await page.goto('/stops');
-  await expect(page.getByRole('status')).toContainText('Zatím tu nejsou žádné zastávky');
+  await expect(page.getByRole('main').getByRole('status')).toContainText(
+    'Zatím tu nejsou žádné zastávky'
+  );
   await expect(page.getByRole('list', { name: 'Seznam zastávek' })).toHaveCount(0);
 });
 
@@ -160,7 +162,7 @@ test('shows loading feedback while waiting for the API', async ({ page }) => {
     await route.fulfill({ json: stops });
   });
   await page.goto('/stops');
-  await expect(page.getByRole('status')).toHaveText('Načítáme zastávky…');
+  await expect(page.getByRole('main').getByRole('status')).toHaveText('Načítáme zastávky…');
   release();
   await expect(page.getByRole('link', { name: 'Detail zastávky Cejl' })).toBeVisible();
 });

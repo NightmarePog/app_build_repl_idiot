@@ -420,6 +420,9 @@
             keyboard: live,
             // Resizing is handled below so the redraw happens in the same frame.
             trackResize: false,
+            // 3x screens would render 2.25x the pixels of 2x for no visible gain, and camera
+            // flights then stall slower phones.
+            pixelRatio: Math.min(window.devicePixelRatio, 2),
             attributionControl: { compact: false }
           });
         } catch {

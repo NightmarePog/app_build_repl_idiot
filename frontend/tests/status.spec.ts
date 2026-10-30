@@ -36,7 +36,9 @@ test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
     '/stops'
   );
   await expect(page.getByRole('link', { name: 'Seznam linek' })).toHaveAttribute('href', '#lines');
-  await expect(page.getByRole('heading', { level: 2, name: 'Linky' })).toBeVisible();
+  await expect(
+    page.getByRole('main').getByRole('heading', { level: 2, name: 'Linky' })
+  ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: `/tmp/tda-home-${testInfo.project.name}.png`,
