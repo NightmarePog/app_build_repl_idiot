@@ -20,6 +20,7 @@
   const pages: Item[] = [
     ['Domů', 'Úvodní stránka', resolve('/')],
     ['Mapa zastávek', 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
+    ['Linky', 'Přehled všech linek', resolve('/lines')],
     ['Kontakt', 'Napište týmu', resolve('/contact')],
     ['Podmínky', 'Podmínky používání', resolve('/terms')]
   ].map(([label, sub, href]) => ({

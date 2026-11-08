@@ -12,6 +12,10 @@
   ],
   "tags": [
     {
+      "description": "Operations related to public transport lines",
+      "name": "Lines"
+    },
+    {
       "description": "Service health",
       "name": "Health"
     },
@@ -42,6 +46,267 @@
         },
         "summary": "Get health detail",
         "tags": ["Health"]
+      }
+    },
+    "/lines": {
+      "get": {
+        "operationId": "getLines",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Line"
+                  }
+                }
+              }
+            },
+            "description": "List of lines"
+          }
+        },
+        "summary": "List all lines",
+        "tags": ["Lines"]
+      },
+      "post": {
+        "operationId": "createLine",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Line"
+                }
+              }
+            },
+            "description": "Line created successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid line ID or input data"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid admin API key"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a new line",
+        "tags": ["Lines"]
+      }
+    },
+    "/lines/{id}": {
+      "delete": {
+        "operationId": "deleteLine",
+        "parameters": [
+          {
+            "description": "Line ID",
+            "example": 12,
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Line deleted successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid line ID or input data"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid admin API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Line not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a line",
+        "tags": ["Lines"]
+      },
+      "get": {
+        "description": "Returns the details of a specific line, including its routes (one per direction).",
+        "operationId": "getLine",
+        "parameters": [
+          {
+            "description": "Line ID",
+            "example": 12,
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineDetail"
+                }
+              }
+            },
+            "description": "Line detail"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid line ID or input data"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Line not found"
+          }
+        },
+        "summary": "Get line detail",
+        "tags": ["Lines"]
+      },
+      "put": {
+        "description": "Replaces the data of an existing line.",
+        "operationId": "updateLine",
+        "parameters": [
+          {
+            "description": "Line ID",
+            "example": 12,
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Line"
+                }
+              }
+            },
+            "description": "Line updated successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid line ID or input data"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid admin API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Line not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update a line",
+        "tags": ["Lines"]
       }
     },
     "/stops": {
@@ -304,6 +569,62 @@
         "tags": ["Stops"]
       }
     },
+    "/stops/{id}/lines": {
+      "get": {
+        "description": "Returns every line with a route that passes through the stop.",
+        "operationId": "getStopLines",
+        "parameters": [
+          {
+            "description": "Line ID",
+            "example": 12,
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Line"
+                  }
+                }
+              }
+            },
+            "description": "List of lines"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid line ID or input data"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Line not found"
+          }
+        },
+        "summary": "List lines serving a stop",
+        "tags": ["Lines"]
+      }
+    },
     "/team": {
       "get": {
         "operationId": "getTeam",
@@ -346,6 +667,155 @@
           }
         },
         "required": ["status"]
+      },
+      "Line": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "string",
+            "example": "#4F46E5"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Campus Express",
+            "maxLength": 255
+          },
+          "number": {
+            "type": "string",
+            "example": "42",
+            "maxLength": 20
+          },
+          "type": {
+            "type": "string",
+            "example": "bus",
+            "maxLength": 50
+          }
+        },
+        "required": ["color", "id", "name", "number", "type"]
+      },
+      "LineDetail": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "string",
+            "example": "#4F46E5"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Campus Express",
+            "maxLength": 255
+          },
+          "number": {
+            "type": "string",
+            "example": "42",
+            "maxLength": 20
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Route"
+            }
+          },
+          "type": {
+            "type": "string",
+            "example": "bus",
+            "maxLength": 50
+          }
+        },
+        "required": ["color", "id", "name", "number", "routes", "type"]
+      },
+      "LineInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "type": "string",
+            "example": "#4F46E5",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "name": {
+            "type": "string",
+            "example": "Campus Express",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "number": {
+            "type": "string",
+            "example": "42",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "type": {
+            "type": "string",
+            "example": "bus",
+            "maxLength": 50,
+            "minLength": 0
+          }
+        },
+        "required": ["color", "name", "number", "type"]
+      },
+      "Route": {
+        "type": "object",
+        "properties": {
+          "bound": {
+            "type": "string",
+            "description": "Outbound leaves the line's first stop, inbound returns to it.",
+            "enum": ["outbound", "inbound"]
+          },
+          "direction": {
+            "type": "string",
+            "description": "Where the route heads, i.e. the name of its last stop.",
+            "example": "Notebook Quay",
+            "maxLength": 255
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "stops": {
+            "type": "array",
+            "description": "Stops in travel order.",
+            "items": {
+              "$ref": "#/components/schemas/RouteStop"
+            }
+          }
+        },
+        "required": ["bound", "direction", "id", "stops"]
+      },
+      "RouteStop": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Stop ID",
+            "example": 4
+          },
+          "name": {
+            "type": "string",
+            "example": "Byte Square"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1-based order on the route",
+            "example": 1
+          }
+        },
+        "required": ["id", "name", "position"]
       },
       "Stop": {
         "type": "object",

@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateStopData, CreateStopErrors, CreateStopResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetStopData, GetStopErrors, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
-import { zCreateStopBody, zCreateStopResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
+import type { CreateLineData, CreateLineErrors, CreateLineResponses, CreateStopData, CreateStopErrors, CreateStopResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetLineData, GetLineErrors, GetLineResponses, GetLinesData, GetLinesResponses, GetStopData, GetStopErrors, GetStopLinesData, GetStopLinesErrors, GetStopLinesResponses, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
+import { zCreateLineBody, zCreateLineResponse, zCreateStopBody, zCreateStopResponse, zDeleteLinePath, zDeleteLineResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetLinePath, zGetLineResponse, zGetLinesResponse, zGetStopLinesPath, zGetStopLinesResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zUpdateLineBody, zUpdateLinePath, zUpdateLineResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -33,6 +33,91 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
     responseValidator: async (data) => await zGetHealthResponse.parseAsync(data),
     url: '/health',
     ...options
+});
+
+/**
+ * List all lines
+ */
+export const getLines = <ThrowOnError extends boolean = false>(options?: Options<GetLinesData, ThrowOnError>): RequestResult<GetLinesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetLinesResponses, unknown, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetLinesResponse.parseAsync(data),
+    url: '/lines',
+    ...options
+});
+
+/**
+ * Create a new line
+ */
+export const createLine = <ThrowOnError extends boolean = false>(options: Options<CreateLineData, ThrowOnError>): RequestResult<CreateLineResponses, CreateLineErrors, ThrowOnError> => (options.client ?? client).post<CreateLineResponses, CreateLineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateLineBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateLineResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/lines',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a line
+ */
+export const deleteLine = <ThrowOnError extends boolean = false>(options: Options<DeleteLineData, ThrowOnError>): RequestResult<DeleteLineResponses, DeleteLineErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLineResponses, DeleteLineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteLinePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteLineResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/lines/{id}',
+    ...options
+});
+
+/**
+ * Get line detail
+ *
+ * Returns the details of a specific line, including its routes (one per direction).
+ */
+export const getLine = <ThrowOnError extends boolean = false>(options: Options<GetLineData, ThrowOnError>): RequestResult<GetLineResponses, GetLineErrors, ThrowOnError> => (options.client ?? client).get<GetLineResponses, GetLineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetLinePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetLineResponse.parseAsync(data),
+    url: '/lines/{id}',
+    ...options
+});
+
+/**
+ * Update a line
+ *
+ * Replaces the data of an existing line.
+ */
+export const updateLine = <ThrowOnError extends boolean = false>(options: Options<UpdateLineData, ThrowOnError>): RequestResult<UpdateLineResponses, UpdateLineErrors, ThrowOnError> => (options.client ?? client).put<UpdateLineResponses, UpdateLineErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateLineBody,
+        path: zUpdateLinePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateLineResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/lines/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -116,6 +201,22 @@ export const updateStop = <ThrowOnError extends boolean = false>(options: Option
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * List lines serving a stop
+ *
+ * Returns every line with a route that passes through the stop.
+ */
+export const getStopLines = <ThrowOnError extends boolean = false>(options: Options<GetStopLinesData, ThrowOnError>): RequestResult<GetStopLinesResponses, GetStopLinesErrors, ThrowOnError> => (options.client ?? client).get<GetStopLinesResponses, GetStopLinesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetStopLinesPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetStopLinesResponse.parseAsync(data),
+    url: '/stops/{id}/lines',
+    ...options
 });
 
 /**

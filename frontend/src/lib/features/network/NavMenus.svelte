@@ -26,6 +26,7 @@
 >
   {#if kind === 'lines'}
     <LineCards compact />
+    <a href={resolve('/lines')} class="menu-all" onclick={onclose}>Všechny linky</a>
   {:else if stopsList() === null}
     <p class="menu-note">Načítáme zastávky…</p>
   {:else}
@@ -254,5 +255,14 @@
     .menu-panel {
       animation: none;
     }
+  }
+  .menu-all {
+    display: block;
+    margin-top: 0.75rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .menu-all:hover {
+    text-decoration: underline;
   }
 </style>

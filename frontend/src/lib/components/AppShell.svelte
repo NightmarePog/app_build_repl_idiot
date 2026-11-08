@@ -202,11 +202,13 @@
       ? 'search'
       : page.url.pathname.startsWith('/stops')
         ? 'map'
-        : onHome
-          ? atLines
-            ? 'lines'
-            : 'home'
-          : null
+        : page.url.pathname.startsWith('/lines')
+          ? 'lines'
+          : onHome
+            ? atLines
+              ? 'lines'
+              : 'home'
+            : null
   );
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
   /** The landing and the map page manage their own width; everything else gets the column. */
@@ -266,8 +268,7 @@
           {/if}
         </div>
         <div class="nav-item">
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
-          <a href={`${resolve('/')}#lines`} class="nav-link only-small">Linky</a>
+          <a href={resolve('/lines')} class="nav-link only-small">Linky</a>
           <button
             type="button"
             class="nav-link only-large"
@@ -337,8 +338,12 @@
   >
     <MapIcon aria-hidden="true" /><span>Mapa</span>
   </a>
-  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
-  <a href={`${resolve('/')}#lines`} class="tab" class:active={activeTab === 'lines'}>
+  <a
+    href={resolve('/lines')}
+    class="tab"
+    class:active={activeTab === 'lines'}
+    aria-current={page.url.pathname === '/lines' ? 'page' : undefined}
+  >
     <Route aria-hidden="true" /><span>Linky</span>
   </a>
   <button

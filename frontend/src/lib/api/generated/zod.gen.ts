@@ -10,6 +10,43 @@ export const zHealthResponse = z.object({
     status: z.enum(['ok'])
 });
 
+export const zLine = z.object({
+    color: z.string(),
+    id: z.int().readonly(),
+    name: z.string().max(255),
+    number: z.string().max(20),
+    type: z.string().max(50)
+});
+
+export const zLineInput = z.object({
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    name: z.string().min(0).max(255),
+    number: z.string().min(0).max(20),
+    type: z.string().min(0).max(50)
+}).strict();
+
+export const zRouteStop = z.object({
+    id: z.int(),
+    name: z.string(),
+    position: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zRoute = z.object({
+    bound: z.enum(['outbound', 'inbound']),
+    direction: z.string().max(255),
+    id: z.int(),
+    stops: z.array(zRouteStop)
+});
+
+export const zLineDetail = z.object({
+    color: z.string(),
+    id: z.int().readonly(),
+    name: z.string().max(255),
+    number: z.string().max(20),
+    routes: z.array(zRoute),
+    type: z.string().max(50)
+});
+
 export const zStop = z.object({
     has_shelter: z.boolean(),
     has_ticket_machine: z.boolean(),
@@ -32,6 +69,21 @@ export const zTeamResponse = z.object({
     name: z.string().min(1)
 });
 
+export const zLineWritable = z.object({
+    color: z.string(),
+    name: z.string().max(255),
+    number: z.string().max(20),
+    type: z.string().max(50)
+});
+
+export const zLineDetailWritable = z.object({
+    color: z.string(),
+    name: z.string().max(255),
+    number: z.string().max(20),
+    routes: z.array(zRoute),
+    type: z.string().max(50)
+});
+
 export const zStopWritable = z.object({
     has_shelter: z.boolean(),
     has_ticket_machine: z.boolean(),
@@ -44,6 +96,47 @@ export const zStopWritable = z.object({
  * Health detail
  */
 export const zGetHealthResponse = zHealthResponse;
+
+/**
+ * List of lines
+ */
+export const zGetLinesResponse = z.array(zLine);
+
+export const zCreateLineBody = zLineInput;
+
+/**
+ * Line created successfully
+ */
+export const zCreateLineResponse = zLine;
+
+export const zDeleteLinePath = z.object({
+    id: z.int().gte(1)
+});
+
+/**
+ * Line deleted successfully
+ */
+export const zDeleteLineResponse = z.void();
+
+export const zGetLinePath = z.object({
+    id: z.int().gte(1)
+});
+
+/**
+ * Line detail
+ */
+export const zGetLineResponse = zLineDetail;
+
+export const zUpdateLineBody = zLineInput;
+
+export const zUpdateLinePath = z.object({
+    id: z.int().gte(1)
+});
+
+/**
+ * Line updated successfully
+ */
+export const zUpdateLineResponse = zLine;
 
 /**
  * List of stops
@@ -85,6 +178,15 @@ export const zUpdateStopPath = z.object({
  * Stop updated successfully
  */
 export const zUpdateStopResponse = zStop;
+
+export const zGetStopLinesPath = z.object({
+    id: z.int().gte(1)
+});
+
+/**
+ * List of lines
+ */
+export const zGetStopLinesResponse = z.array(zLine);
 
 /**
  * Team detail

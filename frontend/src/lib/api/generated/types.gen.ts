@@ -12,6 +12,58 @@ export type HealthResponse = {
     status: 'ok';
 };
 
+export type Line = {
+    color: string;
+    readonly id: number;
+    name: string;
+    number: string;
+    type: string;
+};
+
+export type LineDetail = {
+    color: string;
+    readonly id: number;
+    name: string;
+    number: string;
+    routes: Array<Route>;
+    type: string;
+};
+
+export type LineInput = {
+    color: string;
+    name: string;
+    number: string;
+    type: string;
+};
+
+export type Route = {
+    /**
+     * Outbound leaves the line's first stop, inbound returns to it.
+     */
+    bound: 'outbound' | 'inbound';
+    /**
+     * Where the route heads, i.e. the name of its last stop.
+     */
+    direction: string;
+    id: number;
+    /**
+     * Stops in travel order.
+     */
+    stops: Array<RouteStop>;
+};
+
+export type RouteStop = {
+    /**
+     * Stop ID
+     */
+    id: number;
+    name: string;
+    /**
+     * 1-based order on the route
+     */
+    position: number;
+};
+
 export type Stop = {
     has_shelter: boolean;
     has_ticket_machine: boolean;
@@ -32,6 +84,21 @@ export type StopInput = {
 export type TeamResponse = {
     members: Array<string>;
     name: string;
+};
+
+export type LineWritable = {
+    color: string;
+    name: string;
+    number: string;
+    type: string;
+};
+
+export type LineDetailWritable = {
+    color: string;
+    name: string;
+    number: string;
+    routes: Array<Route>;
+    type: string;
 };
 
 export type StopWritable = {
@@ -57,6 +124,161 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetLinesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/lines';
+};
+
+export type GetLinesResponses = {
+    /**
+     * List of lines
+     */
+    200: Array<Line>;
+};
+
+export type GetLinesResponse = GetLinesResponses[keyof GetLinesResponses];
+
+export type CreateLineData = {
+    body: LineInput;
+    path?: never;
+    query?: never;
+    url: '/lines';
+};
+
+export type CreateLineErrors = {
+    /**
+     * Invalid line ID or input data
+     */
+    400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
+};
+
+export type CreateLineError = CreateLineErrors[keyof CreateLineErrors];
+
+export type CreateLineResponses = {
+    /**
+     * Line created successfully
+     */
+    201: Line;
+};
+
+export type CreateLineResponse = CreateLineResponses[keyof CreateLineResponses];
+
+export type DeleteLineData = {
+    body?: never;
+    path: {
+        /**
+         * Line ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/lines/{id}';
+};
+
+export type DeleteLineErrors = {
+    /**
+     * Invalid line ID or input data
+     */
+    400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
+    /**
+     * Line not found
+     */
+    404: Error;
+};
+
+export type DeleteLineError = DeleteLineErrors[keyof DeleteLineErrors];
+
+export type DeleteLineResponses = {
+    /**
+     * Line deleted successfully
+     */
+    204: void;
+};
+
+export type DeleteLineResponse = DeleteLineResponses[keyof DeleteLineResponses];
+
+export type GetLineData = {
+    body?: never;
+    path: {
+        /**
+         * Line ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/lines/{id}';
+};
+
+export type GetLineErrors = {
+    /**
+     * Invalid line ID or input data
+     */
+    400: Error;
+    /**
+     * Line not found
+     */
+    404: Error;
+};
+
+export type GetLineError = GetLineErrors[keyof GetLineErrors];
+
+export type GetLineResponses = {
+    /**
+     * Line detail
+     */
+    200: LineDetail;
+};
+
+export type GetLineResponse = GetLineResponses[keyof GetLineResponses];
+
+export type UpdateLineData = {
+    body: LineInput;
+    path: {
+        /**
+         * Line ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/lines/{id}';
+};
+
+export type UpdateLineErrors = {
+    /**
+     * Invalid line ID or input data
+     */
+    400: Error;
+    /**
+     * Missing or invalid admin API key
+     */
+    401: Error;
+    /**
+     * Line not found
+     */
+    404: Error;
+};
+
+export type UpdateLineError = UpdateLineErrors[keyof UpdateLineErrors];
+
+export type UpdateLineResponses = {
+    /**
+     * Line updated successfully
+     */
+    200: Line;
+};
+
+export type UpdateLineResponse = UpdateLineResponses[keyof UpdateLineResponses];
 
 export type GetStopsData = {
     body?: never;
@@ -212,6 +434,40 @@ export type UpdateStopResponses = {
 };
 
 export type UpdateStopResponse = UpdateStopResponses[keyof UpdateStopResponses];
+
+export type GetStopLinesData = {
+    body?: never;
+    path: {
+        /**
+         * Line ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/stops/{id}/lines';
+};
+
+export type GetStopLinesErrors = {
+    /**
+     * Invalid line ID or input data
+     */
+    400: Error;
+    /**
+     * Line not found
+     */
+    404: Error;
+};
+
+export type GetStopLinesError = GetStopLinesErrors[keyof GetStopLinesErrors];
+
+export type GetStopLinesResponses = {
+    /**
+     * List of lines
+     */
+    200: Array<Line>;
+};
+
+export type GetStopLinesResponse = GetStopLinesResponses[keyof GetStopLinesResponses];
 
 export type GetTeamData = {
     body?: never;
