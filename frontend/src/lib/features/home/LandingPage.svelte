@@ -6,16 +6,29 @@
   import { Button } from '$lib/ui/button';
   import NetworkView from '$lib/features/network/NetworkView.svelte';
   import LineCards from '$lib/features/network/LineCards.svelte';
-  import { isTransfer, LINES, LINE_IDS, POSITIONS } from '$lib/features/network/lines';
+  import {
+    isTransfer,
+    LINES,
+    LINE_IDS,
+    networkReady,
+    POSITIONS
+  } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
 
   const stopCount = Object.keys(POSITIONS).length;
   let highlightLines = $state(0);
-  const transfers = [
+  const transfers = $derived([
     ...new Set(LINE_IDS.flatMap((id) => LINES[id].stops).filter((name) => isTransfer(name)))
-  ];
-  const lineWord = LINE_IDS.length < 5 ? 'linky' : 'linek';
-  const transferWord = transfers.length < 5 ? 'přestupní zastávky' : 'přestupních zastávek';
+  ]);
+  const lineWord = $derived(czechCount(LINE_IDS.length, 'linka', 'linky', 'linek'));
+  const transferWord = $derived(
+    czechCount(transfers.length, 'přestupní zastávka', 'přestupní zastávky', 'přestupních zastávek')
+  );
+
+  function czechCount(count: number, one: string, few: string, many: string) {
+    if (count === 1) return one;
+    return count >= 2 && count <= 4 ? few : many;
+  }
 
   onMount(() => {
     const controller = new AbortController();
@@ -28,7 +41,9 @@
   <title>Autobusy po kampusu | Think different Academy</title>
   <meta
     name="description"
-    content={`${stopCount} zastávek a ${LINE_IDS.length} ${lineWord} kampusu na jedné mapě, s vybavením každé zastávky.`}
+    content={networkReady()
+      ? `${stopCount} zastávek a ${LINE_IDS.length} ${lineWord} kampusu na jedné mapě, s vybavením každé zastávky.`
+      : `${stopCount} zastávek kampusu na jedné mapě, s vybavením každé zastávky.`}
   />
 </svelte:head>
 
@@ -40,11 +55,11 @@
     <div class="intro-text">
       <h1 id="home-title">Autobusy po kampusu</h1>
       <p class="lede">
-        <span class="tabular">{stopCount}</span> zastávek,
-        <span class="tabular">{LINE_IDS.length}</span>
-        {lineWord} a <span class="tabular">{transfers.length}</span>
-        {transferWord}. U každé zastávky uvidíte, jestli má nástup bez schodů, střechu a automat na
-        jízdenky.
+        <span class="tabular">{stopCount}</span> zastávek{#if networkReady()},
+          <span class="tabular">{LINE_IDS.length}</span>
+          {lineWord} a <span class="tabular">{transfers.length}</span>
+          {transferWord}{/if}. U každé zastávky uvidíte, jestli má nástup bez schodů, střechu a
+        automat na jízdenky.
       </p>
       <div class="actions">
         <Button href={resolve('/stops')} size="lg">

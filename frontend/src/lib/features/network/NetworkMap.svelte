@@ -20,7 +20,7 @@
     primaryLine,
     routeCoordinates,
     type LineId
-  } from './lines';
+  } from './lines.svelte';
   import { BOUNDS, MAX_BOUNDS, STYLE_URL } from './campus';
   import LineBadge from './LineBadge.svelte';
   import { streetLabels } from './streets';
@@ -56,7 +56,10 @@
 
   /** Not on the chosen line, or filtered out: hidden from the map. */
   const offLine = (stop: Stop) =>
-    (line !== null && !LINES[line].stops.includes(stop.name)) || dimmed.includes(stop.id);
+    (line !== null && !LINES[line]?.stops.includes(stop.name)) || dimmed.includes(stop.id);
+
+  /** Reads every line so an effect re-runs when the network (re)loads from the API. */
+  const trackNetwork = () => LINE_IDS.map((id) => LINES[id]);
 
   type MapLib = typeof import('maplibre-gl');
 
@@ -150,7 +153,7 @@
     const current = stops.find((stop) => stop.id === selected);
     return {
       type: 'FeatureCollection' as const,
-      features: LINE_IDS.map((id) => ({
+      features: LINE_IDS.filter((id) => routeCoordinates(id).length > 1).map((id) => ({
         type: 'Feature' as const,
         properties: {
           id,
@@ -295,6 +298,10 @@
     (map?.getSource('routes') as GeoJSONSource | undefined)?.setData(routesData());
   }
 
+  function refreshStreetNames() {
+    (map?.getSource('street-names') as GeoJSONSource | undefined)?.setData(streetLabels());
+  }
+
   const BUS_GLYPH =
     '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="3" y="2" width="10" height="10.5" rx="2" fill="currentColor"/><rect x="4.5" y="3.5" width="7" height="3.5" rx="0.8" fill="var(--pin)"/><circle cx="5.6" cy="13.6" r="1.2" fill="currentColor"/><circle cx="10.4" cy="13.6" r="1.2" fill="currentColor"/></svg>';
 
@@ -306,8 +313,8 @@
     const line = primaryLine(stop.name);
     const transfer = isTransfer(stop.name);
     el.classList.toggle('transfer', transfer);
-    el.style.setProperty('--pin', line ? LINES[line].color : 'var(--muted-foreground)');
-    el.style.setProperty('--pin-ink', line ? LINES[line].ink : 'var(--background)');
+    el.style.setProperty('--pin', (line && LINES[line]?.color) || 'var(--muted-foreground)');
+    el.style.setProperty('--pin-ink', (line && LINES[line]?.ink) || 'var(--background)');
 
     const plate = document.createElement('span');
     plate.className = 'plate';
@@ -317,7 +324,7 @@
       stripes.className = 'stripes';
       for (const id of linesOf(stop.name)) {
         const stripe = document.createElement('i');
-        stripe.style.background = LINES[id].color;
+        stripe.style.background = LINES[id]?.color ?? 'var(--muted-foreground)';
         stripes.append(stripe);
       }
       plate.append(stripes);
@@ -510,6 +517,8 @@
   $effect(() => {
     const m = map;
     const list = stops;
+    // Pin colours and transfer stripes come from the lines, so rebuild when they arrive.
+    trackNetwork();
     if (!m) return;
     const created = untrack(() =>
       list.filter((stop) => POSITIONS[stop.name]).map((stop) => createMarker(m, stop))
@@ -520,6 +529,16 @@
       refreshRoutes();
     });
     return () => created.forEach((entry) => entry.marker.remove());
+  });
+
+  // Routes and street names are drawn from the lines: redraw once the network arrives.
+  $effect(() => {
+    trackNetwork();
+    if (!ready) return;
+    untrack(() => {
+      refreshRoutes();
+      refreshStreetNames();
+    });
   });
 
   // Marker state and route emphasis.

@@ -6,13 +6,18 @@
     description,
     headingLevel = 2,
     error = false,
-    onretry
+    onretry,
+    href,
+    linkLabel
   }: {
     title: string;
     description?: string;
     headingLevel?: 1 | 2;
     error?: boolean;
     onretry?: () => void;
+    /** Optional way out, e.g. back to an overview after a 404. */
+    href?: string;
+    linkLabel?: string;
   } = $props();
 
   const text = $derived(
@@ -27,6 +32,9 @@
   {#if text}<p>{text}</p>{/if}
   {#if onretry}
     <Button variant="outline" onclick={onretry}>Zkusit znovu</Button>
+  {/if}
+  {#if href && linkLabel}
+    <Button variant="outline" {href}>{linkLabel}</Button>
   {/if}
 </div>
 

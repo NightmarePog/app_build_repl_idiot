@@ -1,55 +1,58 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
-  import { ArrowRight, ArrowLeftRight, ChevronDown } from '@lucide/svelte';
-  import { getLine, getLines, type LineDetail } from '$lib/api/generated';
+  import { ArrowRight, BusFront, TramFront } from '@lucide/svelte';
+  import type { Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import { Skeleton } from '$lib/ui/skeleton';
-  import { inkFor, typeLabel } from './line-style';
+  import {
+    LINES,
+    LINE_IDS,
+    linesOf,
+    loadNetwork,
+    networkFailed,
+    networkReady,
+    type Line
+  } from '$lib/features/network/lines.svelte';
+  import { loadStops, stopsFailed, stopsList } from '$lib/features/network/stops-store.svelte';
+  import Isa from './Isa.svelte';
+  import { isPale, typeNoun, zOrZe } from './line-style';
 
-  let lines = $state<LineDetail[] | null>(null);
-  let failed = $state(false);
-  let attempt = $state(0);
-  let open = $state<number | null>(null);
-
-  $effect(() => {
-    void attempt;
-    failed = false;
-    lines = null;
-    const controller = new AbortController();
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]);
-    (async () => {
-      try {
-        const { data } = await getLines({ throwOnError: true, signal });
-        // The list has no routes; details are small, so fetch them together.
-        lines = await Promise.all(
-          data.map(async (line) => {
-            const { data: detail } = await getLine({
-              path: { id: line.id },
-              throwOnError: true,
-              signal
-            });
-            return detail;
-          })
-        );
-      } catch {
-        if (!controller.signal.aborted) failed = true;
-      }
-    })();
-    return () => controller.abort();
+  onMount(() => {
+    void loadNetwork();
+    void loadStops();
   });
 
-  /** Lines that share at least one stop with the given line, by number. */
-  function transfers(line: LineDetail) {
-    const stops = new Set(line.routes.flatMap((route) => route.stops.map((stop) => stop.id)));
-    return (lines ?? []).filter(
-      (other) =>
-        other.id !== line.id &&
-        other.routes.some((route) => route.stops.some((stop) => stops.has(stop.id)))
-    );
+  const lines = $derived(LINE_IDS.map((id) => LINES[id]));
+
+  function outbound(line: Line): Route | undefined {
+    return line.routes.find((route) => route.bound === 'outbound') ?? line.routes[0];
   }
 
-  function outbound(line: LineDetail) {
-    return line.routes.find((route) => route.bound === 'outbound') ?? line.routes[0];
+  // Step-free access comes from the stops API; routes only carry ids and names.
+  const stepFree = $derived(
+    new Map((stopsList() ?? []).map((stop) => [stop.id, stop.wheelchair_accessible]))
+  );
+
+  /** Stops served by more than one line, with those lines, for the interchange index. */
+  const interchanges = $derived.by(() => {
+    // Local lookup rebuilt on every change, never mutated reactively.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
+    const byId = new Map<number, { id: number; name: string; lines: Line[] }>();
+    for (const line of lines) {
+      for (const stop of outbound(line)?.stops ?? []) {
+        const entry = byId.get(stop.id) ?? { id: stop.id, name: stop.name, lines: [] };
+        if (!entry.lines.includes(line)) entry.lines.push(line);
+        byId.set(stop.id, entry);
+      }
+    }
+    return [...byId.values()]
+      .filter((stop) => stop.lines.length > 1)
+      .sort((a, b) => b.lines.length - a.lines.length || a.name.localeCompare(b.name, 'cs'));
+  });
+
+  function others(line: Line, stopName: string) {
+    return linesOf(stopName).filter((number) => number !== line.number);
   }
 </script>
 
@@ -59,272 +62,459 @@
 
 <header class="intro">
   <h1>Linky</h1>
-  {#if lines}
-    <p class="tabular">
-      {lines.length}
-      {lines.length === 1 ? 'linka' : lines.length < 5 ? 'linky' : 'linek'}
-    </p>
-  {/if}
+  <!-- A map key, not decoration: the diagrams below use these symbols. -->
+  <ul class="key" aria-label="Vysvětlivky">
+    <li><span class="key-dot" aria-hidden="true"></span>zastávka</li>
+    <li><span class="key-dot interchange" aria-hidden="true"></span>přestup</li>
+    <li><span class="key-dot terminus" aria-hidden="true"></span>konečná</li>
+    <li><Isa size={16} />bezbariérová</li>
+  </ul>
 </header>
 
-{#if failed}
-  <PageState title="Linky se nepodařilo načíst" error onretry={() => attempt++} />
-{:else if !lines}
+{#if networkFailed()}
+  <PageState title="Linky se nepodařilo načíst" error onretry={() => loadNetwork(true)} />
+{:else if !networkReady()}
   <p role="status" class="sr-only">Načítáme linky…</p>
-  <ul class="grid" aria-hidden="true">
+  <div class="loading" aria-hidden="true">
     {#each [0, 1, 2] as item (item)}
-      <li><Skeleton class="h-44 w-full rounded-lg" /></li>
+      <Skeleton class="h-32 w-full rounded-md" />
     {/each}
-  </ul>
+  </div>
 {:else if lines.length === 0}
   <PageState title="Zatím nejsou evidované žádné linky" />
 {:else}
-  <ul class="grid">
-    {#each lines as line (line.id)}
+  <ul class="lines">
+    {#each lines as line (line.number)}
       {@const route = outbound(line)}
-      {@const others = transfers(line)}
-      {@const ink = inkFor(line.color)}
-      <li class="card" style:--line={line.color}>
+      {@const stops = route?.stops ?? []}
+      {@const accessible = stops.filter((stop) => stepFree.get(stop.id)).length}
+      {@const via = stops.filter(
+        (stop, i) => i > 0 && i < stops.length - 1 && others(line, stop.name).length
+      )}
+      <li
+        class="line"
+        class:line-cased={isPale(line.color)}
+        style:--line={line.color}
+        style:--line-ink={line.ink}
+      >
         <div class="head">
-          <span class="badge tabular" style:background={line.color} style:color={ink}
-            >{line.number}</span
-          >
-          <div class="title">
-            <h2>{line.name}</h2>
-            <p class="type">{typeLabel(line.type)} linka</p>
+          <span class="plate tabular" aria-hidden="true">{line.number}</span>
+          <div class="naming">
+            <h2><span class="sr-only">Linka {line.number}: </span>{line.name}</h2>
+            <p class="meta">
+              <span class="meta-item">
+                {#if line.type.toLowerCase() === 'tram'}
+                  <TramFront class="size-4" aria-hidden="true" />
+                {:else}
+                  <BusFront class="size-4" aria-hidden="true" />
+                {/if}
+                {typeNoun(line.type)}
+              </span>
+              {#if stops.length && stopsList()}
+                <span class="meta-item tabular">
+                  <Isa size={16} />
+                  {accessible}
+                  {zOrZe(stops.length)}
+                  {stops.length} bezbariérových
+                </span>
+              {:else if stops.length && stopsFailed()}
+                <span class="meta-item">bezbariérovost nezjištěna</span>
+              {/if}
+            </p>
           </div>
         </div>
 
-        {#if route && route.stops.length}
-          <p class="ends">
-            <span>{route.stops[0].name}</span>
-            {#if line.routes.length > 1}
-              <ArrowLeftRight class="size-4 shrink-0" aria-label="oběma směry" />
-            {:else}
-              <ArrowRight class="size-4 shrink-0" aria-label="do" />
-            {/if}
-            <span>{route.direction}</span>
-          </p>
-          <dl class="facts">
-            <div>
-              <dt>Zastávek</dt>
-              <dd class="tabular">{route.stops.length}</dd>
-            </div>
-            <div>
-              <dt>Směry</dt>
-              <dd class="tabular">{line.routes.length}</dd>
-            </div>
-            <div>
-              <dt>Přestup</dt>
-              <dd>
-                {#if others.length}
-                  <span class="mini-badges">
-                    {#each others as other (other.id)}
+        {#if stops.length}
+          <!-- Wide screens: the outbound route as a strip diagram. -->
+          <ol class="strip" style:--count={stops.length} aria-label={`Trasa linky ${line.number}`}>
+            {#each stops as stop, index (stop.id)}
+              {@const transfer = others(line, stop.name)}
+              {@const terminus = index === 0 || index === stops.length - 1}
+              <li class:terminus class:interchange={transfer.length > 0}>
+                <span class="dot" aria-hidden="true"></span>
+                <a href={resolve('/stops/[id]', { id: String(stop.id) })}
+                  >{stop.name}{#if terminus}<span class="sr-only">, konečná</span>{/if}</a
+                >
+                {#if transfer.length}
+                  <span class="badges" aria-hidden="true">
+                    {#each transfer as other (other)}
                       <span
                         class="mini tabular"
-                        style:background={other.color}
-                        style:color={inkFor(other.color)}
-                        aria-label={`Linka ${other.number}`}>{other.number}</span
+                        style:background={LINES[other].color}
+                        style:color={LINES[other].ink}>{other}</span
                       >
                     {/each}
                   </span>
-                {:else}
-                  —
+                  <span class="sr-only">přestup na linky {transfer.join(', ')}</span>
                 {/if}
-              </dd>
-            </div>
-          </dl>
+              </li>
+            {/each}
+          </ol>
 
-          <button
-            type="button"
-            class="toggle"
-            aria-expanded={open === line.id}
-            aria-controls={`stops-${line.id}`}
-            onclick={() => (open = open === line.id ? null : line.id)}
-          >
-            Zastávky na trase
-            <ChevronDown class="size-4 chevron" aria-hidden="true" />
-          </button>
-          {#if open === line.id}
-            <ol class="route" id={`stops-${line.id}`}>
-              {#each route.stops as stop (stop.position)}
-                <li>
-                  <a href={resolve('/stops/[id]', { id: String(stop.id) })}>{stop.name}</a>
-                </li>
+          <!-- Phones: no sideways scrolling; where the line changes with others, in words. -->
+          <p class="via">
+            {#if via.length}
+              přes
+              {#each via as stop, i (stop.id)}
+                {i > 0 ? ' · ' : ''}<span class="via-stop"
+                  >{stop.name}
+                  <span class="badges" aria-hidden="true">
+                    {#each others(line, stop.name) as other (other)}
+                      <span
+                        class="mini tabular"
+                        style:background={LINES[other].color}
+                        style:color={LINES[other].ink}>{other}</span
+                      >
+                    {/each}
+                  </span><span class="sr-only">
+                    (přestup na {others(line, stop.name).join(', ')})</span
+                  ></span
+                >
               {/each}
-            </ol>
-          {/if}
+            {:else}
+              {stops.length} zastávek, bez přestupu
+            {/if}
+          </p>
         {:else}
-          <p class="ends muted">Trasa zatím není zadaná</p>
+          <p class="via empty">Trasa zatím není zadaná</p>
         {/if}
+        <a class="more" href={resolve('/lines/[id]', { id: String(line.apiId) })}>
+          Víc informací<span class="sr-only"> o lince {line.number}</span>
+          <ArrowRight class="size-4" aria-hidden="true" />
+        </a>
       </li>
     {/each}
   </ul>
+
+  {#if interchanges.length}
+    <section class="interchanges" aria-labelledby="interchanges-heading">
+      <h2 id="interchanges-heading">Přestupní zastávky</h2>
+      <ul>
+        {#each interchanges as stop (stop.id)}
+          <li>
+            <a href={resolve('/stops/[id]', { id: String(stop.id) })}>
+              <span class="stop-name">{stop.name}</span>
+              <span class="badges" aria-hidden="true">
+                {#each stop.lines as served (served.number)}
+                  <span
+                    class="mini md tabular"
+                    style:background={served.color}
+                    style:color={served.ink}>{served.number}</span
+                  >
+                {/each}
+              </span>
+              <span class="sr-only">
+                linky {stop.lines.map((served) => served.number).join(', ')}</span
+              >
+            </a>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 {/if}
 
 <style>
   .intro {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.75rem;
+    justify-content: space-between;
+    gap: 0.75rem 2rem;
     margin-block: 0.5rem 1.5rem;
   }
   h1 {
     font-size: 2rem;
     font-weight: var(--font-display-weight);
     letter-spacing: var(--tracking-display);
+    line-height: 1.1;
   }
-  .intro p {
+  .key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 500;
     color: var(--muted-foreground);
   }
-  .grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
-    align-items: start;
-  }
-  .card {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-    padding: 1.25rem 1.25rem 1rem;
-    box-shadow: var(--shadow-pop);
-  }
-  /* The line colour runs along the top edge like a route stripe. */
-  .card::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    height: 0.375rem;
-    background: var(--line);
-  }
-  .head {
-    display: flex;
+  .key li {
+    display: inline-flex;
     align-items: center;
-    gap: 0.875rem;
+    gap: 0.4rem;
   }
-  .badge {
-    display: inline-grid;
+  .key-dot {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    border: 3px solid var(--muted-foreground);
+    background: var(--background);
+  }
+  .key-dot.interchange {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    border-color: var(--foreground);
+  }
+  .key-dot.terminus {
+    background: var(--muted-foreground);
+  }
+
+  .loading {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  /* Rows separated by rules, no boxes: the plate and the rail carry the line colour. */
+  .lines {
+    border-top: 1px solid var(--border);
+  }
+  .line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 1rem;
+    align-items: start;
+    padding-block: 1.5rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .strip,
+  .via {
+    grid-column: 1 / -1;
+  }
+  .more {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: center;
+  }
+
+  .head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+  }
+  .plate {
+    display: grid;
     place-items: center;
-    min-width: 3rem;
-    height: 3rem;
+    min-width: 3.5rem;
+    height: 3.5rem;
     padding-inline: 0.5rem;
     border-radius: 0.375rem;
-    font-size: 1.5rem;
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+    font-size: 2rem;
     font-weight: 800;
     line-height: 1;
   }
-  .title {
-    min-width: 0;
-  }
   h2 {
-    font-size: 1.125rem;
+    font-size: 1.375rem;
     font-weight: 650;
-    line-height: 1.25;
+    line-height: 1.2;
   }
-  .type {
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
-  }
-  .ends {
+  .meta {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    gap: 0.25rem 1rem;
+    margin-top: 0.25rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    padding-inline: 0.25rem;
     font-weight: 600;
+    color: var(--primary);
+    white-space: nowrap;
+    text-underline-offset: 4px;
   }
-  .muted {
-    color: var(--muted-foreground);
-    font-weight: 400;
+  .more:hover {
+    text-decoration: underline;
   }
-  .facts {
+  .more :global(svg) {
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+  .more:hover :global(svg) {
+    transform: translateX(3px);
+  }
+
+  /*
+   * Strip diagram. Equal columns per stop; a single rail runs from the first stop's centre to
+   * the last. Pale lines get a dark keyline (--line-stroke) on light surfaces.
+   */
+  .strip {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding-top: 0.875rem;
-    border-top: 1px solid var(--border);
+    grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+    margin-top: 1.25rem;
   }
-  dt {
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
+  .strip::before {
+    content: '';
+    position: absolute;
+    top: 0.5625rem;
+    left: calc(50% / var(--count));
+    right: calc(50% / var(--count));
+    height: 0.375rem;
+    translate: 0 -50%;
+    border-radius: 999px;
+    background: var(--line);
+    box-shadow: 0 0 0 1.5px var(--line-stroke, var(--line));
   }
-  dd {
-    font-weight: 650;
-  }
-  .mini-badges {
+  .strip li {
+    position: relative;
+    z-index: 1;
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-inline: 0.25rem;
+    text-align: center;
+  }
+  .dot {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-top: 0.125rem;
+    border-radius: 999px;
+    border: 3px solid var(--line-stroke, var(--line));
+    background: var(--background);
+  }
+  .interchange .dot {
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0;
+    border-color: var(--foreground);
+  }
+  .terminus .dot {
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0;
+    background: var(--line);
+  }
+  .strip a {
+    /* Generous hit area around a short label. */
+    padding: 0.5rem 0.375rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.2;
+    border-radius: 4px;
+    text-underline-offset: 3px;
+  }
+  .terminus a,
+  .interchange a {
+    font-weight: 700;
+  }
+  .strip a:hover {
+    text-decoration: underline;
+  }
+  .badges {
+    display: inline-flex;
     gap: 0.25rem;
+    vertical-align: middle;
   }
   .mini {
     display: inline-grid;
     place-items: center;
-    min-width: 1.375rem;
-    height: 1.375rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
     padding-inline: 0.25rem;
     border-radius: 0.25rem;
     font-size: 0.75rem;
     font-weight: 800;
+    line-height: 1;
   }
-  .toggle {
+  .mini.md {
+    min-width: 1.625rem;
+    height: 1.625rem;
+    font-size: 0.875rem;
+  }
+
+  .via {
+    display: none;
+    margin-top: 0.875rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--muted-foreground);
+  }
+  .via-stop {
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .via.empty {
+    display: block;
+  }
+
+  .interchanges {
+    margin-top: 2.5rem;
+  }
+  .interchanges h2 {
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+  }
+  .interchanges ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+    column-gap: 2rem;
+  }
+  .interchanges a {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 100%;
-    margin-top: 0.875rem;
-    min-height: 2.75rem;
+    gap: 0.75rem;
+    min-height: 3.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .stop-name {
+    font-size: 1.0625rem;
     font-weight: 600;
-    color: var(--primary);
-    border-radius: calc(var(--radius) - 2px);
   }
-  .toggle:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-  }
-  .toggle :global(.chevron) {
-    transition: transform var(--motion-fast) var(--ease-out);
-  }
-  .toggle[aria-expanded='true'] :global(.chevron) {
-    transform: rotate(180deg);
-  }
-  /* Stops hang off a vertical line in the line colour, like a stop sign timeline. */
-  .route {
-    margin: 0.25rem 0 0.25rem 0.5rem;
-    border-left: 3px solid var(--line);
-  }
-  .route li {
-    position: relative;
-    padding: 0.3rem 0 0.3rem 1rem;
-  }
-  .route li::before {
-    content: '';
-    position: absolute;
-    left: -0.47rem;
-    top: 50%;
-    width: 0.75rem;
-    height: 0.75rem;
-    translate: 0 -50%;
-    border: 3px solid var(--line);
-    border-radius: 999px;
-    background: var(--card);
-  }
-  .route a {
+  .interchanges a:hover .stop-name {
+    text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .route a:hover {
-    text-decoration: underline;
-  }
-  .route a:focus-visible {
+
+  a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 767px) {
+    .strip {
+      display: none;
+    }
+    .via {
+      display: block;
+    }
+    .head {
+      align-items: start;
+    }
+    .more {
+      grid-row: auto;
+      grid-column: 1 / -1;
+      justify-self: start;
+      margin-top: 0.25rem;
+    }
+    .plate {
+      min-width: 3rem;
+      height: 3rem;
+      font-size: 1.625rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
-    .toggle :global(.chevron) {
+    .more :global(svg) {
       transition: none;
+    }
+    .more:hover :global(svg) {
+      transform: none;
     }
   }
 </style>

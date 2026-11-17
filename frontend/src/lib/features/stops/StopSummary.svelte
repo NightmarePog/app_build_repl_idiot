@@ -3,7 +3,7 @@
   import { ArrowRight, Check, X } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
   import { Button } from '$lib/ui/button';
-  import { describeStop, linesOf, neighboursOf } from '$lib/features/network/lines';
+  import { describeStop, linesOf, neighboursOf } from '$lib/features/network/lines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import StopImage from './StopImage.svelte';
   import { rememberStop } from './selected-stop';

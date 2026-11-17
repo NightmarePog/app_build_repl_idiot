@@ -60,12 +60,6 @@
   --radius: 0.5rem;
   --map: oklch(0.975 0.004 85);
   /* Dark ink on every line colour, so A, B and C badges read as one set. */
-  --line-a: #2b90d9;
-  --line-a-ink: #1a1a1a;
-  --line-b: #91f5ad;
-  --line-b-ink: #1a1a1a;
-  --line-c: #49b3b4;
-  --line-c-ink: #1a1a1a;
   --sidebar: var(--muted);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
@@ -101,12 +95,6 @@
   --shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px -8px oklch(0 0 0 / 0.55);
   --map: oklch(0.195 0.005 70);
   /* Slightly brighter lines so they keep their weight on the dark map. */
-  --line-a: #2b90d9;
-  --line-a-ink: #121413;
-  --line-b: #a4f8bc;
-  --line-b-ink: #121413;
-  --line-c: #5cc8c9;
-  --line-c-ink: #121413;
 }
 
 @theme inline {
@@ -290,4 +278,15 @@ html {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/*
+ * Line colours come from the API and never change with the theme. Pale ones (see isPale) get a
+ * dark keyline on light surfaces so rails and stop rings keep 3:1 contrast.
+ */
+.line-cased {
+  --line-stroke: color-mix(in oklch, var(--line) 45%, #1a1a1a);
+}
+.dark .line-cased {
+  --line-stroke: var(--line);
 }

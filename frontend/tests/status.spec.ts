@@ -1,5 +1,6 @@
 import { createStop } from './fixtures/stops';
 import { mockBrandAssets } from './fixtures/assets';
+import { mockNetwork } from './fixtures/network';
 
 const featuredStop = createStop(42, {
   image_url: 'http://127.0.0.1:3301/api/v1/stops-images/turingTerminal.png'
@@ -9,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 test.beforeEach(async ({ page }) => {
   await mockBrandAssets(page);
+  await mockNetwork(page);
   await page.route('**/api/v1/stops-images/turingTerminal.png', (route) =>
     route.fulfill({
       path: fileURLToPath(

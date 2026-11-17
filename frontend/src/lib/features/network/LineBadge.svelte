@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LINES, type LineId } from './lines';
+  import { LINES, type LineId } from './lines.svelte';
   let { id, size = 'sm' }: { id: LineId; size?: 'sm' | 'md' | 'lg' } = $props();
 </script>
 
@@ -7,9 +7,9 @@
   class="line-badge tabular"
   class:md={size === 'md'}
   class:lg={size === 'lg'}
-  style:background={LINES[id].color}
-  style:color={LINES[id].ink}
-  aria-label={`Linka ${id}`}>{id}</span
+  style:background={LINES[id]?.color ?? 'var(--muted-foreground)'}
+  style:color={LINES[id]?.ink ?? 'var(--background)'}
+  ><span aria-hidden="true">{id}</span><span class="sr-only">Linka {id}</span></span
 >
 
 <style>

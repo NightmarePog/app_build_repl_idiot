@@ -8,12 +8,23 @@
   import FooterLines from '$lib/features/network/FooterLines.svelte';
   import NavMenus from '$lib/features/network/NavMenus.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
-  import { describeStop, LINES, LINE_IDS, linesOf, type LineId } from '$lib/features/network/lines';
+  import { onMount } from 'svelte';
+  import {
+    describeStop,
+    LINES,
+    LINE_IDS,
+    linesOf,
+    loadNetwork,
+    type LineId
+  } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import { rememberStop } from '$lib/features/stops/selected-stop';
   let { children } = $props();
 
   let paletteOpen = $state(false);
+
+  // The line network feeds the menus, footer, map and stop pages on every route.
+  onMount(() => void loadNetwork());
 
   type Item = PaletteItem & { lines: LineId[]; page?: boolean };
 
@@ -33,17 +44,21 @@
     suggested: true
   }));
 
-  const lineItems: Item[] = LINE_IDS.map((id) => {
-    const stops = LINES[id].stops;
-    return {
-      key: `line-${id}`,
-      label: `Linka ${id}`,
-      sub: `${stops[0]} → ${stops[stops.length - 1]}, ${stops.length} zastávek`,
-      href: `${resolve('/stops')}?line=${id}`,
-      lines: [id],
-      suggested: true
-    };
-  });
+  const lineItems = $derived<Item[]>(
+    LINE_IDS.map((id) => {
+      const stops = LINES[id].stops;
+      return {
+        key: `line-${id}`,
+        label: `Linka ${id}`,
+        sub: stops.length
+          ? `${stops[0]} → ${stops[stops.length - 1]}, ${stops.length} zastávek`
+          : LINES[id].name,
+        href: `${resolve('/stops')}?line=${id}`,
+        lines: [id],
+        suggested: true
+      };
+    })
+  );
 
   const stops = $derived(stopsList() ?? []);
   const paletteItems = $derived<Item[]>([

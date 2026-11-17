@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Stop } from '$lib/api/generated';
-  import type { LineId } from './lines';
+  import type { LineId } from './lines.svelte';
   import NetworkMap from './NetworkMap.svelte';
 
   let {

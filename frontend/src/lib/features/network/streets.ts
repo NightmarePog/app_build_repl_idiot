@@ -1,5 +1,5 @@
-import { LINE_IDS, LINES } from './lines';
-import { ROUTE_COORDS, STOP_COORDS, type LngLat } from './routes.geo';
+import { LINE_IDS, LINES, routeCoordinates } from './lines.svelte';
+import { STOP_COORDS, type LngLat } from './routes.geo';
 
 /**
  * The base map is a real neighbourhood, but the campus is fictional, so real street names are
@@ -11,12 +11,6 @@ type StreetFeature = {
   properties: { name: string };
   geometry: { type: 'LineString'; coordinates: LngLat[] };
 };
-
-/**
- * The base map is a real neighbourhood, but the campus is fictional, so real street names are
- * hidden and the streets the buses use get campus names instead. One name per leg between two
- * stops; legs shared by several lines keep the first name they were given.
- */
 
 const NAMES: Record<string, string> = {
   'Turing Terminal|Ada Exchange': 'Turingova',
@@ -49,12 +43,16 @@ function nearestIndex(path: LngLat[], [x, y]: LngLat, from: number) {
   return best;
 }
 
+/** Empty until the network has loaded; lines without known geometry or stops are skipped. */
 export function streetLabels(): { type: 'FeatureCollection'; features: StreetFeature[] } {
   const named = new Set<string>();
   const features: StreetFeature[] = [];
   for (const id of LINE_IDS) {
-    const path = ROUTE_COORDS[id];
-    const stops = LINES[id].stops.filter((name) => STOP_COORDS[name]);
+    const line = LINES[id];
+    if (!line) continue;
+    const path = routeCoordinates(id);
+    const stops = line.stops.filter((name) => STOP_COORDS[name]);
+    if (path.length < 2 || stops.length < 2) continue;
     let start = nearestIndex(path, STOP_COORDS[stops[0]], 0);
     for (let index = 1; index < stops.length; index++) {
       const end = nearestIndex(path, STOP_COORDS[stops[index]], start);

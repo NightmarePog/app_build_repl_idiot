@@ -1,43 +1,20 @@
 <script lang="ts">
-  import { reveal } from '$lib/motion';
   import { onMount } from 'svelte';
-  import { resolve } from '$app/paths';
   import { Check, X } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
   import NetworkView from '$lib/features/network/NetworkView.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
-  import { describeStop, LINES, linesOf, POSITIONS } from '$lib/features/network/lines';
+  import { describeStop, linesOf, POSITIONS } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import StopImage from './StopImage.svelte';
+  import StopLines from './StopLines.svelte';
   import { AMENITIES } from './amenities';
-  import { rememberStop } from './selected-stop';
 
   let { stop }: { stop: Stop } = $props();
 
   const titleTransition = $derived(`stop-title-${String(stop.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`);
   const mapStops = $derived(stopsList() ?? [stop]);
   const onMap = $derived(!!POSITIONS[stop.name]);
-
-  /** Per line: previous stop, this stop, next stop, in route order. */
-  const strips = $derived(
-    linesOf(stop.name).map((id) => {
-      const route = LINES[id].stops;
-      const index = route.indexOf(stop.name);
-      const names = [route[index - 1], stop.name, route[index + 1]].filter(
-        (name): name is string => !!name
-      );
-      return {
-        id,
-        color: LINES[id].color,
-        towards: route[route.length - 1],
-        stops: names.map((name) => ({
-          name,
-          current: name === stop.name,
-          stop: stopsList()?.find((candidate) => candidate.name === name) ?? null
-        }))
-      };
-    })
-  );
 
   onMount(() => void loadStops());
 </script>
@@ -63,66 +40,35 @@
   </header>
 
   <div class="detail-layout">
-    <section class="detail-amenities" aria-labelledby="amenities-title">
-      <h2 id="amenities-title">Vybavení zastávky</h2>
-      <dl>
-        {#each AMENITIES as amenity (amenity.field)}
-          {@const has = stop[amenity.field]}
-          <div class="amenity-row">
-            <dt>
-              <amenity.icon aria-hidden="true" size={20} strokeWidth={1.75} />
-              {amenity.label}
-            </dt>
-            <dd class:no={!has}>
-              {#if has}
-                <Check aria-hidden="true" size={16} strokeWidth={2.5} /> ano
-              {:else}
-                <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne
-              {/if}
-            </dd>
-          </div>
-        {/each}
-      </dl>
-    </section>
+    <div class="detail-main">
+      <section class="detail-amenities" aria-labelledby="amenities-title">
+        <h2 id="amenities-title">Vybavení zastávky</h2>
+        <dl>
+          {#each AMENITIES as amenity (amenity.field)}
+            {@const has = stop[amenity.field]}
+            <div class="amenity-row">
+              <dt>
+                <amenity.icon aria-hidden="true" size={20} strokeWidth={1.75} />
+                {amenity.label}
+              </dt>
+              <dd class:no={!has}>
+                {#if has}
+                  <Check aria-hidden="true" size={16} strokeWidth={2.5} /> ano
+                {:else}
+                  <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne
+                {/if}
+              </dd>
+            </div>
+          {/each}
+        </dl>
+      </section>
+      <StopLines stopId={stop.id} />
+    </div>
 
     <div class="detail-side">
       {#if onMap}
         <!-- Decorative: the camera circles the stop; the page itself carries the information. -->
         <NetworkView stops={mapStops} selected={stop.id} focus interactive={false} />
-      {/if}
-      {#if strips.length}
-        <section
-          aria-labelledby="neighbours-title"
-          class="neighbours"
-          {@attach reveal({ delay: 0.08 })}
-        >
-          <h2 id="neighbours-title">Sousední zastávky</h2>
-          {#each strips as strip (strip.id)}
-            <div class="strip" style:--lc={strip.color}>
-              <p class="strip-head">
-                <LineBadge id={strip.id} />
-                <span>směr {strip.towards}</span>
-              </p>
-              <ol>
-                {#each strip.stops as item (item.name)}
-                  <li class:current={item.current}>
-                    {#if item.current}
-                      <span aria-current="location">{item.name}</span>
-                    {:else if item.stop}
-                      {@const target = item.stop}
-                      <a
-                        href={resolve('/stops/[id]', { id: String(target.id) })}
-                        onclick={() => rememberStop(target)}>{item.name}</a
-                      >
-                    {:else}
-                      <span>{item.name}</span>
-                    {/if}
-                  </li>
-                {/each}
-              </ol>
-            </div>
-          {/each}
-        </section>
       {/if}
     </div>
   </div>
@@ -206,72 +152,6 @@
     flex-direction: column;
     gap: 2rem;
     min-width: 0;
-  }
-  .strip + .strip {
-    margin-top: 1.25rem;
-  }
-  .strip-head {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
-  }
-  ol {
-    position: relative;
-    margin-left: 0.6875rem;
-  }
-  ol::before {
-    content: '';
-    position: absolute;
-    top: 1.375rem;
-    bottom: 1.375rem;
-    left: -2px;
-    width: 4px;
-    border-radius: 2px;
-    background: var(--lc);
-  }
-  li {
-    position: relative;
-    display: flex;
-    min-height: 2.75rem;
-    align-items: center;
-    padding-left: 1.25rem;
-  }
-  li::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: -6px;
-    width: 12px;
-    height: 12px;
-    margin-top: -6px;
-    border: 3px solid var(--lc);
-    border-radius: 50%;
-    background: var(--background);
-  }
-  li.current {
-    font-weight: 650;
-  }
-  li.current::before {
-    left: -8px;
-    width: 16px;
-    height: 16px;
-    margin-top: -8px;
-    background: var(--lc);
-    box-shadow: 0 0 0 3px var(--background);
-  }
-  li a {
-    display: flex;
-    min-height: 2.75rem;
-    flex: 1;
-    align-items: center;
-    color: var(--foreground);
-    transition: color var(--motion-fast) var(--ease-out);
-  }
-  li a:hover {
-    color: var(--primary);
   }
   @media (max-width: 1023px) {
     .detail-layout {

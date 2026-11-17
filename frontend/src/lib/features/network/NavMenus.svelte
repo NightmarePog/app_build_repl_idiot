@@ -4,7 +4,12 @@
   import { motionMs } from '$lib/motion';
   import { resolve } from '$app/paths';
   import { Accessibility, House, Ticket } from '@lucide/svelte';
-  import { routesFrom, isTransfer } from '$lib/features/network/lines';
+  import {
+    isTransfer,
+    networkFailed,
+    networkReady,
+    routesFrom
+  } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import LineCards from '$lib/features/network/LineCards.svelte';
@@ -25,9 +30,13 @@
   out:fade|global={{ duration: motionMs(120) }}
 >
   {#if kind === 'lines'}
-    <LineCards compact />
+    {#if networkReady()}
+      <LineCards compact />
+    {:else if !networkFailed()}
+      <p class="menu-note">Načítáme linky…</p>
+    {/if}
     <a href={resolve('/lines')} class="menu-all" onclick={onclose}>Všechny linky</a>
-  {:else if stopsList() === null}
+  {:else if stopsList() === null || (!networkReady() && !networkFailed())}
     <p class="menu-note">Načítáme zastávky…</p>
   {:else}
     {#each grouped.routes as route (route.id)}

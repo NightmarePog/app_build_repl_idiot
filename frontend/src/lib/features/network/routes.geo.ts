@@ -7,7 +7,7 @@
  * between their stops with OSRM /route (shorter direction per leg), rounded to 5 decimals and
  * simplified. Data © OpenStreetMap contributors (ODbL).
  */
-import type { LineId } from './lines';
+import type { LineId } from './lines.svelte';
 
 export type LngLat = [number, number];
 

@@ -14,9 +14,11 @@
     linesOf,
     LINE_IDS,
     LINES,
+    networkFailed,
+    networkReady,
     POSITIONS,
     type LineId
-  } from '$lib/features/network/lines';
+  } from '$lib/features/network/lines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import NetworkView from '$lib/features/network/NetworkView.svelte';
   import { loadStops, stopsFailed, stopsList } from '$lib/features/network/stops-store.svelte';
@@ -136,7 +138,11 @@
   const initialUrl = untrack(() => page.url);
   let query = $state(initialUrl.searchParams.get('q') ?? '');
   let filters = $state(readFilters(initialUrl));
-  let line = $state<LineId | null>(parseLine(initialUrl.searchParams.get('line')));
+  // Keep the raw `?line=` value: it only resolves to a line once the network has loaded.
+  let lineParam = $state<string | null>(initialUrl.searchParams.get('line'));
+  const line = $derived<LineId | null>(parseLine(lineParam));
+  /** A line was asked for in the URL but the network is still on its way. */
+  const lineResolving = $derived(!!lineParam && !networkReady() && !networkFailed());
   let selectedId = $state<number | null>(readStop(initialUrl));
   let directorySearch = $state(initialUrl.search);
   const hasFilters = $derived(query.length > 0 || filters.length > 0 || line !== null);
@@ -145,7 +151,7 @@
     const url = new URL(window.location.href);
     query = url.searchParams.get('q') ?? '';
     filters = readFilters(url);
-    line = parseLine(url.searchParams.get('line'));
+    lineParam = url.searchParams.get('line');
     selectedId = readStop(url);
     directorySearch = url.search;
   });
@@ -183,7 +189,7 @@
     );
     query = nextQuery;
     filters = chosen;
-    line = nextLine;
+    lineParam = nextLine;
     writeUrl((params) => {
       if (nextQuery) params.set('q', nextQuery);
       else params.delete('q');
@@ -275,7 +281,7 @@
   <title>Zastávky | Think different Academy</title>
   <meta
     name="description"
-    content={`${networkStopCount} zastávek kampusu na ${LINE_IDS.length} linkách. U každé fotografie a informace o nástupu bez schodů, střeše a prodeji jízdenek.`}
+    content={`${networkStopCount} zastávek kampusu${networkReady() ? ` na ${LINE_IDS.length} linkách` : ''}. U každé fotografie a informace o nástupu bez schodů, střeše a prodeji jízdenek.`}
   />
 </svelte:head>
 
@@ -307,12 +313,16 @@
     ></button>
     <header class="panel-head">
       <h1 id="stops-title">Zastávky</h1>
-      <p class="tabular">{LINE_IDS.length} linky, {networkStopCount} zastávek</p>
+      <p class="tabular">
+        {#if networkReady()}{LINE_IDS.length}
+          {LINE_IDS.length === 1 ? 'linka' : LINE_IDS.length < 5 ? 'linky' : 'linek'},
+        {/if}{networkStopCount} zastávek
+      </p>
     </header>
 
     {#if stopsFailed()}
       <PageState title="Zastávky se nepodařilo načíst" error onretry={() => void loadStops()} />
-    {:else if stopsList() === null}
+    {:else if stopsList() === null || lineResolving}
       <LoadingState label="Načítáme zastávky…" />
     {:else if stops.length === 0}
       <PageState title="Zatím tu nejsou žádné zastávky" />
@@ -404,7 +414,7 @@
                 <span
                   class="dot"
                   class:transfer={isTransfer(stop.name)}
-                  style:--lc={lines[0] ? LINES[lines[0]].color : 'var(--muted-foreground)'}
+                  style:--lc={lines[0] ? LINES[lines[0]]?.color : 'var(--muted-foreground)'}
                   aria-hidden="true"
                 ></span>
                 <span class="row-text">

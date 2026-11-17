@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { createStop } from './fixtures/stops';
 import { mockBrandAssets } from './fixtures/assets';
+import { mockNetwork } from './fixtures/network';
 
 const stops = [
   createStop(12, {
@@ -22,6 +23,7 @@ const stops = [
 
 test.beforeEach(async ({ page }) => {
   await mockBrandAssets(page);
+  await mockNetwork(page);
   await page.route('**/api/v1/stops', (route) => route.fulfill({ json: stops }));
   await page.route('**/api/v1/stops-images/turingTerminal.png', (route) =>
     route.fulfill({

@@ -1,24 +1,23 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { ArrowRight } from '@lucide/svelte';
-  import { LINES, LINE_IDS } from './lines';
+  import { LINES, LINE_IDS } from './lines.svelte';
 
   /** List items for the footer's "Linky" column: badge plus first and last stop. */
-  const lines = LINE_IDS.map((id) => {
-    const stops = LINES[id].stops;
-    return { id, from: stops[0], to: stops[stops.length - 1] };
-  });
+  const lines = $derived(
+    LINE_IDS.map((id) => {
+      const { stops, color, ink } = LINES[id];
+      return { id, color, ink, from: stops[0], to: stops[stops.length - 1] };
+    })
+  );
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- The route is resolved; only a query is appended. -->
 {#each lines as line (line.id)}
   <li>
     <a href={`${resolve('/stops')}?line=${line.id}`} class="line-link">
-      <span
-        class="badge"
-        style:background={LINES[line.id].color}
-        style:color={LINES[line.id].ink}
-        aria-hidden="true">{line.id}</span
+      <span class="badge" style:background={line.color} style:color={line.ink} aria-hidden="true"
+        >{line.id}</span
       >
       <span class="sr-only">Linka {line.id}:</span>
       <span class="route"

@@ -4,7 +4,7 @@
   import { ArrowRight } from '@lucide/svelte';
   import type { Attachment } from 'svelte/attachments';
   import { reveal } from '$lib/motion';
-  import { LINES, LINE_IDS, linesOf, type LineId } from './lines';
+  import { LINES, LINE_IDS, linesOf, type LineId } from './lines.svelte';
   import BusIllustration from './BusIllustration.svelte';
   import StreetScenery from './StreetScenery.svelte';
 
@@ -29,22 +29,36 @@
     };
   });
 
-  /** Per-line street: bus livery, parallax seed and a bob offset so the buses differ. */
-  const SCENE: Record<LineId, { seed: number; stripe: string; delay: string }> = {
-    A: { seed: 11, stripe: '#0070bb', delay: '0s' },
-    B: { seed: 23, stripe: '#2f9e5a', delay: '-0.25s' },
-    C: { seed: 37, stripe: '#23898a', delay: '-0.5s' }
-  };
+  /**
+   * Street scenes: bus livery, parallax seed and a bob offset so the buses differ. Lines come
+   * from the API, so each card takes a scene by its position and the palette repeats.
+   */
+  const SCENES = [
+    { seed: 11, stripe: '#0070bb', delay: '0s' },
+    { seed: 23, stripe: '#2f9e5a', delay: '-0.25s' },
+    { seed: 37, stripe: '#23898a', delay: '-0.5s' }
+  ];
 
   const CRUISE = 1;
   const HURRY = 2.8;
   const DEPART = 7;
 
-  const lines = LINE_IDS.map((id) => {
-    const stops = LINES[id].stops;
-    const transfers = [...new Set(stops.flatMap(linesOf))].filter((other) => other !== id).sort();
-    return { id, from: stops[0], to: stops[stops.length - 1], count: stops.length, transfers };
-  });
+  const lines = $derived(
+    LINE_IDS.map((id, index) => {
+      const stops = LINES[id].stops;
+      const transfers = [...new Set(stops.flatMap(linesOf))].filter((other) => other !== id).sort();
+      return {
+        id,
+        apiId: LINES[id].apiId,
+        from: stops[0] ?? '',
+        to: stops[stops.length - 1] ?? '',
+        count: stops.length,
+        transfers,
+        scene: index % SCENES.length,
+        ...SCENES[index % SCENES.length]
+      };
+    })
+  );
 
   let leaving = $state<LineId | null>(null);
 
@@ -114,43 +128,40 @@
   }
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- The route is resolved; only a query is appended. -->
 <ul class="line-cards" class:compact class:flashing>
   {#each lines as line, index (line.id)}
-    {@const href = `${resolve('/stops')}?line=${line.id}`}
+    {@const href = resolve('/lines/[id]', { id: String(line.apiId) })}
     <li {@attach !compact && reveal({ delay: index * 0.09 })}>
       <a
         {href}
-        class="card line-{line.id.toLowerCase()}"
+        class="card scene-{line.scene}"
         class:leaving={leaving === line.id}
-        aria-label={`Linka ${line.id}, ${line.from} do ${line.to}, ${line.count} zastávek, přestup na ${line.transfers.join(' a ')}`}
-        style:--bus-delay={SCENE[line.id].delay}
+        aria-label={`Linka ${line.id}, ${line.from} do ${line.to}, ${line.count} zastávek${line.transfers.length ? `, přestup na ${line.transfers.join(' a ')}` : ''}`}
+        style:--bus-delay={line.delay}
         style:--index={index}
         onclick={(event) => drive(event, line.id, href)}
         {@attach speedOnHover}
       >
-        <StreetScenery
-          seed={SCENE[line.id].seed}
-          scale={compact ? 0.5 : 1}
-          road={compact ? 16 : 30}
-        />
+        <StreetScenery seed={line.seed} scale={compact ? 0.5 : 1} road={compact ? 16 : 30} />
         <span class="road" aria-hidden="true"><span class="lane"></span></span>
-        <span class="bus"><BusIllustration stripe={SCENE[line.id].stripe} /></span>
+        <span class="bus"><BusIllustration stripe={line.stripe} /></span>
 
         <span class="head">
           <span class="letter">{line.id}</span>
           <span class="facts">
             <span class="count tabular">{line.count} zastávek</span>
-            <span class="transfers">
-              Přestup na
-              {#each line.transfers as other (other)}
-                <span
-                  class="mini"
-                  style:background={LINES[other].color}
-                  style:color={LINES[other].ink}>{other}</span
-                >
-              {/each}
-            </span>
+            {#if line.transfers.length}
+              <span class="transfers">
+                Přestup na
+                {#each line.transfers as other (other)}
+                  <span
+                    class="mini"
+                    style:background={LINES[other].color}
+                    style:color={LINES[other].ink}>{other}</span
+                  >
+                {/each}
+              </span>
+            {/if}
           </span>
         </span>
         <span class="route">
@@ -177,7 +188,7 @@
   }
 
   /* Fixed illustration colours: the cards look the same in both themes. */
-  .line-a {
+  .scene-0 {
     --card-bg: #0070bb;
     --card-ink: #ffffff;
     --letter-bg: #121413;
@@ -190,7 +201,7 @@
     --scene-window: rgb(255 214 120 / 0.55);
     --scene-near: #0b4f80;
   }
-  .line-b {
+  .scene-1 {
     --card-bg: #a4f8bc;
     --card-ink: #121413;
     --letter-bg: #121413;
@@ -203,7 +214,7 @@
     --scene-window: rgb(255 255 255 / 0.7);
     --scene-near: #5fb97c;
   }
-  .line-c {
+  .scene-2 {
     --card-bg: #5cc8c9;
     --card-ink: #121413;
     --letter-bg: #121413;
