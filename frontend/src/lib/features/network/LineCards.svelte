@@ -150,7 +150,6 @@
 
         <span class="head">
           <span class="letter">{line.id}</span>
-          <span class="kind">Linka {line.id}</span>
           <span class="facts">
             <span class="count tabular">{line.count} zastávek</span>
             {#if line.transfers.length}
@@ -283,16 +282,6 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-  }
-  .kind {
-    color: var(--card-ink);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
-  .compact .kind {
-    display: none;
   }
   .letter {
     display: grid;
