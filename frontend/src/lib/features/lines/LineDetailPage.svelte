@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { BusFront, Check, TramFront } from '@lucide/svelte';
+  import { ArrowLeftRight, BusFront, Check, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -19,6 +19,7 @@
   import { minutesOf } from '$lib/features/timetable/time';
   import { tripPosition } from '$lib/features/timetable/trip-position';
   import { inkFor, isPale, typeLabel, zOrZe } from './line-style';
+  import { czechCount } from '$lib/plural';
 
   let { id }: { id: string } = $props();
 
@@ -135,6 +136,29 @@
   /** Departure of the trip the per-stop minutes come from, named in the caption. */
   const firstTrip = $derived(routeDetails[0]?.stops[0]?.departure_time ?? null);
 
+  /** Type tag in the header: "Autobusová linka", so the subtitle can carry facts instead. */
+  const kindLabel = $derived.by(() => {
+    const label = typeLabel(line?.type ?? '');
+    return label.endsWith('á') ? `${label} linka` : `Linka · ${label}`;
+  });
+
+  /** First and last departure of the day over both directions, e.g. "07:00–23:52". */
+  const span = $derived.by(() => {
+    const trips = timetable.trips ?? [];
+    if (trips.length === 0) return null;
+    const sorted = [...trips].sort(
+      (a, b) =>
+        minutesOf(a.departure_time, a.departure_day_offset) -
+        minutesOf(b.departure_time, b.departure_day_offset)
+    );
+    const first = sorted[0]!.departure_time;
+    const last = sorted.at(-1)!.departure_time;
+    return first === last ? `v ${first}` : `${first}–${last}`;
+  });
+
+  /** Boarding stop picked in the timetable, highlighted on the route so the panels read as one. */
+  let boardStop = $state<number | null>(null);
+
   /** Other lines at the stop, linked straight to that stop on their own diagram. */
   function transfersAt(stopName: string) {
     return linesOf(stopName)
@@ -176,7 +200,7 @@
   >
     <div class="head">
       <PageHeader
-        kind="Linka"
+        kind={kindLabel}
         icon={line.type.toLowerCase() === 'tram' ? TramFront : BusFront}
         title={line.name}
         color={line.color}
@@ -186,9 +210,14 @@
             color={line?.color ?? ''}
             size="lg"
           />{/snippet}
-        {#snippet meta()}<span
-            >{typeLabel(line?.type ?? '')} linka {line?.number} ·
-            {(line?.routes.length ?? 0) > 1 ? 'dva směry' : 'jeden směr'}</span
+        {#snippet meta()}<span class="tabular"
+            >{[
+              route ? czechCount(route.stops.length, 'zastávka', 'zastávky', 'zastávek') : '',
+              (line?.routes.length ?? 0) > 1 ? 'oba směry' : 'jeden směr',
+              span ? `jezdí ${span}` : ''
+            ]
+              .filter(Boolean)
+              .join(' · ')}</span
           >{/snippet}
       </PageHeader>
     </div>
@@ -198,9 +227,9 @@
     {:else}
       <!-- One direction switch drives the whole page: the route and the timetable below. -->
       <div class="direction-bar">
-        <p class="eyebrow" id="direction-label">Směr jízdy</p>
+        <h2 class="section-title" id="direction-label">Směr jízdy</h2>
         {#if line.routes.length > 1}
-          <nav class="directions" aria-label="Směr jízdy">
+          <nav class="directions" aria-labelledby="direction-label">
             {#each line.routes as option (option.id)}
               <a
                 href={option.bound === 'inbound'
@@ -211,7 +240,10 @@
                 data-sveltekit-noscroll
               >
                 <span class="dir-name">
-                  {#if option.id === route.id}<Check class="size-4" aria-hidden="true" />{/if}
+                  {#if option.id === route.id}<Check
+                      class="size-4"
+                      aria-hidden="true"
+                    />{:else}<ArrowLeftRight class="size-4" aria-hidden="true" />{/if}
                   Směr {option.direction}
                 </span>
                 <span class="dir-label tabular">
@@ -224,7 +256,6 @@
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
-                {#if option.id !== route.id}<span class="dir-switch">Přepnout směr ›</span>{/if}
               </a>
             {/each}
           </nav>
@@ -238,12 +269,17 @@
         <section class="route" aria-labelledby="route-heading">
           <h2 id="route-heading" class="section-title">Trasa</h2>
           <p class="caption">
+            <span class="legend" aria-hidden="true">
+              <span class="key"><span class="dot key-end"></span>konečná</span>
+              <span class="key"><span class="dot"></span>zastávka</span>
+              <span class="key"><span class="dot key-transfer"></span>přestup</span>
+            </span>
             {#if firstTrip}
-              <span class="tabular">Minuty od startu spoje v {firstTrip}.</span>
+              <span class="tabular">+min = od odjezdu spoje v {firstTrip}</span>
             {/if}
             {#if stopsList()}
               <span class="isa-count tabular">
-                <Isa size={18} />
+                <Isa size={16} />
                 bezbariérový nástup na {accessible}
                 {zOrZe(route.stops.length)}
                 {route.stops.length} zastávek
@@ -252,9 +288,6 @@
               <span>Bezbariérovost zastávek se nepodařilo zjistit.</span>
             {/if}
           </p>
-          <p class="diagram-head" aria-hidden="true">
-            <span></span><span class="r">Min. od startu</span><span>Zastávka</span>
-          </p>
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
             {#each route.stops as stop, index (stop.id)}
               {@const others = transfersAt(stop.name)}
@@ -262,7 +295,12 @@
               {@const last = index === route.stops.length - 1}
               {@const leg = cumulative.get(stop.id)}
               {@const wait = legs?.dwell.get(stop.id) ?? 0}
-              <li id={`stop-${stop.id}`} class:terminus={first || last}>
+              <li
+                id={`stop-${stop.id}`}
+                class:terminus={first || last}
+                class:interchange={others.length > 0}
+                class:boarding={boardStop === stop.id || (boardStop === null && first)}
+              >
                 <span class="dot" aria-hidden="true"></span>
                 {#if bus && bus.index === index}
                   <a
@@ -273,7 +311,6 @@
                     ><BusIllustration stripe={line.color} /></a
                   >
                 {/if}
-                <span class="leg tabular">{leg !== undefined ? `+${leg} min` : ''}</span>
                 <div class="stop">
                   <span class="stop-main">
                     <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
@@ -281,7 +318,12 @@
                     >
                     {#if first}<span class="end-tag">výchozí</span>{/if}
                     {#if last}<span class="end-tag">konečná</span>{/if}
-                    {#if stepFree.get(stop.id)}<Isa size={18} label="bezbariérový nástup" />{/if}
+                    {#if stepFree.get(stop.id)}<Isa size={16} label="bezbariérový nástup" />{/if}
+                    <span class="leg tabular"
+                      >{leg !== undefined ? `+${leg} min` : ''}<span class="sr-only">
+                        od startu</span
+                      ></span
+                    >
                   </span>
                   {#if others.length || (wait > 0 && !first && !last)}
                     <span class="stop-sub">
@@ -316,7 +358,7 @@
         <section class="schedule" aria-labelledby="schedule-heading">
           <h2 id="schedule-heading" class="section-title">Jízdní řád</h2>
           {#key route.id}
-            <LineTrips {timetable} {route} lineNumber={line.number} />
+            <LineTrips {timetable} {route} lineNumber={line.number} bind:stopId={boardStop} />
           {/key}
         </section>
       </div>
@@ -360,13 +402,6 @@
   }
   .directions a:hover {
     background: var(--accent);
-  }
-  .dir-switch {
-    color: var(--primary);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
   .directions a[aria-current='page'] {
     background: var(--line);
@@ -418,23 +453,6 @@
     align-items: center;
     gap: 0.375rem;
   }
-  .diagram-head {
-    display: grid;
-    grid-template-columns: 2rem 5.75rem minmax(0, 1fr);
-    column-gap: 0.75rem;
-    margin-top: 1rem;
-    padding-bottom: 0.375rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
-  .diagram-head .r {
-    text-align: right;
-    white-space: nowrap;
-  }
 
   /*
    * Vertical line diagram, as on a PID line timetable. Columns: rail with the stop symbol,
@@ -447,7 +465,7 @@
   .diagram li {
     position: relative;
     display: grid;
-    grid-template-columns: 2rem 5.75rem minmax(0, 1fr);
+    grid-template-columns: 2rem minmax(0, 1fr);
     align-items: start;
     column-gap: 0.75rem;
     min-height: 3.5rem;
@@ -557,13 +575,46 @@
     position: absolute;
     inset: -0.5rem;
   }
-  /* Minutes from the first stop, right-aligned like an IDOS / SBB stop list. */
+  /* Minutes from the first stop, at the end of the name row so they read with it. */
   .leg {
-    padding-top: 0.75rem;
-    color: var(--foreground);
-    text-align: right;
+    margin-left: auto;
+    color: var(--muted-foreground);
     white-space: nowrap;
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  /* One symbol convention: filled = terminus, hollow = stop, ringed = transfer. */
+  .terminus .dot,
+  .key-end {
+    background: var(--line-stroke, var(--line));
+  }
+  .interchange .dot,
+  .key-transfer {
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--foreground);
+  }
+  .legend {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.875rem;
+  }
+  .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .key .dot {
+    margin: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-width: 2px;
+  }
+  /* Stop picked in the timetable. */
+  .diagram li.boarding {
+    background: linear-gradient(to right, transparent 2.5rem, var(--muted) 2.5rem);
+  }
+  .boarding .name {
     font-weight: var(--weight-strong);
   }
   .bus {
@@ -590,6 +641,11 @@
   @media (max-width: 639px) {
     .directions {
       max-width: none;
+      grid-auto-flow: row;
+    }
+    .directions a + a {
+      border-left: 0;
+      border-top: 1.5px solid var(--border);
     }
     .directions a {
       padding-inline: 0.75rem;
