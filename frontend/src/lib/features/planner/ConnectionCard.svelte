@@ -63,7 +63,7 @@
     absolute(call.departure_time, call.departure_day_offset) -
     absolute(call.arrival_time, call.arrival_day_offset);
   /** The one vehicle name used on every page: "Bus B03". */
-  const vehicle = (leg: ConnectionLeg) => vehicleLabel(leg.block_ref) ?? `Linka ${leg.line.number}`;
+  const vehicle = (leg: ConnectionLeg) => vehicleLabel(leg.block_ref) ?? '';
 
   const spoken = $derived(
     `Odjezd ${dayNote(connection.departure_day_offset)} ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
@@ -145,6 +145,15 @@
     </span>
   </button>
 
+  <nav class="quick-links" aria-label="Spoje tohoto spojení">
+    {#each connection.legs as leg, index (index)}
+      <a href={tripHref(leg)}
+        ><LinePlate number={leg.line.number} color={leg.line.color} size="sm" />
+        {vehicle(leg) || 'Spoj'} → {leg.to.name}</a
+      >
+    {/each}
+  </nav>
+
   {#if open}
     <div class="detail" id={`${id}-detail`}>
       {#each connection.legs as leg, index (index)}
@@ -176,12 +185,9 @@
             <nav class="leg-links" aria-label={`Odkazy úseku ${index + 1}`}>
               <a href={tripHref(leg)}
                 ><Bus class="size-4" aria-hidden="true" />
-                Spoj {vehicle(leg)}</a
+                Jízdní řád spoje</a
               >
-              <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
-                ><LinePlate number={leg.line.number} color={leg.line.color} size="sm" /> Linka {leg
-                  .line.number}</a
-              >
+              <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}>Celá linka</a>
             </nav>
           </header>
           <ol class="calls" style:--line={leg.line.color}>
@@ -190,6 +196,11 @@
               {@const alight = at === leg.stops.length - 1}
               <li class:edge={board || alight}>
                 <span class="call-time tabular">
+                  {#if !board && !alight && dwell(call) > 0}
+                    <span class="arr"><span class="sr-only">příjezd </span>{call.arrival_time}</span
+                    >
+                    <span class="sr-only">odjezd </span>
+                  {/if}
                   {alight ? call.arrival_time : call.departure_time}
                   {#if dayNote(alight ? call.arrival_day_offset : call.departure_day_offset) && (at === 0 || dayNote(call.departure_day_offset) !== dayNote(leg.stops[at - 1].departure_day_offset))}
                     <span class="day-sub"
@@ -202,13 +213,6 @@
                   <a href={stopHref(call.stop.id)}>{call.stop.name}</a>
                   {#if board}<span class="sr-only">(nástup)</span>{/if}
                   {#if alight}<span class="sr-only">(výstup)</span>{/if}
-                  {#if !board && !alight && dwell(call) > 0}
-                    <span class="dwell"
-                      ><span class="sr-only">příjezd {call.arrival_time}, </span>stojí {duration(
-                        dwell(call)
-                      )}</span
-                    >
-                  {/if}
                 </span>
               </li>
             {/each}
@@ -459,7 +463,8 @@
     vertical-align: -0.125em;
   }
   .leg-name {
-    flex: 1 1 10rem;
+    flex: 1 1 100%;
+    order: 1;
     min-width: 0;
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
@@ -472,6 +477,7 @@
     font-variant-numeric: tabular-nums;
   }
   .leg-links {
+    order: 2;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -543,12 +549,28 @@
   .edge .call-time {
     font-weight: var(--weight-strong);
   }
-  .dwell {
-    padding: 0 0.375rem;
-    border-radius: var(--radius);
-    background: var(--muted);
+  .call-time .arr {
     font-size: var(--fs-sm);
+  }
+  .quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1rem;
+  }
+  .quick-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .quick-links a:hover {
+    border-color: var(--input);
   }
   .day-sub {
     font-size: var(--fs-sm);

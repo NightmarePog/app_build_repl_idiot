@@ -176,6 +176,33 @@
       connections.every((c) => c.departure_day_offset <= 0)
   );
 
+  /**
+   * Nothing more today: roll over to the next service day (IDOS "další spojení") instead of
+   * claiming that nothing runs. `rollover` is 'none' only when tomorrow's whole day is empty too.
+   */
+  let rollover = $state<'idle' | 'loading' | 'found' | 'none' | 'failed'>('idle');
+  $effect(() => {
+    void searchKey;
+    const data = search.data;
+    const { from, to } = query;
+    untrack(() => (rollover = 'idle'));
+    if (!data || data.connections.length || from === null || to === null) return;
+    if (query.mode !== 'departure') return;
+    const key = searchKey;
+    const controller = new AbortController();
+    untrack(() => (rollover = 'loading'));
+    fetchPage(from, to, '00:00', 'departure', controller.signal)
+      .then((next) => {
+        if (key !== searchKey) return;
+        extra = next.connections.map((c) => shifted(c, 1));
+        rollover = extra.length ? 'found' : 'none';
+      })
+      .catch(() => {
+        if (key === searchKey) rollover = 'failed';
+      });
+    return () => controller.abort();
+  });
+
   const fastestMinutes = $derived(fastestDuration(connections));
 
   /**
@@ -306,12 +333,26 @@
         />
       {:else if !search.data && search.loading}
         <LoadingState label="Hledáme spojení…" />
+      {:else if search.data && connections.length === 0 && rollover === 'loading'}
+        <LoadingState label="Dnes už nic nejede, hledáme zítřejší spojení…" />
       {:else if search.data && connections.length === 0}
         <PageState
-          title="Žádné spojení"
-          description="Mezi těmito zastávkami během celého dne nic nejede. Zkuste jinou zastávku poblíž nebo jiný směr."
+          title={query.mode === 'arrival'
+            ? 'Do tohoto času žádné spojení nedojede'
+            : rollover === 'failed'
+              ? 'Zítřejší spojení se nepodařilo načíst'
+              : 'Mezi těmito zastávkami nejede žádné spojení'}
           headingLevel={2}
+          error={rollover === 'failed'}
+          onretry={rollover === 'failed' ? () => search.retry() : undefined}
         />
+        {#if query.mode === 'arrival'}
+          <div class="pager">
+            <Button variant="outline" href={plannerHref({ ...query, mode: 'departure' })}
+              >Hledat podle odjezdu</Button
+            >
+          </div>
+        {/if}
       {:else if connections.length}
         {#if !noMore.earlier}
           <div class="pager">
