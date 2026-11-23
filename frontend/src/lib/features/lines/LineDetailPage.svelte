@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { BusFront, TramFront } from '@lucide/svelte';
+  import { ArrowLeftRight, ArrowRight, BusFront, Clock, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -18,7 +18,7 @@
   import { hops, median, travelMinutes } from '$lib/features/timetable/line-trips';
   import { duration, minutesOf } from '$lib/features/timetable/time';
   import { tripPosition } from '$lib/features/timetable/trip-position';
-  import { inkFor, isPale, typeLabel, zOrZe } from './line-style';
+  import { inkFor, isPale, typeNoun, zOrZe } from './line-style';
   import { czechCount } from '$lib/plural';
 
   let { id }: { id: string } = $props();
@@ -145,8 +145,7 @@
 
   /** Type tag in the header: "Autobusová linka", so the subtitle can carry facts instead. */
   const kindLabel = $derived.by(() => {
-    const label = typeLabel(line?.type ?? '');
-    return label.endsWith('á') ? `${label} linka` : `Linka · ${label}`;
+    return `Linka ${line?.number ?? ''} · ${typeNoun(line?.type ?? '')}`;
   });
 
   /** First and last departure of the day over both directions, e.g. "07:00–23:52". */
@@ -165,6 +164,13 @@
 
   /** Boarding stop picked in the timetable, highlighted on the route so the panels read as one. */
   let boardStop = $state<number | null>(null);
+
+  function pickStop(stopId: number) {
+    boardStop = stopId;
+    // Stacked on phones: bring the timetable into view so the tap visibly does something.
+    if (window.matchMedia('(max-width: 63.99rem)').matches)
+      document.getElementById('schedule-heading')?.scrollIntoView({ block: 'start' });
+  }
 
   /** Other lines at the stop, linked straight to that stop on their own diagram. */
   function transfersAt(stopName: string) {
@@ -235,11 +241,9 @@
     {:else}
       <!-- One direction switch drives the whole page: the route and the timetable below. -->
       <div class="direction-bar">
-        <h2 class="section-title" id="direction-label">
-          {line.routes.length > 1 ? 'Vyberte směr' : 'Směr jízdy'}
-        </h2>
         {#if line.routes.length > 1}
-          <nav class="directions" aria-labelledby="direction-label">
+          {@const other = line.routes.find((r) => r.id !== route.id)}
+          <nav class="directions" aria-label="Směr jízdy">
             {#each line.routes as option (option.id)}
               <a
                 href={option.bound === 'inbound'
@@ -249,29 +253,45 @@
                 data-sveltekit-replacestate
                 data-sveltekit-noscroll
               >
-                <span class="dir-name">Směr {option.direction}</span>
-                <span class="dir-label tabular">
-                  {[
-                    `z ${option.stops[0]?.name ?? ''}`,
-                    travelByRoute.get(option.id) != null
-                      ? `jízda ${duration(travelByRoute.get(option.id)!)}`
-                      : ''
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                <span class="dir-name">
+                  <span class="dir-from">{option.stops[0]?.name ?? ''}</span>
+                  <ArrowRight size={18} aria-hidden="true" />
+                  <span>{option.direction}</span>
                 </span>
+                {#if travelByRoute.get(option.id) != null}
+                  <span class="dir-label tabular"
+                    ><Clock size={13} aria-hidden="true" />
+                    {duration(travelByRoute.get(option.id)!)}</span
+                  >
+                {/if}
               </a>
             {/each}
           </nav>
+          {#if other}
+            <a
+              class="swap"
+              href={other.bound === 'inbound'
+                ? resolve('/lines/[id]?smer=inbound', { id })
+                : resolve('/lines/[id]?smer=outbound', { id })}
+              data-sveltekit-replacestate
+              data-sveltekit-noscroll
+              aria-label={`Obrátit směr: ${other.stops[0]?.name ?? ''} → ${other.direction}`}
+              title="Obrátit směr"><ArrowLeftRight size={20} aria-hidden="true" /></a
+            >
+          {/if}
         {:else}
-          <p class="single-direction">Směr <strong>{route.direction}</strong></p>
+          <p class="single-direction dir-name">
+            <span class="dir-from">{route.stops[0]?.name}</span>
+            <ArrowRight size={18} aria-hidden="true" />
+            <strong>{route.direction}</strong>
+          </p>
         {/if}
         <p class="sr-only" aria-live="polite">Směr {route.direction}</p>
       </div>
 
       <div class="line-body">
         <section class="route" aria-labelledby="route-heading">
-          <h2 id="route-heading" class="section-title">Trasa · směr {route.direction}</h2>
+          <h2 id="route-heading" class="section-title">Trasa linky</h2>
           <p class="caption">
             {#if stopsList()}
               <span class="isa-count tabular">
@@ -286,7 +306,7 @@
           </p>
           {#if cumulative.size > 0}
             <p class="diagram-head" aria-hidden="true">
-              <span>Zastávka</span><span>min od startu</span>
+              <span>Zastávka</span><span>min z {route.stops[0]?.name}</span>
             </p>
           {/if}
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
@@ -296,10 +316,12 @@
               {@const last = index === route.stops.length - 1}
               {@const leg = cumulative.get(stop.id)}
               {@const wait = legs?.dwell.get(stop.id) ?? 0}
+              {@const picked = !last && (boardStop === stop.id || (boardStop === null && first))}
               <li
                 id={`stop-${stop.id}`}
                 class:terminus={first || last}
-                class:boarding={boardStop === stop.id || (boardStop === null && first)}
+                class:interchange={others.length > 0}
+                class:boarding={picked}
               >
                 <span class="dot" aria-hidden="true"></span>
                 {#if bus && bus.index === index}
@@ -311,43 +333,47 @@
                     ><BusIllustration stripe={line.color} /></a
                   >
                 {/if}
+                {#if !last}
+                  <!-- The whole row picks the boarding stop for the timetable. -->
+                  <button
+                    type="button"
+                    class="pick"
+                    aria-pressed={picked}
+                    aria-label={`Odjezdy ze zastávky ${stop.name}`}
+                    onclick={() => pickStop(stop.id)}
+                  ></button>
+                {/if}
                 <div class="stop">
                   <span class="stop-main">
                     <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
                       >{stop.name}</a
                     >
-                    {#if first}<span class="end-tag">výchozí</span>{/if}
-                    {#if last}<span class="end-tag">konečná</span>{/if}
                     {#if stepFree.get(stop.id)}<Isa size={16} label="bezbariérový nástup" />{/if}
+                    {#if picked}<span class="board-flag">Nástup</span>{/if}
                   </span>
                   <span class="leg tabular"
-                    >{leg !== undefined ? `${leg} min` : ''}{#if leg !== undefined}<span
-                        class="sr-only"
-                      >
-                        od začátku trasy</span
+                    >{#if leg !== undefined}{first ? '0' : `+${leg}`}<span class="sr-only">
+                        min od začátku trasy</span
                       >{/if}</span
                   >
                   {#if others.length || (wait > 0 && !first && !last)}
                     <span class="stop-sub">
-                      {#if others.length}
-                        <span class="transfer">
-                          <span class="transfer-label">Přestup na</span>
-                          {#each others as other (other.number)}
-                            <a
-                              class="badge tabular"
-                              href={resolve(`/lines/[id]#stop-${stop.id}`, {
-                                id: String(other.apiId)
-                              })}
-                              style:background={other.color}
-                              style:color={other.ink}
-                              ><span aria-hidden="true">{other.number}</span><span class="sr-only"
-                                >linka {other.number}</span
-                              ></a
-                            >
-                          {/each}
-                        </span>
-                      {/if}
-                      {#if wait > 0 && !first && !last}<span class="note">stojí {wait} min</span
+                      {#each others as other (other.number)}
+                        <a
+                          class="badge tabular"
+                          href={resolve(`/lines/[id]#stop-${stop.id}`, {
+                            id: String(other.apiId)
+                          })}
+                          style:background={other.color}
+                          style:color={other.ink}
+                          title={`Přestup na linku ${other.number}`}
+                          ><span aria-hidden="true">{other.number}</span><span class="sr-only"
+                            >přestup na linku {other.number}</span
+                          ></a
+                        >
+                      {/each}
+                      {#if wait > 0 && !first && !last}<span class="note"
+                          ><Clock size={12} aria-hidden="true" /> stojí {wait} min</span
                         >{/if}
                     </span>
                   {/if}
@@ -374,61 +400,84 @@
   }
 
   .direction-bar {
-    display: grid;
+    display: flex;
+    align-items: stretch;
     gap: 0.5rem;
-    margin-top: 0.5rem;
+    margin-top: 1rem;
+    max-width: 48rem;
   }
+  /* Segmented control: both directions as "from → to", the active one in the line colour. */
   .directions {
+    flex: 1;
     display: grid;
     grid-auto-columns: minmax(0, 1fr);
     grid-auto-flow: column;
-    max-width: 40rem;
-    border: 1.5px solid var(--border);
+    gap: 0.25rem;
+    padding: 0.25rem;
     border-radius: var(--radius-lg);
-    overflow: hidden;
+    background: var(--muted);
   }
   .directions a {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 0.125rem;
-    min-height: 3.75rem;
-    padding: 0.5rem 1rem;
+    min-height: 3.25rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: var(--radius-md);
+    color: var(--foreground);
     transition: background-color var(--motion-fast) var(--ease-out);
   }
-  .directions a + a {
-    border-left: 1.5px solid var(--border);
-  }
-  .directions a:not([aria-current='page']) {
-    background: var(--muted);
-  }
-  .directions a:hover {
+  .directions a:not([aria-current='page']):hover {
     background: var(--accent);
   }
   .directions a[aria-current='page'] {
     background: var(--line);
     color: var(--line-ink);
-    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+    box-shadow:
+      inset 0 0 0 1.5px var(--line-stroke, transparent),
+      0 1px 3px color-mix(in oklch, var(--foreground) 18%, transparent);
   }
   .dir-name {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.125rem 0.375rem;
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
     line-height: 1.2;
   }
-  .dir-label {
-    font-size: var(--fs-sm);
+  .dir-from {
     font-weight: var(--weight-regular);
+  }
+  .dir-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--fs-sm);
     opacity: 0.85;
   }
-  .single-direction {
-    font-size: var(--fs-lg);
+  .swap {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 3rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--foreground);
+    transition: transform var(--motion-fast) var(--ease-out);
   }
-  .directions a:focus-visible {
+  .swap:hover {
+    background: var(--accent);
+  }
+  .swap:hover :global(svg) {
+    transform: rotate(180deg);
+    transition: transform var(--motion-slow) var(--ease-out);
+  }
+  .directions a:focus-visible,
+  .swap:focus-visible {
     outline: 2px solid var(--ring);
-    outline-offset: -4px;
+    outline-offset: 2px;
   }
 
   /* Route and timetable side by side on wide screens, stacked on phones. */
@@ -473,17 +522,19 @@
     min-height: 3.5rem;
     scroll-margin-top: calc(var(--header-h) + 2rem);
   }
+  /* One solid line in the line colour, from the first terminus to the last. */
   .diagram li::before {
     content: '';
     position: absolute;
-    left: calc(1rem - 0.25rem);
+    left: calc(1rem - 0.3125rem);
     top: 0;
     bottom: 0;
-    width: 0.5rem;
+    width: 0.625rem;
     background: var(--line);
-    box-shadow: 0 0 0 1.5px var(--line-stroke, var(--line));
+    box-shadow:
+      inset 1.5px 0 0 var(--line-stroke, var(--line)),
+      inset -1.5px 0 0 var(--line-stroke, var(--line));
   }
-  /* The rail starts and ends at the centre of the terminus dots. */
   .diagram li:first-child::before {
     top: 1.625rem;
   }
@@ -495,16 +546,68 @@
   .diagram li:target {
     background: linear-gradient(to right, transparent 2.5rem, var(--accent) 2.5rem);
   }
+  /* Plain stop: a small white dot inside the line. */
   .dot {
     position: relative;
     z-index: 1;
     justify-self: center;
-    margin-top: 1.125rem;
-    width: 1rem;
-    height: 1rem;
+    margin-top: calc(1.625rem - 0.25rem);
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid var(--line-stroke, var(--foreground));
     border-radius: var(--radius-pill);
-    border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
+  }
+  /* Interchange: a bigger white circle with a thick dark ring, as on PID/TfL diagrams. */
+  .interchange .dot {
+    margin-top: calc(1.625rem - 0.6875rem);
+    width: 1.375rem;
+    height: 1.375rem;
+    border: 4px solid var(--foreground);
+  }
+  /* Termini: a wide open ring in the line colour closing the line. */
+  .terminus .dot {
+    margin-top: calc(1.625rem - 0.75rem);
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 5px solid var(--line-stroke, var(--line));
+  }
+  .interchange.terminus .dot {
+    border-color: var(--foreground);
+  }
+  /* Row-wide button that picks the boarding stop; the links sit above it. */
+  .pick {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+  .diagram li:hover:not(.boarding) {
+    background: linear-gradient(
+      to right,
+      transparent 2.5rem,
+      color-mix(in oklch, var(--accent) 60%, transparent) 2.5rem
+    );
+  }
+  .pick:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+  .stop {
+    position: relative;
+    pointer-events: none;
+  }
+  .stop a {
+    pointer-events: auto;
+  }
+  .board-flag {
+    padding: 0.0625rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--foreground);
+    color: var(--background);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
   }
   /* Name row on the left, travel minutes pinned right on the same row, even on phones. */
   .stop {
@@ -539,18 +642,6 @@
   .stop-sub {
     padding-bottom: 0.25rem;
   }
-  /* Termini say what they are in words, next to the name, as on a PID line diagram. */
-  .end-tag {
-    padding: 0.0625rem 0.5rem;
-    border-radius: var(--radius-pill);
-    background: var(--line);
-    color: var(--line-ink);
-    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
   .name {
     padding-block: 0.25rem;
     font-size: var(--fs-lg);
@@ -562,20 +653,6 @@
   }
   .name:hover {
     text-decoration: underline;
-  }
-  /* Interchange pill: the other lines' colours joined into one capsule, as on a metro map. */
-  .transfer {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.1875rem 0.25rem 0.1875rem 0.625rem;
-    border: 1.5px solid var(--foreground);
-    border-radius: var(--radius-pill);
-  }
-  .transfer-label {
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-regular);
-    color: var(--muted-foreground);
   }
   .badge {
     position: relative;
@@ -612,7 +689,11 @@
   /* Every stop gets the same node; termini and transfers are said in words next to the name. */
   /* Stop picked in the timetable. */
   .diagram li.boarding {
-    background: linear-gradient(to right, transparent 2.5rem, var(--muted) 2.5rem);
+    background: linear-gradient(
+      to right,
+      transparent 2.5rem,
+      color-mix(in oklch, var(--line) 22%, transparent) 2.5rem
+    );
   }
   .boarding .name {
     font-weight: var(--weight-strong);
@@ -628,6 +709,9 @@
     filter: drop-shadow(0 2px 4px var(--board-shadow));
   }
   .note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: var(--fs-sm);
     font-weight: var(--weight-regular);
     color: var(--muted-foreground);
@@ -640,20 +724,20 @@
 
   @media (max-width: 639px) {
     .directions {
-      max-width: none;
       grid-auto-flow: row;
     }
-    .directions a + a {
-      border-left: 0;
-      border-top: 1.5px solid var(--border);
+    .dir-name {
+      font-size: var(--fs-base, 1rem);
     }
-    .directions a {
-      padding-inline: 0.75rem;
+    /* Both directions are already stacked and tappable. */
+    .swap {
+      display: none;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .directions a {
-      transition: none;
+    .directions a,
+    .swap :global(svg) {
+      transition: none !important;
     }
   }
 </style>
