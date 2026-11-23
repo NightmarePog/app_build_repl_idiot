@@ -2,7 +2,13 @@
   import { czechCount } from '$lib/plural';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, ChevronDown, ChevronUp, Clock as TripIcon } from '@lucide/svelte';
+  import {
+    ArrowRight,
+    ChevronDown,
+    ChevronRight,
+    ChevronUp,
+    Clock as TripIcon
+  } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { listLineTrips, type TripDetail } from '$lib/api/generated';
@@ -163,7 +169,7 @@
           ><LinePlate number={trip.line.number} color={trip.line.color} size="lg" /></span
         >{/snippet}
       {#snippet meta()}<span
-          >Jede denně · jízda {duration(ribbon.total)} · {czechCount(
+          >Jízda {duration(ribbon.total)} · {czechCount(
             trip.stops.length,
             'zastávka',
             'zastávky',
@@ -212,7 +218,7 @@
             </div>
           </dl>
           <p class="ride tabular">
-            jízda <strong>{duration(ribbon.total)}</strong>{#if ribbon.night !== null}
+            jede denně · jízda <strong>{duration(ribbon.total)}</strong>{#if ribbon.night !== null}
               · ☾ přes půlnoc, příjezd další den{/if}
           </p>
         </section>
@@ -243,9 +249,7 @@
           </button>
         {/if}
         <p class="cols" aria-hidden="true">
-          <span>Čas</span><span>Zastávka</span><span class="r"
-            >{fromIndex > 0 ? 'Min. od nástupu' : 'Min. od startu'}</span
-          >
+          <span>Čas</span><span>Zastávka</span>
         </p>
         <ol
           id="trip-timeline"
@@ -286,26 +290,27 @@
               <div class="times" aria-hidden="true">
                 <!-- SBB-style: the arrival small on top when the bus waits, the departure bold. -->
                 {#if stop.dwell > 0 && !first && !end}<span class="t-arr"
-                    ><small>příj.</small> {stop.arrival_time}</span
+                    ><small><abbr title="příjezd">příj.</abbr></small> {stop.arrival_time}</span
                   >{/if}
                 <span class="t"
-                  >{#if stop.dwell > 0 && !first && !end}<small>odj.</small>
+                  >{#if stop.dwell > 0 && !first && !end}<small
+                      ><abbr title="odjezd">odj.</abbr></small
+                    >
                   {/if}{end ? stop.arrival_time : stop.departure_time}</span
                 >
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
                 <a class="name" href={resolve('/stops/[id]', { id: String(stop.stop.id) })}
-                  >{stop.stop.name}</a
+                  >{stop.stop.name}<ChevronRight
+                    aria-hidden="true"
+                    class="name-chevron size-4"
+                  /></a
                 >
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
                 {#if end}<span class="end-tag">konečná · příjezd</span>{/if}
                 <span class="sr-only">{spokenStop(stop, first, end)}</span>
               </div>
-              <!-- Cumulative travel time, from the boarding stop when there is one. -->
-              <span class="offset tabular" aria-hidden="true">
-                {#if i > fromIndex}+{stop.arr - board.dep} min{/if}
-              </span>
             </li>
           {/each}
         </ol>
@@ -386,15 +391,12 @@
   }
   .cols {
     display: grid;
-    grid-template-columns: 6rem 1fr auto;
+    grid-template-columns: 6rem 1fr;
     color: var(--muted-foreground);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
-  }
-  .cols .r {
-    text-align: right;
   }
   .trip {
     max-width: 80rem;
@@ -556,8 +558,8 @@
   .stop {
     position: relative;
     display: grid;
-    grid-template-columns: calc(var(--rail-x) - 1.25rem) 2.5rem minmax(0, 1fr) auto;
-    grid-template-areas: 'times node body offset';
+    grid-template-columns: calc(var(--rail-x) - 1.25rem) 2.5rem minmax(0, 1fr);
+    grid-template-areas: 'times node body';
     align-items: start;
     --gap: calc(var(--minutes) * var(--scale));
     padding-top: max(var(--row-min), var(--gap));
@@ -642,8 +644,24 @@
   .from .name {
     font-weight: var(--font-display-weight);
   }
-  .name:hover {
+  /* Stop names are links: a faint underline and a chevron say so before hover. */
+  .name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
     text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
+    text-decoration-thickness: 1px;
+  }
+  .name:hover {
+    text-decoration-color: currentColor;
+  }
+  .name :global(.name-chevron) {
+    color: var(--muted-foreground);
+  }
+  abbr {
+    text-decoration: none;
+    cursor: help;
   }
   .t-arr {
     color: var(--muted-foreground);
@@ -659,15 +677,6 @@
     box-shadow: inset 0 0 0 1.5px var(--foreground);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
-  }
-  .offset {
-    grid-area: offset;
-    min-width: 4.5rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-base);
-    font-weight: var(--weight-strong);
-    line-height: 1.5rem;
-    text-align: right;
   }
   .notice {
     margin-top: 0.75rem;
@@ -801,8 +810,7 @@
   .dwells .node {
     margin-top: 1.5rem;
   }
-  .dwells .body,
-  .dwells .offset {
+  .dwells .body {
     padding-top: 1.25rem;
   }
   /* Phones: a compact one-row ticket so the stop list starts near the top of the screen. */
@@ -815,9 +823,6 @@
     }
     .timeline {
       --rail-x: 6.25rem;
-    }
-    .offset {
-      min-width: 3.5rem;
     }
     .trip :global(.page-header h1) {
       font-size: var(--fs-xl);
