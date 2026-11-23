@@ -1,16 +1,17 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import type { Line } from '$lib/features/network/lines.svelte';
-  import { layoutNetwork } from './network-layout';
+  import { layoutNetwork, type LayoutNode } from './network-layout';
 
   let { lines }: { lines: Line[] } = $props();
 
   /** Grid units in px: one stop step along a line, one line row. */
-  const X = 110;
-  const Y = 90;
-  const PAD = 70;
+  // Equal units, so a step of one across and one down is a true 45° diagonal.
+  const X = 96;
+  const Y = 96;
+  const PAD = 80;
   /** Extra room on the right so the last horizontal label is never clipped. */
-  const LABEL_ROOM = 90;
+  const LABEL_ROOM = 150;
 
   const layout = $derived(
     layoutNetwork(
@@ -40,6 +41,26 @@
    * Horizontal labels: the top row reads above its stops, the bottom row below; stops on inner
    * rows alternate above/below in left-to-right order, so neighbours never share a side.
    */
+  /** Label anchor for a node: its schematic side, else the alternating rule above. */
+  function labelAt(node: LayoutNode, r: number) {
+    const [x, y] = [px(node.x), py(node.y)];
+    switch (node.label) {
+      case 'above':
+        return { x, y: y - r - 10, anchor: 'middle' };
+      case 'below':
+        return { x, y: y + r + 20, anchor: 'middle' };
+      case 'below-right':
+        return { x: x + r + 4, y: y + r + 20, anchor: 'start' };
+      case 'left':
+        return { x: x - r - 10, y: y + 5, anchor: 'end' };
+      case 'right':
+        return { x: x + r + 10, y: y + 5, anchor: 'start' };
+    }
+    const under = below.get(node.id);
+    if (under === undefined) return { x: x + r + 8, y: y - r - 4, anchor: 'start' };
+    return { x, y: under ? y + r + 20 : y - r - 10, anchor: 'middle' };
+  }
+
   const below = $derived.by(() => {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch map, rebuilt per derive
     const side = new Map<number, boolean>();
@@ -91,8 +112,8 @@
         {/if}
       {/each}
       {#each [...layout.nodes.values()] as node (node.id)}
-        {@const under = below.get(node.id)}
         {@const r = node.lines.length > 1 ? 11 : 6}
+        {@const at = labelAt(node, r)}
         <a
           href={resolve('/stops/[id]', { id: String(node.id) })}
           class="stop"
@@ -111,13 +132,9 @@
           <text
             class="label"
             class:strong={node.lines.length > 1}
-            class:side={under === undefined}
-            x={under === undefined ? px(node.x) + r + 8 : px(node.x)}
-            y={under === undefined
-              ? py(node.y) - r - 4
-              : under
-                ? py(node.y) + r + 20
-                : py(node.y) - r - 10}
+            x={at.x}
+            y={at.y}
+            text-anchor={at.anchor}
             paint-order="stroke">{node.name}</text
           >
         </a>
@@ -167,13 +184,11 @@
   .label {
     fill: var(--foreground);
     stroke: var(--card);
-    stroke-width: 5px;
+    stroke-width: 6px;
     stroke-linejoin: round;
+    font-family: var(--font-sans);
     font-size: var(--fs-base);
-    text-anchor: middle;
-  }
-  .label.side {
-    text-anchor: start;
+    font-weight: var(--weight-strong);
   }
   .label.strong {
     font-weight: var(--weight-strong);

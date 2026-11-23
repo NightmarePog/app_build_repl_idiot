@@ -2,13 +2,15 @@
   import { czechCount } from '$lib/plural';
   import { Button } from '$lib/ui/button';
   import { ArrowRight, ChevronDown, MapPin } from '@lucide/svelte';
+  import { vehicleLabel } from '$lib/features/planner/planner-core';
   import LoadingState from '$lib/components/LoadingState.svelte';
+  import PageState from '$lib/components/PageState.svelte';
   import { resolve } from '$app/paths';
   import type { Route } from '$lib/api/generated';
   import { clock } from './clock.svelte';
   import type { LineTimetable } from './line-timetable.svelte';
   import { hourGroups, nextDeparture, operatingNow } from './line-trips';
-  import { countdown, duration, minutesOf, spokenTime } from './time';
+  import { countdown, minutesOf, spokenTime } from './time';
   import { withQuery } from './trips';
 
   let {
@@ -85,10 +87,14 @@
     return withQuery(resolve('/trips/[id]', { id: String(tripId) }), { od: selected?.id });
   }
 
+  /** "Bus B03", or the line number when the trip has no vehicle assigned. */
+  const vehicle = (row: (typeof rows)[number]) =>
+    vehicleLabel(row.trip.block_ref) ?? `Linka ${lineNumber}`;
+
   /** Short per-minute label; the shared context (line, stop, direction) is in the caption. */
   function label(row: (typeof rows)[number]) {
     return [
-      spokenTime(row.at.time, row.at.dayOffset),
+      `${vehicle(row)} · ${spokenTime(row.at.time, row.at.dayOffset)}`,
       row.end
         ? `příjezd ${row.trip.destination.name} ${spokenTime(row.end.time, row.end.dayOffset)}`
         : '',
@@ -100,158 +106,162 @@
 </script>
 
 <section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
-  <div class="sheet">
-    <header class="sheet-head">
-      <div class="sheet-title">
-        <h3 id={`trips-heading-${route.id}`} class="dir-title">
-          <span class="dir-lead">Odjezdy</span>
-          <span class="dir-to"><ArrowRight size={18} aria-hidden="true" />{route.direction}</span>
-        </h3>
-        {#if boardable.length > 1}
-          <!-- The stop is part of the title: picking it here or on the route changes it. -->
-          <label class="board-pick">
-            <MapPin size={18} aria-hidden="true" />
-            <span class="sr-only">Nástupní zastávka</span>
-            <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
-              {#each boardable as stop (stop.id)}
-                <option value={stop.id}>{stop.name}</option>
-              {/each}
-            </select>
-            <ChevronDown size={18} aria-hidden="true" />
-          </label>
-        {:else}
-          <span class="board-pick static"
-            ><MapPin size={18} aria-hidden="true" />{selected?.name}</span
+  <header class="sheet-head">
+    <h3 id={`trips-heading-${route.id}`} class="dir-title">
+      <span class="sr-only">Odjezdy </span><span class="dir-word">Směr</span>
+      <ArrowRight size={18} aria-hidden="true" />{route.direction}
+    </h3>
+    {#if boardable.length > 1}
+      <!-- The stop is part of the title: picking it here or on the route changes it. -->
+      <label class="board-pick">
+        <MapPin size={18} aria-hidden="true" />
+        <span class="sr-only">Odjezdy ze zastávky</span>
+        <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
+          {#each boardable as stop (stop.id)}
+            <option value={stop.id}>{stop.name}</option>
+          {/each}
+        </select>
+        <ChevronDown size={18} aria-hidden="true" />
+      </label>
+    {:else}
+      <span class="board-pick static"><MapPin size={18} aria-hidden="true" />{selected?.name}</span>
+    {/if}
+    {#if timetable.loading && timetable.trips}<span class="sr-only" role="status"
+        >Načítáme spoje…</span
+      >{/if}
+  </header>
+
+  {#if timetable.error}
+    <PageState
+      title={timetable.error === 'missing'
+        ? 'Linka už v jízdním řádu není'
+        : 'Spoje se nepodařilo načíst'}
+      error={timetable.error !== 'missing'}
+      onretry={timetable.error === 'missing' ? undefined : timetable.retry}
+    />
+  {:else if !timetable.trips || (rows.length === 0 && waiting > failedHere)}
+    <LoadingState label="Načítáme spoje…" />
+  {:else if ofRoute.length === 0}
+    <PageState title="V tomto směru žádný spoj nejede" />
+  {:else if rows.length === 0}
+    <PageState title="Spoje se nepodařilo načíst" error onretry={timetable.retry} />
+  {:else}
+    {#if next}
+      {@const cd = countdown(next.until)}
+      <a
+        class="next"
+        href={tripHref(next.row.trip.id)}
+        aria-label={`Nejbližší odjezd ze zastávky ${selected?.name}: ${label(next.row)}`}
+      >
+        <span class="next-label">Nejbližší</span>
+        <span class="next-time tabular">{next.row.at.time}</span>
+        <span class="next-vehicle">{vehicle(next.row)}</span>
+        {#if next.tomorrow}<span>zítra</span>{:else if cd}<span>{cd}</span>{/if}
+        {#if next.row.end}
+          <span class="next-end tabular"
+            ><ArrowRight size={14} aria-hidden="true" />{next.row.trip.destination.name}
+            {next.row.end.time}</span
           >
         {/if}
-      </div>
-      {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
-        >{/if}
-    </header>
-
-    {#if timetable.error}
-      <p class="note">
-        {timetable.error === 'missing'
-          ? 'Linka už v jízdním řádu není.'
-          : 'Spoje se nepodařilo načíst.'}
-        <Button variant="outline" size="sm" onclick={timetable.retry}>Zkusit znovu</Button>
-      </p>
-    {:else if !timetable.trips}
-      <div class="note"><LoadingState label="Načítáme spoje…" /></div>
-    {:else if ofRoute.length === 0}
-      <p class="note">
-        V tomto směru podle jízdního řádu žádný spoj nejede.
-        {#if (timetable.trips?.length ?? 0) > 0}Spoje linky jedou jen opačným směrem.{/if}
-      </p>
-    {:else if rows.length === 0 && waiting > failedHere}
-      <div class="note">
-        <LoadingState label={`Načítáme časy pro zastávku ${selected?.name}…`} />
-      </div>
-    {:else if rows.length === 0}
-      <p class="note">
-        Časy pro zastávku {selected?.name} se nepodařilo načíst.
-        <Button variant="outline" size="sm" onclick={timetable.retry}>Zkusit znovu</Button>
-      </p>
-    {:else}
-      {#if next}
-        {@const cd = countdown(next.until)}
-        <a
-          class="next"
-          href={tripHref(next.row.trip.id)}
-          aria-label={`Nejbližší spoj ze zastávky ${selected?.name}: ${label(next.row)}`}
-        >
-          <span class="next-tag">{next.tomorrow ? 'Zítra' : 'Další'}</span>
-          <span class="next-time tabular">{next.row.at.time}</span>
-          {#if cd && !next.tomorrow}<span class="chip">{cd}</span>{/if}
-          {#if next.row.end}
-            <span class="chip tabular"
-              ><ArrowRight size={14} aria-hidden="true" />{next.row.end.time} · {duration(
-                next.row.end.minutes - next.row.dep
-              )}</span
-            >
-          {/if}
-        </a>
-      {/if}
-
-      {#key selected?.id}
-        <table class="grid">
-          <caption class="sr-only">
-            Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
-            hodinách. Odkaz minuty otevře detail spoje.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col" class="hour-col">hod</th>
-              <th scope="col" class="min-col">min</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
-              {#if h.kind === 'gap'}
-                <tr class="gap" style:--row={index}>
-                  <th scope="row" class="hour tabular">{h.label}</th>
-                  <td
-                    ><span class="gap-bar" aria-hidden="true"></span><span class="sr-only"
-                      >nic nejede</span
-                    ></td
-                  >
-                </tr>
-              {:else}
-                {@const isNow = h.hour === currentHour}
-                <tr
-                  class:late={h.hour >= 24}
-                  aria-current={isNow ? 'time' : undefined}
-                  style:--row={index}
-                >
-                  <th scope="row" class="hour tabular">{h.label}</th>
-                  <td>
-                    {#if h.trips.length === 0}<span class="gap-bar" aria-hidden="true"></span>{/if}
-                    <ul class="mins">
-                      {#each h.trips as row (row.trip.id)}
-                        <li>
-                          <a
-                            class="min tabular"
-                            class:next-min={next?.row.trip.id === row.trip.id}
-                            class:gone={row.dep < nowOp && !next?.tomorrow}
-                            href={tripHref(row.trip.id)}
-                            title={label(row)}
-                            aria-label={label(row)}>{row.at.time.slice(3, 5)}</a
-                          >
-                        </li>
-                      {/each}
-                    </ul>
-                  </td>
-                </tr>
-              {/if}
-            {/each}
-          </tbody>
-        </table>
-      {/key}
-
-      {#if waiting > 0}
-        <p class="note" role="status">
-          {failedHere > 0
-            ? `U ${czechCount(failedHere, 'spoje', 'spojů', 'spojů')} se časy nepodařilo načíst.`
-            : 'Načítáme další časy…'}
-          {#if failedHere > 0}<Button variant="outline" size="sm" onclick={timetable.retry}
-              >Zkusit znovu</Button
-            >{/if}
-        </p>
-      {/if}
+      </a>
     {/if}
-  </div>
+
+    {#key selected?.id}
+      <table class="grid">
+        <caption class="sr-only">
+          Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
+          hodinách. Každá minuta otevře detail spoje.
+        </caption>
+        <tbody>
+          {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
+            {#if h.kind === 'gap'}
+              <tr class="gap" style:--row={index}>
+                <th scope="row" class="hour tabular">{h.label}</th>
+                <td>bez spojů</td>
+              </tr>
+            {:else}
+              {@const isNow = h.hour === currentHour}
+              <tr aria-current={isNow ? 'time' : undefined} style:--row={index}>
+                <th scope="row" class="hour tabular">{String(h.hour % 24).padStart(2, '0')}</th>
+                <td>
+                  {#if h.trips.length === 0}<span class="empty">bez spojů</span>{/if}
+                  <ul class="mins">
+                    {#each h.trips as row (row.trip.id)}
+                      {@const isNext = next?.row.trip.id === row.trip.id}
+                      <li>
+                        <a
+                          class="min"
+                          class:next-min={isNext}
+                          class:gone={row.dep < nowOp && !next?.tomorrow}
+                          href={tripHref(row.trip.id)}
+                          title={label(row)}
+                          aria-label={label(row)}
+                          ><span class="min-mm tabular">{row.at.time.slice(3, 5)}</span><span
+                            class="min-bus">{row.trip.block_ref ?? lineNumber}</span
+                          ></a
+                        >
+                      </li>
+                    {/each}
+                  </ul>
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+    {/key}
+
+    {#if waiting > 0}
+      <p class="note" role="status">
+        {failedHere > 0
+          ? `U ${czechCount(failedHere, 'spoje', 'spojů', 'spojů')} se časy nepodařilo načíst.`
+          : 'Načítáme spoje…'}
+        {#if failedHere > 0}<Button variant="outline" size="sm" onclick={timetable.retry}
+            >Zkusit znovu</Button
+          >{/if}
+      </p>
+    {/if}
+  {/if}
 </section>
 
 <style>
+  /* A posted stop timetable: hours down the left, every departure of the hour in one dense row. */
+  .trips {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    overflow: clip;
+    scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
+  }
+  .sheet-head {
+    display: grid;
+    justify-items: start;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dir-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
+    line-height: var(--lh-tight);
+  }
   .board-pick {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     max-width: 100%;
-    padding: 0.25rem 0.5rem;
-    border: 1.5px solid var(--border);
+    min-height: 2.5rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--border);
     border-radius: var(--radius);
+    background: var(--background);
+    font-weight: var(--weight-strong);
     cursor: pointer;
   }
   .board-pick:hover {
@@ -272,147 +282,66 @@
     cursor: pointer;
     outline: none;
   }
-
-  .trips + :global(.trips) {
-    margin-top: 1.5rem;
+  .board-pick select option {
+    background: var(--popover);
+    color: var(--popover-foreground);
   }
-  .trips {
-    min-width: 0;
-    scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
+  .static {
+    cursor: default;
   }
   a:focus-visible {
     outline: 3px solid var(--ring);
     outline-offset: 2px;
   }
-
-  /* The posted sheet: paper card, line-colour band on top like a stop timetable frame. */
-  .sheet {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-    /* clip, not hidden: hidden would stop the sheet header from sticking. */
-    overflow: clip;
-  }
-  .sheet-head {
-    position: sticky;
-    top: var(--header-h, 0px);
-    z-index: 2;
-    background: var(--card);
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    border-bottom: 2px solid var(--foreground);
-  }
-
-  .sheet-title {
-    display: grid;
-    justify-items: start;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .dir-title {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: var(--fs-xl);
-    font-weight: var(--font-display-weight);
-    line-height: var(--lh-tight);
-  }
-  .dir-lead {
-    font-weight: var(--weight-regular);
-  }
-
-  /* Day ribbon: the whole operating day on one axis, a tick per departure. */
-  .gap .hour {
-    font-size: var(--fs-sm);
-    color: var(--muted-foreground);
-    background: transparent;
-  }
-  .gap-bar {
-    display: block;
-    height: 0.5rem;
-    margin-block: 0.5rem;
-    border-radius: var(--radius);
-    background: repeating-linear-gradient(135deg, var(--border) 0 6px, transparent 6px 12px);
-  }
-  thead th {
-    padding: 0.375rem 0.5rem;
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-  thead .hour-col {
-    text-align: center;
-    border-right: 2px solid var(--foreground);
-  }
-  .static {
-    cursor: default;
-    font-weight: var(--weight-strong);
-  }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-    font-weight: var(--weight-strong);
-  }
   .note {
     padding: 1rem 1.25rem;
-    color: var(--muted-foreground);
   }
 
   .next {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 1rem;
-    padding: 0.875rem 1.25rem;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
     background: var(--muted);
     color: var(--foreground);
+    font-weight: var(--weight-strong);
   }
-  .next-tag {
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius);
-    background: var(--sign-marker);
-    color: var(--sign-marker-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--font-display-weight);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
+  .next-label {
+    font-weight: var(--weight-strong);
   }
   .next-time {
     font-size: var(--fs-2xl);
     font-weight: var(--font-display-weight);
     line-height: 1;
-    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 2px;
+  }
+  .next-end {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
   }
   .next:hover .next-time {
-    text-decoration: underline;
+    text-decoration-thickness: 3px;
   }
 
   .grid {
     width: 100%;
     border-collapse: collapse;
   }
-  .grid tr {
-    border-bottom: 1px solid var(--border);
-  }
-  .grid tr:last-child {
-    border-bottom: 0;
+  .grid tr + tr {
+    border-top: 1px solid var(--border);
   }
   .hour {
     width: 3.5rem;
-    min-width: 3rem;
-    padding: 0.5rem 0;
+    min-width: 3.5rem;
+    white-space: nowrap;
+    padding: 0.625rem 0.25rem;
     background: var(--muted);
-    border-right: 2px solid var(--foreground);
+    border-right: 1px solid var(--border);
     text-align: center;
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
@@ -422,55 +351,60 @@
     width: 100%;
     padding: 0.25rem 0.5rem;
   }
-  tr.late .hour {
-    background: color-mix(in oklch, var(--foreground) 12%, var(--muted));
+  tr[aria-current='time'] .hour {
+    background: var(--foreground);
+    color: var(--background);
+  }
+  .gap .hour {
+    font-size: var(--fs-sm);
+  }
+  .gap td,
+  .empty {
+    color: var(--muted-foreground);
+    font-weight: var(--weight-strong);
+    padding-inline: 0.75rem;
   }
   .mins {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
   }
+  /* Minute over vehicle, like a PID sheet with the run number: a link that looks like one. */
   .min {
-    position: relative;
-    display: inline-grid;
+    display: grid;
     justify-items: center;
-    align-content: center;
-    min-width: 4.5rem;
-    min-height: 3.25rem;
-    padding-inline: 0.5rem;
+    min-width: 3.5rem;
+    min-height: 2.75rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
     border-radius: var(--radius);
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
     color: var(--foreground);
     transition: background var(--motion-fast) var(--ease-out);
   }
+  .min-mm {
+    font-size: var(--fs-lg);
+    font-weight: var(--font-display-weight);
+    line-height: 1.1;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .min-bus {
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+  }
   .min:hover {
     background: var(--accent);
-    text-decoration: underline;
   }
   .min.gone {
     color: var(--muted-foreground);
+    border-style: dashed;
+  }
+  .min.gone .min-mm {
     font-weight: var(--weight-regular);
   }
   .min.next-min {
-    background: var(--sign-marker);
-    color: var(--sign-marker-foreground);
-    font-weight: var(--font-display-weight);
-    box-shadow: inset 0 0 0 2px var(--foreground);
+    border: 2px solid var(--foreground);
   }
-  .dir-to {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    color: var(--foreground);
-    font-weight: var(--weight-strong);
-  }
-  @media (max-width: 639px) {
-    .dir-title {
-      font-size: var(--fs-lg);
-    }
-  }
-  /* Picking a stop re-flows the minutes row by row. */
   .grid tr {
     animation: reflow var(--motion-slow) var(--ease-out) both;
     animation-delay: calc(var(--row) * var(--motion-stagger));
@@ -481,7 +415,6 @@
       transform: translateX(-0.5rem);
     }
   }
-
   .sr-only {
     position: absolute;
     width: 1px;
@@ -490,9 +423,9 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  @media (max-width: 30rem) {
-    .hour {
-      width: 2.75rem;
+  @media (max-width: 639px) {
+    .dir-title {
+      font-size: var(--fs-lg);
     }
   }
   @media (prefers-reduced-motion: reduce) {
