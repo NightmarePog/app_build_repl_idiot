@@ -52,11 +52,15 @@
       <ul class="amenities">
         {#each AMENITIES as amenity (amenity.field)}
           {@const has = stop[amenity.field]}
-          <li class:no={!has} title={`${amenity.label}: ${has ? 'ano' : 'ne'}`}>
+          <li
+            class:no={!has}
+            title={`${amenity.label}: ${has ? 'ano' : 'ne'}`}
+            aria-label={`${amenity.label}: ${has ? 'ano' : 'ne'}`}
+          >
             <span class="icon" aria-hidden="true"
               ><amenity.icon size={20} strokeWidth={1.75} /></span
             >
-            <span class="sr-only">{has ? '' : 'Není: '}{amenity.label}</span>
+            <span class="amenity-label" aria-hidden="true">{amenity.label}</span>
           </li>
         {/each}
       </ul>
@@ -166,6 +170,9 @@
   .amenities li.no {
     color: var(--muted-foreground);
   }
+  .amenities li.no .amenity-label {
+    text-decoration: line-through;
+  }
   .amenities li.no .icon {
     background: var(--muted);
     color: var(--muted-foreground);
@@ -187,14 +194,15 @@
       gap: 1.5rem;
     }
     /* Phones and tablets: a compact strip so the departures start high on the screen. */
+    /* Phones: a full-width photo strip on top, then lines, amenities and Trasa. */
     .infobox {
       position: static;
       display: grid;
-      grid-template-columns: 6.5rem minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
     .photo,
     .infobox :global(.info-photo) {
-      height: 100%;
+      height: 8.5rem;
       aspect-ratio: auto;
     }
     .info-body {

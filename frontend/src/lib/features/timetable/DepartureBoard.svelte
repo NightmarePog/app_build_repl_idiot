@@ -12,7 +12,6 @@
   import { motionMs } from '$lib/motion';
   import { arrivalsAt, byTrip, overtakes, type Arrival } from './board';
   import { clock as appClock } from './clock.svelte';
-  import FlapTime from './FlapTime.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock, minutesOf, minutesUntil, relative, spokenTime } from './time';
   import { lineDirectionHref, tripDetail, withQuery } from './trips';
@@ -177,7 +176,12 @@
   const more = $derived(allRows.length - rows.length);
 
   const nextRow = $derived(mode === 'upcoming' ? rows.find((r) => !r.tomorrow) : undefined);
-  const firstTomorrow = $derived(rows.findIndex((row) => row.tomorrow));
+  /** The hero card shows the next departure; the list then starts with the one after it. */
+  const heroShown = $derived(
+    nextRow !== undefined && nextRow.inMinutes !== null && nextRow.inMinutes <= 60
+  );
+  const listRows = $derived(heroShown ? rows.filter((row) => row !== nextRow) : rows);
+  const firstTomorrow = $derived(listRows.findIndex((row) => row.tomorrow));
   /** Full-day view: the "teď" divider goes before the first row still to come. */
   const nowIndex = $derived(mode === 'day' ? rows.findIndex((row) => !row.gone) : -1);
   const tomorrowDate = $derived.by(() => {
@@ -222,7 +226,6 @@
   }
 
   const targetName = $derived(reachable.find(([id]) => id === target)?.[1] ?? '');
-  const stripe = $derived(lines.length === 1 ? lines[0].color : undefined);
   /** Re-keys the rows when a filter changes, so they flap in again, staggered. */
   const filterKey = $derived(`${mode}|${lineFilter.join(',')}|${target ?? ''}`);
   /** One line picked: link to its full timetable (the stop's per-line list lives here now). */
@@ -237,7 +240,7 @@
 </script>
 
 <section class="board-wrap" aria-labelledby="board-heading">
-  <div class="board board-surface" style:--stripe={stripe}>
+  <div class="board board-surface">
     <header class="board-head">
       <div>
         <!-- The page title already names the stop; the board only says what it lists. -->
@@ -249,7 +252,7 @@
       </p>
     </header>
 
-    {#if nextRow && nextRow.inMinutes !== null && nextRow.inMinutes <= 60}
+    {#if heroShown && nextRow && nextRow.inMinutes !== null}
       <!-- The one big number a passenger looks for; polite so it is announced once per change. -->
       <a class="hero" class:leaving={nextRow.inMinutes <= 2} href={tripHref(nextRow.trip_id)}>
         <LinePlate number={nextRow.line.number} color={nextRow.line.color} size="lg" />
@@ -423,10 +426,7 @@
       {#if rows.every((r) => r.tomorrow)}
         <div class="today-done" role="status">
           <span class="closed">Dnes už odsud nic nejede</span>
-          <span class="next-day">
-            <span class="next-label">Zítra</span>
-            <FlapTime time={rows[0].departure_time} size="lg" showDay={false} />
-          </span>
+          <span class="next-day"><span class="next-label">Další spoje zítra</span></span>
         </div>
       {/if}
 
@@ -439,12 +439,12 @@
           class:timeline={mode === 'day'}
           aria-label={`Odjezdy ze zastávky ${stopName}`}
         >
-          {#each rows as row, index (row.key)}
+          {#each listRows as row, index (row.key)}
             {@const waits = row.dep - row.arr}
             {@const soon = relative(row.inMinutes)}
             {@const by = overtaken.get(row.key)}
             {@const hour = Math.floor(row.dep / 60)}
-            {@const prevHour = index > 0 ? Math.floor(rows[index - 1].dep / 60) : null}
+            {@const prevHour = index > 0 ? Math.floor(listRows[index - 1].dep / 60) : null}
             {@const tomorrowStart = index === firstTomorrow && index > 0}
             <li
               class="row"
@@ -489,6 +489,12 @@
                     {/each}
                   </ol>
                 {/if}
+                {#if by}
+                  <!-- Arrives before an earlier-leaving bus but waits for it. -->
+                  <span class="tags" aria-hidden="true"
+                    ><span class="tag end">odjede až po {by.join(', ')}</span></span
+                  >
+                {/if}
                 {#if row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
@@ -505,17 +511,9 @@
                   >
                 {:else}
                   <span class="time tabular">{row.departure_time}</span>
-                  {#if by}
-                    <!-- Arrives before an earlier-leaving bus but waits for it: both times matter. -->
-                    <span class="time sub tabular"
-                      ><span class="day">příj.</span>{row.arrival_time}</span
-                    >
-                    <span class="overtaken">odjede po {by.join(', ')}</span>
-                  {:else if waits >= DWELL_SHOWN}
+                  {#if by || waits >= DWELL_SHOWN}
                     <!-- Only a real wait here is worth a second time. -->
-                    <span class="time sub tabular"
-                      ><span class="day">příj.</span>{row.arrival_time}</span
-                    >
+                    <span class="dwell tabular">příj. {row.arrival_time} · stojí {waits} min</span>
                   {/if}
                 {/if}
                 {#if !row.tomorrow && soon && mode === 'upcoming' && (row.inMinutes ?? Infinity) <= COUNTDOWN_MIN}
@@ -547,8 +545,8 @@
     --board-raised: oklch(0.925 0.008 80);
     --board-line: oklch(0.86 0.008 80);
     --board-led: oklch(0.42 0.12 152);
-    --board-tile-top: oklch(0.3 0.004 70);
-    --board-tile-bottom: oklch(0.24 0.004 70);
+    --board-tile-top: oklch(0.995 0.003 85);
+    --board-tile-bottom: oklch(0.945 0.006 82);
     --board-skeleton: oklch(0.93 0.004 80);
     --board-skeleton-hi: oklch(0.97 0.004 80);
     --sign-marker: var(--board-led);
@@ -973,12 +971,16 @@
     color: var(--board-muted);
     font-weight: var(--weight-strong);
   }
-  .overtaken {
-    max-width: 10rem;
+  /* Arrival and wait in one readable line under the departure time, never stacked. */
+  .dwell {
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius);
+    background: var(--board-raised);
+    box-shadow: inset 0 0 0 1px var(--board-line);
     color: var(--board-fg);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
-    text-align: right;
+    white-space: nowrap;
   }
   .via li + li::before {
     content: '·';
