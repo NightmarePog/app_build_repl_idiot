@@ -665,7 +665,7 @@
     min-height: 2.25rem;
     padding-inline: 0.625rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
   }
   .unplaced button[aria-pressed='true'] {
     background: var(--sign-marker);
@@ -737,7 +737,7 @@
   .loading-label {
     position: relative;
     padding: 0.375rem 0.75rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);

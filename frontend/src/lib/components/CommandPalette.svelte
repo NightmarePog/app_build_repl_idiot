@@ -303,7 +303,7 @@
     min-height: 2.75rem;
     margin-right: -0.375rem;
     padding: 0 0.75rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     color: var(--primary);
     font: inherit;
     font-size: var(--fs-base);
@@ -370,7 +370,7 @@
     height: 0.625rem;
     margin-left: 0.375rem;
     border: 2px solid var(--muted-foreground);
-    border-radius: 9999px;
+    border-radius: var(--radius);
   }
   .result-text {
     display: flex;
@@ -417,7 +417,7 @@
       max-height: min(85dvh, 40rem);
       margin: auto 0 0;
       border-width: 1px 0 0;
-      border-radius: var(--radius-4xl) var(--radius-4xl) 0 0;
+      border-radius: var(--radius);
       padding-bottom: env(safe-area-inset-bottom);
     }
     .palette[open] {

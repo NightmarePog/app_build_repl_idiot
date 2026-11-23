@@ -163,7 +163,7 @@
     aspect-ratio: 4 / 3;
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--map);
   }
   .preview-map {

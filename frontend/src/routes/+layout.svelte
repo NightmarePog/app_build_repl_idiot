@@ -5,7 +5,6 @@
   import { FileText } from '@lucide/svelte';
   import AppShell from '$lib/components/AppShell.svelte';
   import CommandPalette, { type PaletteItem } from '$lib/components/CommandPalette.svelte';
-  import ProjectCredits from '$lib/features/about/ProjectCredits.svelte';
   import FooterLines from '$lib/features/network/FooterLines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { onMount } from 'svelte';
@@ -101,10 +100,6 @@
   }
 </script>
 
-{#snippet footerCredits()}
-  <ProjectCredits />
-{/snippet}
-
 {#snippet footerLines()}
   <FooterLines />
 {/snippet}
@@ -122,7 +117,7 @@
   {/if}
 {/snippet}
 
-<AppShell {footerCredits} {footerLines} bind:paletteOpen>{@render children()}</AppShell>
+<AppShell {footerLines} bind:paletteOpen>{@render children()}</AppShell>
 <CommandPalette
   bind:open={paletteOpen}
   items={paletteItems}

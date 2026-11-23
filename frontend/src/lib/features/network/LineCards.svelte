@@ -136,7 +136,7 @@
         {href}
         class="card scene-{line.scene}"
         class:leaving={leaving === line.id}
-        aria-label={`Linka ${line.id}, ${line.from} – ${line.to}, oba směry, ${line.count} zastávek${line.transfers.length ? `, přestup na ${line.transfers.join(' a ')}` : ''}`}
+        aria-label={`Autobusová linka ${line.id}, ${line.from} – ${line.to}, oba směry, ${line.count} zastávek${line.transfers.length ? `, přestup na ${line.transfers.join(' a ')}` : ''}`}
         style:--line={LINES[line.id].color}
         style:--line-ink={LINES[line.id].ink}
         style:--bus-delay={line.delay}
@@ -151,7 +151,7 @@
         <span class="head">
           <span class="letter">{line.id}</span>
           <span class="facts">
-            <span class="count tabular">{line.count} zastávek</span>
+            <span class="count tabular">Autobus · {line.count} zastávek</span>
             {#if line.transfers.length}
               <span class="transfers">
                 Přestup na
@@ -210,7 +210,7 @@
     height: 15.5rem;
     padding: 1.25rem;
     overflow: hidden;
-    border-radius: var(--radius-2xl);
+    border-radius: var(--radius);
     background: var(--card-bg);
     color: var(--card-ink);
     transition: transform var(--motion-normal) var(--ease-out);
@@ -288,7 +288,7 @@
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
     background: var(--letter-bg);
     color: var(--letter-ink);
     font-size: var(--fs-xl);
@@ -312,7 +312,7 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
     box-shadow: var(--shadow-pop);
     font-size: var(--fs-xs);
     font-weight: var(--font-display-weight);
@@ -352,7 +352,7 @@
     row-gap: 0.375rem;
     height: 6.75rem;
     padding: 0.75rem 0.875rem 1.375rem;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
   }
   .compact .card:hover {
     transform: none;
