@@ -10,7 +10,35 @@ import {
   nowMinutes,
   relative
 } from '../src/lib/features/timetable/time';
-import { overtakes } from '../src/lib/features/timetable/board';
+import { arrivalsAt, overtakes } from '../src/lib/features/timetable/board';
+
+test('arrivalsAt merges passing and ending trips in time order', () => {
+  const line = { number: 'C', color: '#000000' };
+  const rows = arrivalsAt(
+    9,
+    [{ trip_id: 1, line, arrival_time: '08:10', arrival_day_offset: 0 }],
+    [
+      {
+        id: 2,
+        line,
+        origin: { name: 'Start' },
+        stops: [
+          { stop: { id: 3 }, arrival_time: '23:50', arrival_day_offset: 0 },
+          { stop: { id: 9 }, arrival_time: '00:05', arrival_day_offset: 1 }
+        ]
+      },
+      { id: 3, line, origin: { name: 'X' }, stops: [] }
+    ],
+    () => 'Origin'
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.trip_id, r.time, r.ends, r.from]),
+    [
+      [1, '08:10', false, 'Origin'],
+      [2, '00:05', true, 'Start']
+    ]
+  );
+});
 import {
   hops,
   hourGroups,

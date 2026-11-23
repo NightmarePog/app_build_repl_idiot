@@ -2,6 +2,8 @@
   import { LINES, loadNetwork, networkReady } from '$lib/features/network/lines.svelte';
   import { isPale } from '$lib/features/lines/line-style';
   import { lineDirectionHref } from '$lib/features/timetable/trips';
+  import { ChevronRight } from '@lucide/svelte';
+  import LoadingState from '$lib/components/LoadingState.svelte';
 
   /**
    * The lines through one stop as a schematic: each direction drawn as a short strip in the
@@ -16,6 +18,7 @@
   type Strip = {
     route: (typeof LINES)[string]['routes'][number];
     previous: { id: number; name: string } | null;
+    here: { id: number; name: string };
     next: { id: number; name: string } | null;
   };
 
@@ -32,6 +35,7 @@
               {
                 route,
                 previous: route.stops[index - 1] ?? null,
+                here: route.stops[index],
                 next: route.stops[index + 1] ?? null
               }
             ];
@@ -46,7 +50,7 @@
 <section class="schematic" aria-labelledby="schematic-heading">
   <h2 id="schematic-heading" class="section-title">Linky na zastávce</h2>
   {#if !networkReady()}
-    <p class="note" role="status">Načítáme linky…</p>
+    <LoadingState label="Načítáme linky…" />
   {:else if groups.length === 0}
     <p class="note">Tudy zatím žádná linka nejezdí.</p>
   {:else}
@@ -59,28 +63,32 @@
         >
           <span class="plate tabular" aria-hidden="true">{line.number}</span>
           <div class="what">
-            <span class="title">Linka {line.number}</span>
+            <span class="sr-only">Linka {line.number}</span>
             <ul class="dirs">
-              {#each strips as { route, previous, next } (route.id)}
+              {#each strips as { route, previous, here, next } (route.id)}
                 <li class:ends={!next}>
                   <a class="row-link" href={lineDirectionHref(line.apiId, route.bound, stopId)}>
                     <span class="dir">
                       {#if next}
-                        <span class="dir-name">Směr <strong>{route.direction}</strong></span>
+                        <span class="dir-name"
+                          ><span aria-hidden="true">→ </span><strong>{route.direction}</strong
+                          ></span
+                        >
                         <span class="hops">
-                          další zastávka {next.name}{#if !previous}
-                            · výchozí zastávka{/if}
+                          {#if previous}{previous.name} ·{:else}začíná tady ·{/if}
+                          <strong class="here">{here.name}</strong>
+                          · {next.name} …
                         </span>
                       {:else}
-                        <span class="dir-name">Konečná linky {line.number}</span>
-                        <span class="hops"
-                          >přijíždí ze zastávky {route.stops[0]?.name} · jen výstup</span
+                        <span class="dir-name"
+                          ><span aria-hidden="true">⏹ </span>Tady končí (z {route.stops[0]
+                            ?.name})</span
                         >
+                        <span class="hops">jen výstup</span>
                       {/if}
                     </span>
-                    <span class="action"
-                      ><span class="sr-only">Jízdní řád linky {line.number}, </span>Jízdní řád ›</span
-                    >
+                    <span class="sr-only">, jízdní řád</span>
+                    <ChevronRight class="chev" aria-hidden="true" size={20} />
                   </a>
                 </li>
               {/each}
@@ -135,13 +143,18 @@
   .ends .dir-name {
     color: var(--muted-foreground);
   }
-  .action {
+  .row-link :global(.chev) {
     margin-left: auto;
     flex-shrink: 0;
-    color: var(--primary);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    white-space: nowrap;
+    color: var(--muted-foreground);
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+  .row-link:hover :global(.chev) {
+    color: var(--foreground);
+    transform: translateX(2px);
+  }
+  .here {
+    color: var(--foreground);
   }
   .plate {
     display: grid;
@@ -159,10 +172,6 @@
   .what {
     flex: 1;
     min-width: 0;
-  }
-  .title {
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
   }
   .hops {
     color: var(--muted-foreground);
