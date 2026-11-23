@@ -5,8 +5,12 @@ import { mockNetwork } from './fixtures/network';
 const featuredStop = createStop(42, {
   image_url: 'http://127.0.0.1:3301/api/v1/stops-images/turingTerminal.png'
 });
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+
+/** The footer line that reports whether the timetable API is healthy. */
+const dataStatus = (page: Page) =>
+  page.getByRole('status').filter({ hasText: /^Data jízdních řádů:/ });
 
 test.beforeEach(async ({ page }) => {
   await mockBrandAssets(page);
@@ -32,7 +36,7 @@ test.beforeEach(async ({ page }) => {
 test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toHaveAttribute(
     'href',
     '/stops'
@@ -58,13 +62,13 @@ test('system theme is the default and keyboard theme choice persists', async ({
   const root = page.locator('html');
   await expect(root).not.toHaveClass(/dark/);
 
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   const darkSwitch = page.getByRole('button', { name: 'Přepnout na tmavý režim' });
   await darkSwitch.focus();
   await page.keyboard.press('Enter');
   await expect(root).toHaveClass(/dark/);
   await expect(page.getByRole('button', { name: 'Přepnout na světlý režim' })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   await page.reload();
   await expect(root).toHaveClass(/dark/);
 
@@ -92,7 +96,7 @@ test('command palette finds a stop by keyboard', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
   // The status is fetched client-side, so it also signals that the page is hydrated.
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   await page.keyboard.press('ControlOrMeta+k');
   const dialog = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
   await expect(dialog).toBeVisible();
@@ -109,7 +113,7 @@ test('reduced motion keeps the small-screen homepage readable and keyboard acces
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   await expect(page.getByLabel('Autoři')).toContainText('Žofie · Jan');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(
@@ -145,9 +149,7 @@ for (const failure of ['http', 'invalid', 'wrong-value', 'network']) {
           })
     );
     await page.goto('/');
-    await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText(
-      'Status: Nedostupné'
-    );
+    await expect(dataStatus(page)).toHaveText('Data jízdních řádů: nedostupná');
   });
 }
 
@@ -176,20 +178,22 @@ for (const invalid of [false, true]) {
   });
 }
 
-test('landing quick search opens the stop map with the query', async ({ page }) => {
+test('landing planner sends the chosen stops and time to the connection search', async ({
+  page
+}) => {
+  const target = createStop(43, { name: 'Quantum Commons' });
+  await page.route('**/api/v1/stops', (route) => route.fulfill({ json: [featuredStop, target] }));
   await page.goto('/');
-  const search = page.getByRole('searchbox', { name: 'Hledat zastávku podle názvu' });
-  const query = featuredStop.name.slice(0, 4);
-  await search.fill(query);
-  await search.press('Enter');
-  await expect(page).toHaveURL(/\/stops\?q=/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
-  await expect(page.getByRole('searchbox', { name: 'Hledat zastávku', exact: true })).toHaveValue(
-    query
-  );
-  await expect(
-    page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
-  ).toHaveCount(1);
+  const form = page.getByRole('form', { name: 'Vyhledat spojení' });
+  await form.getByRole('combobox', { name: 'Odkud' }).fill(featuredStop.name.slice(0, 4));
+  await form.getByRole('option', { name: featuredStop.name }).click();
+  await form.getByRole('combobox', { name: 'Kam' }).fill('Quantum');
+  await form.getByRole('option', { name: 'Quantum Commons' }).click();
+  await form.getByLabel('Čas odjezdu').fill('07:30');
+  await form.getByRole('button', { name: 'Vyhledat spojení' }).click();
+  await expect(page).toHaveURL(/\/spojeni\?/);
+  const params = new URL(page.url()).searchParams;
+  expect(Object.fromEntries(params)).toEqual({ z: '42', do: '43', cas: '07:30' });
 });
 
 test('landing map preview and primary action lead to the stop map', async ({ page }) => {
@@ -197,10 +201,10 @@ test('landing map preview and primary action lead to the stop map', async ({ pag
   await page.goto('/');
   await page.getByRole('link', { name: 'Otevřít mapu zastávek' }).click();
   await expect(page).toHaveURL(/\/stops$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
-  await page.getByRole('link', { name: 'Domů' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
+  await page.getByRole('link', { name: 'Úvod' }).first().click();
   await page.getByRole('link', { name: 'Otevřít mapu', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
 });
 
 test('landing stays usable when stops fail to load', async ({ page }) => {
@@ -208,7 +212,7 @@ test('landing stays usable when stops fail to load', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
   await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
 });
 
 test('header links go straight to stops and lines', async ({ page }) => {
@@ -224,7 +228,7 @@ test('header links go straight to stops and lines', async ({ page }) => {
 
 test('footer links open contact and terms', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
+  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
   const footer = page.getByRole('contentinfo', { name: 'Patička webu' });
   await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
     'href',
@@ -232,12 +236,12 @@ test('footer links open contact and terms', async ({ page }, testInfo) => {
   );
   await footer.screenshot({ path: `/tmp/tda-footer-${testInfo.project.name}.png` });
   await footer.getByRole('link', { name: 'Kontakt' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ozvěte se.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt: Kontakt na tým');
   await expect(page.getByRole('link', { name: 'Napsat týmu' })).toHaveAttribute(
     'href',
     'https://github.com/NightmarePog/2idiotz/issues/new'
   );
   await footer.getByRole('link', { name: 'Podmínky používání' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Podmínky.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Podmínky: Podmínky používání');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

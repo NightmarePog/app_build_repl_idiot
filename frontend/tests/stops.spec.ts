@@ -41,7 +41,7 @@ test.beforeEach(async ({ page }) => {
 test('lists stops with images and opens a real detail page', async ({ page }, testInfo) => {
   await page.route('**/api/v1/stops/12', (route) => route.fulfill({ json: stops[0] }));
   await page.goto('/stops');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
   await expect(
     page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
   ).toHaveCount(2);
@@ -74,14 +74,17 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
   await expect(page.getByText('Nástup bez schodů')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('html')).not.toHaveAttribute('data-route-transition', 'true');
-  await expect(page.locator('.detail-amenities')).toHaveCSS('opacity', '1');
+  await expect(page.getByRole('complementary', { name: 'Zastávka Cejl' })).toHaveCSS(
+    'opacity',
+    '1'
+  );
   await page.screenshot({
     path: `/tmp/tda-detail-${testInfo.project.name}.png`,
     fullPage: true,
     animations: 'allow'
   });
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
   await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
 });
 
@@ -148,7 +151,9 @@ for (const failure of ['http', 'invalid', 'network']) {
         : route.fulfill({ status: failure === 'http' ? 503 : 200, json: {} })
     );
     await page.goto('/stops');
-    await expect(page.getByRole('alert')).toHaveText('Zastávky se nepodařilo načíst');
+    await expect(page.getByRole('alert').getByRole('heading')).toHaveText(
+      'Zastávky se nepodařilo načíst'
+    );
     await expect(page.getByText('Zatím tu nejsou žádné zastávky')).toHaveCount(0);
     await page.route('**/api/v1/stops', (route) => route.fulfill({ json: stops }));
     await page.getByRole('button', { name: 'Zkusit znovu' }).click();
@@ -330,10 +335,10 @@ test('detail keeps the selected image while validating the stop and removes a st
     release();
   }
 
-  await expect(page.getByRole('alert')).toHaveText('Zastávka nebyla nalezena');
+  await expect(page.getByRole('alert').getByRole('heading')).toHaveText('Zastávka nebyla nalezena');
   await expect(page.getByRole('img', { name: 'Zastávka Cejl' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
 });
 
 test('unmatched searches can be reset without losing unrelated URL parameters', async ({
@@ -353,7 +358,7 @@ test('unmatched searches can be reset without losing unrelated URL parameters', 
 test('a missing stop has a clear message and a way back', async ({ page }) => {
   await page.route('**/api/v1/stops/999', (route) => route.fulfill({ status: 404, json: {} }));
   await page.goto('/stops/999');
-  await expect(page.getByRole('alert')).toHaveText('Zastávka nebyla nalezena');
+  await expect(page.getByRole('alert').getByRole('heading')).toHaveText('Zastávka nebyla nalezena');
   await expect(page.getByRole('link', { name: 'Všechny zastávky' })).toHaveAttribute(
     'href',
     '/stops'

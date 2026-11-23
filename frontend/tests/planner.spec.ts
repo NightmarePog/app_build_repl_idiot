@@ -9,6 +9,8 @@ const stops = [
 const key = '0-0706-202001.9-301002.8';
 
 test.beforeEach(async ({ page }) => {
+  // A fixed morning in Prague, so the search never rolls over to tomorrow at night.
+  await page.clock.setFixedTime(new Date('2026-11-23T06:30:00+01:00'));
   await mockBrandAssets(page);
   await page.route('**/api/v1/stops', (r) => r.fulfill({ json: stops }));
   await page.route('**/api/v1/lines', (r) => r.fulfill({ json: [] }));
@@ -25,8 +27,21 @@ test('lists connections with a transfer and opens the detail', async ({ page }) 
   await card.click();
   await expect(page).toHaveURL(new RegExp(`detail=${key}`));
 
-  const trip = page.getByRole('link', { name: /Spoj Bus B02/ });
-  await expect(trip).toHaveAttribute('href', /\/trips\/202001\?od=9&do=8/);
+  // Each leg links to its trip, cut to the part the passenger rides.
+  await expect(page.getByRole('link', { name: 'Bus B02 → Kernel Hub' })).toHaveAttribute(
+    'href',
+    /\/trips\/202001\?od=9&do=8$/
+  );
+  const firstLeg = page.getByRole('region', { name: 'Úsek 1: linka B' });
+  await expect(firstLeg.getByRole('link', { name: 'Jízdní řád spoje' })).toHaveAttribute(
+    'href',
+    /\/trips\/202001\?od=9&do=8$/
+  );
+  await expect(
+    page.getByRole('region', { name: 'Úsek 2: linka C' }).getByRole('link', {
+      name: 'Jízdní řád spoje'
+    })
+  ).toHaveAttribute('href', /\/trips\/301002\?od=8&do=15$/);
   await expect(page.locator(`[id="c-${key}-detail"] a[href="/stops/8"]`).first()).toBeVisible();
 });
 
