@@ -1,8 +1,8 @@
 package cloud.twoidiotz.app.v1.domain.connection;
 
+import cloud.twoidiotz.app.shared.serialization.SnakeCase;
 import cloud.twoidiotz.app.v1.domain.trip.StopSummaryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
-import cloud.twoidiotz.app.shared.serialization.SnakeCase;
 
 @SnakeCase
 @Schema(

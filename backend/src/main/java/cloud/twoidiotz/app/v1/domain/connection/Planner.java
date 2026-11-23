@@ -3,23 +3,28 @@ package cloud.twoidiotz.app.v1.domain.connection;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
 /**
- * Connection Scan Algorithm over a timetable that repeats every day. Each trip runs on the day
- * before, the search day and the day after (minutes shifted by -1440, 0, +1440), so a trip that
- * starts at 23:52 and arrives at 24:14 is caught both late in the evening and just after midnight.
- * Changing buses at a stop needs {@link #TRANSFER_MINUTES}; staying on the same bus needs nothing,
- * so zero-minute dwells and buses that overtake each other at a stop are handled by time alone.
- * Arrival searches run the same scan on the mirrored timetable (time negated, calls reversed).
+ * Exhaustive journey search over a timetable that repeats every day. Each trip runs on five
+ * consecutive days (minutes shifted by -2..+2 days), so a trip that starts at 23:52 and arrives at
+ * 24:14 is caught both late in the evening and just after midnight, and a search can look a full
+ * day ahead or back from any time.
+ *
+ * <p>The network is small, so every journey with up to {@link #MAX_LEGS} legs is enumerated instead
+ * of approximated. A journey never visits a stop twice (no riding to the terminus and back), never
+ * rides past its destination and changes buses only with {@link #TRANSFER_MINUTES} to spare;
+ * staying on the same bus needs nothing, so zero-minute dwells and buses overtaking each other are
+ * handled by time alone. The result is the Pareto set: a journey is dropped when another one leaves
+ * no earlier, arrives no later and needs no more transfers.
  */
 final class Planner {
   static final int TRANSFER_MINUTES = 2;
+  static final int MAX_LEGS = 4;
   private static final int DAY = 24 * 60;
-  private static final int INF = Integer.MAX_VALUE;
-  private static final int MAX_SCANS = 500;
 
   record Call(long stopId, int arrival, int departure) {}
 
@@ -51,172 +56,135 @@ final class Planner {
     int transfers() {
       return legs.size() - 1;
     }
-
-    String key() {
-      var key = new StringBuilder();
-      for (var leg : legs)
-        key.append(leg.run().trip().id())
-            .append('@')
-            .append(leg.run().shift())
-            .append(':')
-            .append(leg.board())
-            .append('-')
-            .append(leg.alight())
-            .append(';');
-      return key.toString();
-    }
   }
 
-  private record Hop(int run, int index, long from, long to, int departure, int arrival) {}
+  /** A run can be boarded at call {@code index}. */
+  private record Boarding(int run, int index) {}
 
   private final List<Run> runs = new ArrayList<>();
-  private final List<Run> mirrored = new ArrayList<>();
-  private final List<Hop> hops;
-  private final List<Hop> mirroredHops;
+  private final Map<Long, List<Boarding>> boardings = new HashMap<>();
 
   Planner(List<Trip> trips) {
-    for (var trip : trips) {
-      for (var shift : new int[] {-DAY, 0, DAY}) {
+    for (var trip : trips)
+      for (var day = -2; day <= 2; day++) {
+        var shift = day * DAY;
         var calls =
             trip.calls().stream()
                 .map(c -> new Call(c.stopId(), c.arrival() + shift, c.departure() + shift))
                 .toList();
+        var run = runs.size();
         runs.add(new Run(trip, shift, calls));
-        var reversed = new ArrayList<Call>();
-        for (var call : calls.reversed())
-          reversed.add(new Call(call.stopId(), -call.departure(), -call.arrival()));
-        mirrored.add(new Run(trip, shift, reversed));
+        for (var i = 0; i + 1 < calls.size(); i++)
+          boardings
+              .computeIfAbsent(calls.get(i).stopId(), id -> new ArrayList<>())
+              .add(new Boarding(run, i));
       }
-    }
-    hops = hops(runs);
-    mirroredHops = hops(mirrored);
+    for (var list : boardings.values())
+      list.sort(Comparator.comparingInt(b -> runs.get(b.run()).calls().get(b.index()).departure()));
   }
 
-  /** Up to {@code limit} Pareto-optimal journeys leaving at or after {@code time}, by departure. */
+  /** Up to {@code limit} journeys leaving in {@code [time, time + 1 day)}, by departure. */
   List<Journey> departing(long from, long to, int time, int limit) {
-    var found = new ArrayList<Journey>();
-    var t = time;
-    for (var scan = 0; scan < MAX_SCANS && found.size() < limit; scan++) {
-      var journey = scan(runs, hops, from, to, t);
-      if (journey.isEmpty()) break;
-      add(found, journey.get());
-      if (journey.get().departure() >= time + DAY) {
-        // Past the window, but it still prunes e.g. riding away at 23:06 to wait for 07:00.
-        found.removeIf(j -> j.departure() >= time + DAY);
-        break;
-      }
-      t = journey.get().departure() + 1;
-    }
-    return found;
+    // Look a second day ahead so that e.g. riding away at 23:06 to wait for 07:00 is pruned.
+    return pareto(from, to, time, time + 2 * DAY).stream()
+        .filter(j -> j.departure() < time + DAY)
+        .limit(limit)
+        .toList();
   }
 
-  /** Up to {@code limit} Pareto-optimal journeys arriving at or before {@code time}. */
+  /**
+   * Up to {@code limit} journeys arriving in {@code (time - 1 day, time]}: the ones arriving
+   * closest to {@code time}, listed by departure.
+   */
   List<Journey> arriving(long from, long to, int time, int limit) {
-    var found = new ArrayList<Journey>();
-    var t = time;
-    for (var scan = 0; scan < MAX_SCANS && found.size() < limit; scan++) {
-      var journey = scan(mirrored, mirroredHops, to, from, -t).map(this::unmirror);
-      if (journey.isEmpty()) break;
-      add(found, journey.get());
-      if (journey.get().arrival() <= time - DAY) {
-        found.removeIf(j -> j.arrival() <= time - DAY);
-        break;
+    var found =
+        pareto(from, to, time - 2 * DAY, time + 1).stream()
+            .filter(j -> j.arrival() <= time && j.arrival() > time - DAY)
+            .sorted(Comparator.comparingInt(Journey::arrival).reversed())
+            .limit(limit)
+            .toList();
+    return found.stream().sorted(order()).toList();
+  }
+
+  /** Every non-dominated journey whose first bus leaves in {@code [from, until)}. */
+  private List<Journey> pareto(long fromStop, long toStop, int fromTime, int until) {
+    var all = new ArrayList<Journey>();
+    if (fromStop == toStop) return all;
+    var visited = new HashSet<Long>();
+    visited.add(fromStop);
+    search(fromStop, toStop, fromTime, until, new ArrayList<>(), visited, all);
+    var best = new HashMap<String, Journey>();
+    for (var journey : all)
+      best.merge(
+          journey.departure() + "/" + journey.arrival() + "/" + journey.transfers(),
+          journey,
+          (a, b) -> waiting(b) < waiting(a) ? b : a);
+    var unique = new ArrayList<>(best.values());
+    return unique.stream()
+        .filter(x -> unique.stream().noneMatch(y -> y != x && dominates(y, x)))
+        .sorted(order())
+        .toList();
+  }
+
+  private void search(
+      long stop,
+      long target,
+      int ready,
+      int until,
+      List<Leg> legs,
+      Set<Long> visited,
+      List<Journey> out) {
+    for (var boarding : boardings.getOrDefault(stop, List.of())) {
+      var run = runs.get(boarding.run());
+      var calls = run.calls();
+      var departure = calls.get(boarding.index()).departure();
+      if (departure < ready) continue;
+      if (legs.isEmpty() && departure >= until) break;
+      if (!legs.isEmpty() && departure >= until + DAY) break;
+      if (legs.stream().anyMatch(leg -> leg.run() == run)) continue;
+      var passed = new ArrayList<Long>();
+      for (var j = boarding.index() + 1; j < calls.size(); j++) {
+        var next = calls.get(j).stopId();
+        if (visited.contains(next) || passed.contains(next)) break;
+        var leg = new Leg(run, boarding.index(), j);
+        if (next == target) {
+          var path = new ArrayList<>(legs);
+          path.add(leg);
+          out.add(new Journey(List.copyOf(path)));
+          break;
+        }
+        passed.add(next);
+        if (legs.size() + 1 < MAX_LEGS) {
+          legs.add(leg);
+          var seen = new HashSet<>(visited);
+          seen.addAll(passed);
+          search(next, target, calls.get(j).arrival() + TRANSFER_MINUTES, until, legs, seen, out);
+          legs.removeLast();
+        }
       }
-      t = journey.get().arrival() - 1;
     }
-    found.sort(Comparator.comparingInt(Journey::departure));
-    return found;
   }
 
-  /** Adds a journey and drops every journey another one beats (leaves later, arrives sooner). */
-  private static void add(List<Journey> found, Journey journey) {
-    found.add(journey);
-    found.removeIf(
-        x -> found.stream().anyMatch(y -> y != x && dominates(y, x) && !dominates(x, y)));
-    var keys = new java.util.HashSet<String>();
-    found.removeIf(x -> !keys.add(x.key()));
-    found.sort(Comparator.comparingInt(Journey::departure).thenComparingInt(Journey::arrival));
+  private static int waiting(Journey journey) {
+    var total = 0;
+    for (var i = 1; i < journey.legs().size(); i++)
+      total += journey.legs().get(i).departure() - journey.legs().get(i - 1).arrival();
+    return total;
   }
 
+  private static Comparator<Journey> order() {
+    return Comparator.comparingInt(Journey::departure)
+        .thenComparingInt(Journey::arrival)
+        .thenComparingInt(Journey::transfers);
+  }
+
+  /** {@code y} leaves no earlier, arrives no later, changes no more often and differs. */
   private static boolean dominates(Journey y, Journey x) {
     return y.departure() >= x.departure()
         && y.arrival() <= x.arrival()
-        && y.transfers() <= x.transfers();
-  }
-
-  /** Earliest arrival at {@code to} leaving {@code from} at or after {@code time}. */
-  private static Optional<Journey> scan(
-      List<Run> runs, List<Hop> hops, long from, long to, int time) {
-    Map<Long, Integer> ready = new HashMap<>(); // earliest time a bus can be boarded at the stop
-    Map<Long, Integer> arrival = new HashMap<>();
-    Map<Long, Integer> legs = new HashMap<>();
-    Map<Long, Leg> label = new HashMap<>();
-    var boardedAt = new int[runs.size()];
-    var boardedLegs = new int[runs.size()];
-    java.util.Arrays.fill(boardedAt, -1);
-    ready.put(from, time);
-    arrival.put(from, time);
-    legs.put(from, 0);
-    for (var hop : hops) {
-      if (hop.departure() < time) continue;
-      if (hop.departure() > arrival.getOrDefault(to, INF)) break;
-      if (boardedAt[hop.run()] < 0 && ready.getOrDefault(hop.from(), INF) <= hop.departure()) {
-        boardedAt[hop.run()] = hop.index();
-        boardedLegs[hop.run()] = legs.get(hop.from()) + 1;
-      }
-      if (boardedAt[hop.run()] < 0) continue;
-      var count = boardedLegs[hop.run()];
-      var known = arrival.getOrDefault(hop.to(), INF);
-      if (hop.arrival() < known
-          || (hop.arrival() == known && count < legs.getOrDefault(hop.to(), INF))) {
-        arrival.put(hop.to(), hop.arrival());
-        legs.put(hop.to(), count);
-        label.put(hop.to(), new Leg(runs.get(hop.run()), boardedAt[hop.run()], hop.index() + 1));
-        var change = hop.to() == to ? 0 : TRANSFER_MINUTES;
-        ready.merge(hop.to(), hop.arrival() + change, Math::min);
-      }
-    }
-    if (!label.containsKey(to)) return Optional.empty();
-    var path = new ArrayList<Leg>();
-    for (var stop = to; label.containsKey(stop) && stop != from; ) {
-      var leg = label.get(stop);
-      path.addFirst(leg);
-      stop = leg.run().calls().get(leg.board()).stopId();
-      if (path.size() > hops.size()) throw new IllegalStateException("Cyclic journey");
-    }
-    return Optional.of(new Journey(path));
-  }
-
-  /** Maps a journey found on the mirrored timetable back to real trips and call indices. */
-  private Journey unmirror(Journey mirroredJourney) {
-    var legs = new ArrayList<Leg>();
-    for (var leg : mirroredJourney.legs()) {
-      var real = runs.get(mirrored.indexOf(leg.run()));
-      var last = real.calls().size() - 1;
-      legs.addFirst(new Leg(real, last - leg.alight(), last - leg.board()));
-    }
-    return new Journey(legs);
-  }
-
-  private static List<Hop> hops(List<Run> runs) {
-    var hops = new ArrayList<Hop>();
-    for (var r = 0; r < runs.size(); r++) {
-      var calls = runs.get(r).calls();
-      for (var i = 0; i + 1 < calls.size(); i++)
-        hops.add(
-            new Hop(
-                r,
-                i,
-                calls.get(i).stopId(),
-                calls.get(i + 1).stopId(),
-                calls.get(i).departure(),
-                calls.get(i + 1).arrival()));
-    }
-    hops.sort(
-        Comparator.comparingInt(Hop::departure)
-            .thenComparingInt(Hop::arrival)
-            .thenComparingInt(Hop::run)
-            .thenComparingInt(Hop::index));
-    return hops;
+        && y.transfers() <= x.transfers()
+        && (y.departure() > x.departure()
+            || y.arrival() < x.arrival()
+            || y.transfers() < x.transfers());
   }
 }
