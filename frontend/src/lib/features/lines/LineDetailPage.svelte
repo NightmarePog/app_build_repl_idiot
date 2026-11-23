@@ -3,14 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import {
-    ArrowRight,
-    BusFront,
-    ChevronRight,
-    Clock,
-    MapPin,
-    TramFront
-  } from '@lucide/svelte';
+  import { ArrowRight, BusFront, ChevronRight, Clock, MapPin, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
