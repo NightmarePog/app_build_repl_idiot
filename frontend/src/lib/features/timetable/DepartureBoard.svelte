@@ -317,8 +317,7 @@
         <ol class="rows" aria-label={`Odjezdy ze zastávky ${stopName}`}>
           {#each rows as row, index (row.key)}
             {@const waits = row.dep - row.arr}
-            {@const soon =
-              index < 4 || (row.inMinutes ?? 99) <= 60 ? relative(row.inMinutes) : null}
+            {@const soon = relative(row.inMinutes)}
             {@const by = overtaken.get(row.key)}
             {@const band =
               index === firstTomorrow && index > 0
@@ -358,12 +357,14 @@
                   >
                 {:else}
                   <span class="time tabular">{row.departure_time}</span>
-                  {#if waits > 0}<span class="arr-m tabular">příjezd {row.arrival_time}</span>{/if}
+                  {#if waits > 0}<span class="arr-m tabular"
+                      >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;☾{/if}</span
+                    >{/if}
                 {/if}
               </span>
               <span class="in" aria-hidden="true">
                 {#if row.tomorrow}
-                  <span class="sr-only">zítra</span>
+                  <span class="countdown tabular">zítra</span>
                 {:else if soon}
                   <span class="countdown tabular" class:first={row === nextRow}>{soon}</span>
                 {/if}
@@ -372,9 +373,6 @@
           {/each}
         </ol>
       {/key}
-      {#if rows.some((r) => r.dep > r.arr)}
-        <p class="target-note foot">„Stojí N min“ = bus v zastávce čeká; malý čas je příjezd.</p>
-      {/if}
       {#if more > 0}
         <button type="button" class="more" onclick={() => (limit += PAGE)}>
           Zobrazit další ({more})
@@ -681,7 +679,7 @@
     gap: 0.25rem;
   }
   .arr-m {
-    display: none;
+    display: block;
     color: var(--board-muted);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
@@ -842,9 +840,6 @@
     }
     .in:empty {
       display: none;
-    }
-    .arr-m {
-      display: block;
     }
   }
   @media (prefers-reduced-motion: reduce) {

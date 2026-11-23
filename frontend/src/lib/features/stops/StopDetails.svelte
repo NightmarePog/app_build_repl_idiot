@@ -52,7 +52,9 @@
                 {#if has}
                   <Check aria-hidden="true" size={16} strokeWidth={2.5} /> ano
                 {:else}
-                  <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne
+                  <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne{#if amenity.value === 'tickets'}<span
+                      class="hint">, jízdenku kupte u řidiče</span
+                    >{/if}
                 {/if}
               </dd>
             </div>
@@ -92,6 +94,10 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
     gap: clamp(2rem, 4vw, 4rem);
+  }
+  .hint {
+    color: var(--muted-foreground);
+    font-weight: normal;
   }
   .amenity-row {
     display: flex;
