@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, ChevronRight, LogIn, LogOut, Clock as TripIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronRight, LogIn, LogOut, Timer as TimerIcon, Clock as TripIcon } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import type { TripDetail } from '$lib/api/generated';
@@ -91,6 +91,19 @@
       : []
   );
 
+  /** Vehicle run name ("Bus B03") once the API carries block_ref; the contract fields stay as they are. */
+  const vehicleName = $derived.by(() => {
+    const ref = trip && 'block_ref' in trip ? (trip as { block_ref?: unknown }).block_ref : null;
+    return typeof ref === 'string' && ref ? `Bus ${ref}` : null;
+  });
+
+  /** The title names MY ride: where I board and get off, with times, not the whole route. */
+  const title = $derived(
+    board && alight
+      ? `${vehicleName ? `${vehicleName} · ` : ''}${board.stop.name} ${board.departure_time} → ${alight.stop.name} ${alight.arrival_time}`
+      : ''
+  );
+
   function lineHref(trip: TripDetail) {
     return lineDirectionHref(trip.line.id, trip.direction);
   }
@@ -99,7 +112,7 @@
 <svelte:head>
   <title>
     {trip
-      ? `Spoj ${trip.line.number} ${trip.departure_time} → ${trip.destination.name}`
+      ? `Spoj ${trip.line.number} · ${title}`
       : failure === 'missing'
         ? 'Spoj nenalezen'
         : 'Spoj'} · TdA
@@ -133,7 +146,7 @@
     <PageHeader
       kind="Spoj"
       icon={TripIcon}
-      title={`${trip.origin.name} → ${trip.destination.name}`}
+      {title}
       color={trip.line.color}
     >
       {#snippet lead()}<span class="vt-plate"
@@ -168,9 +181,16 @@
         <div class="status-row" role="status">
           <p class="status" data-tone={status.tone}>
             {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
-            {status.title}{#if status.detail}<span class="status-detail tabular"
-                >{status.detail}</span
-              >{/if}
+            {#if status.detail}
+              <!-- The boarding time is already the big number above: only the countdown here. -->
+              <span class="chip countdown tabular"
+                ><TimerIcon aria-hidden="true" class="size-4" />{status.tone === 'done'
+                  ? 'zítra · '
+                  : ''}{status.detail}</span
+              >
+            {:else}
+              {status.title}
+            {/if}
           </p>
           {#if progress !== null}
             <div class="progress" aria-label={`Ujeto ${Math.round(progress * 100)} % vaší jízdy`}>
@@ -226,8 +246,9 @@
                 ></span>
               {/if}
               <div class="times" aria-hidden="true">
+                <!-- One time column: the departure; the arrival only as a small mark where the bus waits. -->
                 {#if stop.dwell > 0 && !first && !end && !isTo}
-                  <span class="t">{stop.arrival_time}</span>
+                  <span class="t-arr">{stop.arrival_time}</span>
                 {/if}
                 <span class="t">{isTo && !end ? stop.arrival_time : shown}</span>
               </div>
@@ -357,9 +378,6 @@
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
   }
-  .status-detail {
-    font-weight: var(--weight-strong);
-  }
   .progress-track {
     position: relative;
     display: block;
@@ -460,8 +478,20 @@
     background: var(--line);
     box-shadow: 0 0 0 1.5px var(--line-stroke, var(--line));
   }
+  /* Stops off my ride: greyed, with a dashed rail, so my part stands out at a glance. */
   .outside {
-    opacity: 0.5;
+    opacity: 0.4;
+    filter: grayscale(1);
+  }
+  .outside::before,
+  .outside::after {
+    width: 0;
+    border-left: 0.25rem dashed color-mix(in oklch, var(--line) 50%, var(--background));
+    background: none;
+    left: calc(var(--rail-x) - 0.125rem);
+  }
+  .outside .name {
+    font-weight: var(--weight-normal, 400);
   }
   .node {
     grid-area: node;
@@ -511,6 +541,17 @@
   .t {
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
+  }
+  .t-arr {
+    font-size: var(--fs-sm);
+    color: var(--muted-foreground);
+    line-height: 1.25rem;
+  }
+  .countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--fs-lg);
   }
   .body {
     grid-area: body;
