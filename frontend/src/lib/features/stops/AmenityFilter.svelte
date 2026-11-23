@@ -23,10 +23,12 @@
       type="button"
       class="amenity-toggle"
       aria-pressed={pressed}
+      title={amenity.label}
       onclick={() => toggle(amenity.value)}
     >
-      <amenity.icon aria-hidden="true" size={16} strokeWidth={1.75} />
-      {amenity.label}
+      <!-- Icon-only so the filter stays one row; the name is in the tooltip and for screen readers. -->
+      <amenity.icon aria-hidden="true" size={20} strokeWidth={1.75} />
+      <span class="sr-only">{amenity.label}</span>
     </button>
   {/each}
 </div>

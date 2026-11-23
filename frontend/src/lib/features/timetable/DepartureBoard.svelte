@@ -32,8 +32,10 @@
   const now = $derived(appClock.now);
 
   let mode = $state<'upcoming' | 'day' | 'arrivals'>('upcoming');
-  /** Rows that get a countdown: the next two, like a platform display. */
-  const COUNTDOWNS = 2;
+  /** Rows within this many minutes get a countdown; later ones show only the clock time. */
+  const COUNTDOWN_MIN = 60;
+  /** Rows flap in only after the passenger changes a filter, never on first paint. */
+  let flapping = $state(false);
   /** Minutes a bus must wait here before the board shows its arrival too. */
   const DWELL_SHOWN = 2;
   let limit = $state(PAGE);
@@ -193,6 +195,7 @@
       ? lineFilter.filter((n) => n !== number)
       : [...lineFilter, number];
     limit = PAGE;
+    flapping = true;
   }
 
   const tripHref = (tripId: number) =>
@@ -201,7 +204,7 @@
   function rowLabel(row: Shown, by: string[] | undefined) {
     const waits = row.dep - row.arr;
     return [
-      `Linka ${row.line.number} směr ${row.destination.name}`,
+      `Linka ${row.line.number}${row.block_ref ? `, bus ${row.block_ref}` : ''} směr ${row.destination.name}`,
       waits > 0
         ? `příjezd ${spokenTime(row.arrival_time, row.arrival_day_offset)}, odjezd ${spokenTime(row.departure_time, row.departure_day_offset)}`
         : `příjezd a odjezd ${spokenTime(row.departure_time, row.departure_day_offset)}`,
@@ -265,10 +268,12 @@
           <button
             type="button"
             aria-pressed={mode === 'upcoming'}
-            onclick={() => ((mode = 'upcoming'), (limit = PAGE))}>Od teď</button
+            onclick={() => ((mode = 'upcoming'), (limit = PAGE), (flapping = true))}>Od teď</button
           >
-          <button type="button" aria-pressed={mode === 'day'} onclick={() => (mode = 'day')}
-            >Celý den</button
+          <button
+            type="button"
+            aria-pressed={mode === 'day'}
+            onclick={() => ((mode = 'day'), (flapping = true))}>Celý den</button
           >
           <button
             type="button"
@@ -310,6 +315,7 @@
                   const hit = reachable.find(([, name]) => fold(name) === key);
                   target = hit ? hit[0] : null;
                   limit = PAGE;
+                  flapping = true;
                 }}
               />
               <datalist id="board-dest-options">
@@ -429,6 +435,7 @@
       {#key filterKey}
         <ol
           class="rows"
+          class:flap={flapping}
           class:timeline={mode === 'day'}
           aria-label={`Odjezdy ze zastávky ${stopName}`}
         >
@@ -467,6 +474,9 @@
                   ><span class="arrow" aria-hidden="true">→</span>
                   {row.destination.name}</strong
                 >
+                {#if row.block_ref}
+                  <span class="vehicle" aria-hidden="true">Bus {row.block_ref}</span>
+                {/if}
                 {#if row.via.length > 0}
                   <ol class="via" aria-hidden="true" title={row.via.map((v) => v.name).join(' · ')}>
                     {#each row.via as stop (stop.id)}
@@ -498,8 +508,8 @@
                     >
                   {/if}
                 {/if}
-                {#if !row.tomorrow && soon && mode === 'upcoming' && index < COUNTDOWNS}
-                  <span class="countdown tabular" class:first={row === nextRow}>{soon}</span>
+                {#if !row.tomorrow && soon && mode === 'upcoming' && (row.inMinutes ?? Infinity) <= COUNTDOWN_MIN}
+                  <span class="countdown tabular">{soon}</span>
                 {/if}
               </span>
             </li>
@@ -543,7 +553,7 @@
     border-radius: var(--radius);
     color: var(--board-fg);
     /* No accent stripe on top: the board is told apart by its surface, not a coloured bar. */
-    border-top: 0;
+    border: 1px solid var(--board-line);
   }
   .board-head {
     display: flex;
@@ -564,8 +574,6 @@
     color: var(--board-fg);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
   }
   h2 {
     font-size: var(--fs-h2);
@@ -635,22 +643,21 @@
     width: 2.75rem;
     height: 2.75rem;
     border-radius: var(--radius);
-    border: 1.5px dashed var(--board-line);
-    opacity: 0.7;
+    border: 1.5px solid var(--board-line);
     transition:
       opacity var(--motion-fast) var(--ease-out),
       transform var(--motion-fast) var(--ease-out),
       border-color var(--motion-fast) var(--ease-out);
   }
   .chip:hover {
-    opacity: 0.85;
+    border-color: var(--board-fg);
   }
   .chip:active {
     transform: scale(0.92);
   }
   .chip[aria-pressed='true'] {
-    opacity: 1;
     border: 2px solid var(--sign-marker);
+    background: var(--board-raised);
   }
   .row {
     display: grid;
@@ -702,7 +709,7 @@
     text-underline-offset: 3px;
   }
   /* Rows flap in, staggered, when the filter changes: the board re-sorting itself. */
-  .rows .row {
+  .rows.flap .row {
     animation: flap-in var(--motion-slow) var(--ease-out) both;
     animation-delay: calc(min(var(--i), 10) * var(--motion-stagger));
     transform-origin: top;
@@ -744,9 +751,7 @@
   .dest strong {
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
     line-height: 1.2;
-    text-transform: uppercase;
     overflow-wrap: anywhere;
   }
   .dest .arrow {
@@ -779,16 +784,16 @@
     color: var(--board-fg);
     box-shadow: inset 0 0 0 1px var(--board-line);
   }
+  /* One countdown style on every row: same information, same look. */
   .countdown {
-    color: var(--board-muted);
+    color: var(--sign-marker);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
   }
-  /* The first row's countdown breathes gently: it is the one that matters now. */
-  .countdown.first {
-    color: var(--sign-marker);
-    font-size: var(--fs-base);
-    animation: pulse var(--loop-slow) var(--ease-in-out) infinite;
+  .vehicle {
+    color: var(--board-fg);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   .dests {
     display: flex;
@@ -798,11 +803,9 @@
     max-width: 24rem;
   }
   .dests-label {
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
+    color: var(--board-fg);
+    font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
   }
   .dests-field input {
     width: 100%;
@@ -836,8 +839,6 @@
     margin-right: 0.35em;
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
     vertical-align: 0.25em;
   }
   @media (max-width: 639px) {
@@ -864,9 +865,7 @@
   .hero-dest strong {
     overflow: hidden;
     font-size: var(--fs-lg);
-    letter-spacing: var(--tracking-eyebrow);
     text-overflow: ellipsis;
-    text-transform: uppercase;
     white-space: nowrap;
   }
   .hero-time {
@@ -931,17 +930,14 @@
   }
   @media (max-width: 639px) {
     .board-wrap {
-      /* Full-bleed on phones, clear of the fixed bottom tab bar. */
-      margin-inline: calc(50% - 50vw);
+      /* Clear of the fixed bottom tab bar; keeps the page gutter like every other card. */
       margin-bottom: 5rem;
     }
     .board {
       padding: 1rem 0.75rem;
-      border-radius: 0;
     }
     .dest strong {
       font-size: var(--fs-base);
-      letter-spacing: 0.02em;
     }
     .row {
       grid-template-columns: 2.5rem minmax(0, 1fr) auto;
@@ -950,10 +946,9 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .countdown.first,
     .hero.leaving .hero-time,
     .skeleton,
-    .rows .row {
+    .rows.flap .row {
       animation: none;
     }
   }
@@ -980,15 +975,21 @@
     font-size: var(--fs-base);
   }
   .row.tomorrow-start {
-    margin-top: 2.25rem;
+    margin-top: 3rem;
   }
+  /* A full-width date divider: the board moves on to the next day. */
   .row.tomorrow-start::after {
     content: attr(data-day);
     position: absolute;
-    left: 0.75rem;
-    top: -1.75rem;
+    left: 0;
+    right: 0;
+    top: -2.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius);
+    background: var(--board-raised);
     color: var(--board-fg);
-    font-weight: var(--weight-strong);
+    font-size: var(--fs-base);
+    font-weight: var(--font-display-weight);
   }
   /* Full day: an hour axis on the left; empty hours leave a visible gap. */
   .rows.timeline {
@@ -1056,6 +1057,5 @@
   .next-label {
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
-    text-transform: uppercase;
   }
 </style>

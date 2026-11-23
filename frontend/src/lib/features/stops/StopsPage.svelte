@@ -12,7 +12,6 @@
   import { ChevronRight, MapPin, Search, SearchX, X } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
   import {
-    describeStop,
     isTransfer,
     linesOf,
     LINE_IDS,
@@ -426,7 +425,6 @@
                 ></span>
                 <span class="row-text">
                   <span class="row-name">{stop.name}</span>
-                  <span class="row-sub">{describeStop(stop.name)}</span>
                 </span>
                 <span class="row-lines">
                   {#each lines as id (id)}<LineBadge {id} />{/each}
@@ -529,12 +527,17 @@
   }
   .filter-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.5rem;
   }
+  .filter-row :global(.amenity-filter) {
+    flex-wrap: nowrap;
+  }
   .filter-row :global(.amenity-toggle) {
     min-height: 2.75rem;
+    min-width: 2.75rem;
+    justify-content: center;
     padding: 0 0.625rem;
     font-size: var(--fs-sm);
   }
@@ -644,10 +647,6 @@
     font-weight: var(--weight-strong);
     line-height: 1.2;
     overflow-wrap: anywhere;
-  }
-  .row-sub {
-    font-size: var(--fs-sm);
-    color: var(--muted-foreground);
   }
   .row-lines {
     display: flex;

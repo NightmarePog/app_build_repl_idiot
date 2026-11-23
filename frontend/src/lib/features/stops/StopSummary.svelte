@@ -3,7 +3,7 @@
   import { ArrowRight, Check, X } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
   import { Button } from '$lib/ui/button';
-  import { describeStop, linesOf, neighboursOf } from '$lib/features/network/lines.svelte';
+  import { linesOf, neighboursOf } from '$lib/features/network/lines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import StopImage from './StopImage.svelte';
   import { rememberStop } from './selected-stop';
@@ -25,7 +25,6 @@
         <h3 style:view-transition-name={titleTransition}>{stop.name}</h3>
         <p class="sub">
           {#each linesOf(stop.name) as id (id)}<LineBadge {id} />{/each}
-          <span>{describeStop(stop.name)}</span>
         </p>
       </div>
       <dl>
@@ -35,9 +34,11 @@
             <dt><amenity.icon size={16} strokeWidth={1.75} aria-hidden="true" />{amenity.label}</dt>
             <dd class:no={!has}>
               {#if has}
-                <Check aria-hidden="true" size={14} strokeWidth={2.5} /> ano
+                <Check aria-hidden="true" size={16} strokeWidth={2.5} /><span class="sr-only"
+                  >ano</span
+                >
               {:else}
-                <X aria-hidden="true" size={14} strokeWidth={2.5} /> ne
+                <X aria-hidden="true" size={16} strokeWidth={2.5} /><span class="sr-only">ne</span>
               {/if}
             </dd>
           </div>

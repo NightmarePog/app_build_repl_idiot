@@ -24,7 +24,8 @@
    * only hidden while still downloading, so a page-transition snapshot never captures a blank.
    */
   const fadeIn = (img: HTMLImageElement) => {
-    if (img.complete) return;
+    // An eager photo is the page's main image: never hide it, not even while it loads.
+    if (eager || img.complete) return;
     img.classList.add('pending');
     const show = () => img.classList.remove('pending');
     img.addEventListener('load', show, { once: true });

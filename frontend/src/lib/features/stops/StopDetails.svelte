@@ -19,27 +19,39 @@
 
 <article class="stop-detail">
   <aside class="infobox" aria-label={`Zastávka ${stop.name}`}>
-    <StopImage
-      src={stop.image_url}
-      name={stop.name}
-      id={stop.id}
-      transition
-      eager
-      class="info-photo"
-    />
+    <div class="photo">
+      <StopImage
+        src={stop.image_url}
+        name={stop.name}
+        id={stop.id}
+        transition
+        eager
+        class="info-photo"
+      />
+      <!-- The stop's signature: its name on an enamel stop sign over the photo. -->
+      <span class="sign" aria-hidden="true">{stop.name}</span>
+    </div>
     <div class="info-body">
-      <ul class="lines" aria-label="Linky">
+      <h2 class="info-heading">Linky</h2>
+      <ul class="lines">
         {#each linesOf(stop.name) as id (id)}
+          {@const line = LINES[id]}
           <li>
-            {#if LINES[id]}
-              <a href={resolve('/lines/[id]', { id: String(LINES[id].apiId) })}
-                ><LineBadge {id} size="lg" /></a
-              >
+            {#if line}
+              <a class="line" href={resolve('/lines/[id]', { id: String(line.apiId) })}>
+                <LineBadge {id} size="lg" />
+                {#if line.stops.length > 1}
+                  <span class="terminals"
+                    >{line.stops[0]} – {line.stops[line.stops.length - 1]}</span
+                  >
+                {/if}
+              </a>
             {:else}<LineBadge {id} size="lg" />{/if}
           </li>
         {/each}
       </ul>
-      <ul class="amenities" aria-label="Vybavení">
+      <h2 class="info-heading">Vybavení</h2>
+      <ul class="amenities">
         {#each AMENITIES as amenity (amenity.field)}
           {@const has = stop[amenity.field]}
           <li class:no={!has} title={`${amenity.label}: ${has ? 'ano' : 'ne'}`}>
@@ -95,10 +107,57 @@
     gap: 1rem;
     padding: 1rem;
   }
+  .photo {
+    position: relative;
+  }
+  .sign {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+    padding: 0.25rem 0.625rem;
+    border: 2px solid var(--background);
+    border-radius: var(--radius);
+    background: var(--foreground);
+    color: var(--background);
+    font-size: var(--fs-base);
+    font-weight: var(--font-display-weight);
+    line-height: 1.2;
+    box-shadow: 0 0 0 1px var(--foreground);
+  }
+  .info-heading {
+    font-size: var(--fs-base);
+    font-weight: var(--font-display-weight);
+    line-height: 1.2;
+  }
+  .info-heading + ul {
+    margin-top: -0.5rem;
+  }
   .lines {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .line {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: 2.75rem;
+    padding: 0.25rem;
+    border-radius: var(--radius);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    transition: background-color var(--motion-fast) var(--ease-out);
+  }
+  .line:hover {
+    background: var(--muted);
+  }
+  .line:hover .terminals {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .line:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .amenities {
     display: grid;
@@ -123,9 +182,6 @@
   }
   .amenities li.no {
     color: var(--muted-foreground);
-  }
-  .amenities li.no .caption {
-    text-decoration: line-through;
   }
   .amenities li.no .icon {
     background: var(--muted);
@@ -153,9 +209,14 @@
       display: grid;
       grid-template-columns: 6.5rem minmax(0, 1fr);
     }
+    .photo,
     .infobox :global(.info-photo) {
       height: 100%;
       aspect-ratio: auto;
+    }
+    /* The strip photo is too narrow for a sign; the page title names the stop. */
+    .sign {
+      display: none;
     }
     .info-body {
       gap: 0.625rem;
