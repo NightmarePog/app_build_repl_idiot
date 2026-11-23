@@ -61,19 +61,9 @@
   <title>Linky · TdA</title>
 </svelte:head>
 
-<PageHeader kind="Přehled linek" icon={RouteIcon} title="Všechny linky">
+<PageHeader kind="Linky" icon={RouteIcon} title="Všechny linky">
   {#snippet meta()}Trasy, zastávky a přestupy všech linek kampusu.{/snippet}
 </PageHeader>
-<div class="intro">
-  <!-- A map key, not decoration: the diagrams below use these symbols. -->
-  <p class="key-title">Vysvětlivky</p>
-  <ul class="key" aria-label="Vysvětlivky">
-    <li><span class="key-dot" aria-hidden="true"></span>zastávka</li>
-    <li><span class="key-dot interchange" aria-hidden="true"></span>přestup</li>
-    <li><span class="key-dot terminus" aria-hidden="true"></span>konečná</li>
-    <li><Isa size={16} />bezbariérový nástup</li>
-  </ul>
-</div>
 
 {#if networkFailed()}
   <PageState title="Linky se nepodařilo načíst" error onretry={() => loadNetwork(true)} />
@@ -137,6 +127,7 @@
                 >
                 {#if transfer.length}
                   <span class="badges" aria-hidden="true">
+                    <span class="mini-label">Přestup</span>
                     {#each transfer as other (other)}
                       <span
                         class="mini tabular"
@@ -159,6 +150,7 @@
                 {i > 0 ? ' · ' : ''}<span class="via-stop"
                   >{stop.name}
                   <span class="badges" aria-hidden="true">
+                    <span class="mini-label">přestup</span>
                     {#each others(line, stop.name) as other (other)}
                       <span
                         class="mini tabular"
@@ -179,7 +171,7 @@
           <p class="via empty">Trasa zatím není zadaná</p>
         {/if}
         <a class="more" href={resolve('/lines/[id]', { id: String(line.apiId) })}>
-          Víc informací<span class="sr-only"> o lince {line.number}</span>
+          Detail linky<span class="sr-only"> o lince {line.number}</span>
           <ArrowRight class="size-4" aria-hidden="true" />
         </a>
       </li>
@@ -215,47 +207,6 @@
 {/if}
 
 <style>
-  .intro {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1.25rem;
-    align-items: center;
-    justify-content: flex-start;
-    margin-block: 0 0.5rem;
-  }
-  .key-title {
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-  }
-  .key {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem 1.125rem;
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-regular);
-    color: var(--muted-foreground);
-  }
-  .key li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .key-dot {
-    width: 0.875rem;
-    height: 0.875rem;
-    border-radius: var(--radius-pill);
-    border: 3px solid var(--muted-foreground);
-    background: var(--background);
-  }
-  .key-dot.interchange {
-    width: 1.0625rem;
-    height: 1.0625rem;
-    border-color: var(--foreground);
-  }
-  .key-dot.terminus {
-    background: var(--muted-foreground);
-  }
-
   /* Rows separated by rules, no boxes: the plate and the rail carry the line colour. */
   .lines {
     border-top: 1px solid var(--border);
@@ -377,17 +328,14 @@
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
   }
-  .interchange .dot {
-    width: 1.125rem;
-    height: 1.125rem;
-    margin-top: 0;
+  /* One node style for every stop; termini are named in bold, transfers by their badges. */
+  .dot {
     border-color: var(--foreground);
   }
-  .terminus .dot {
-    width: 1.125rem;
-    height: 1.125rem;
-    margin-top: 0;
-    background: var(--line);
+  .mini-label {
+    align-self: center;
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
   }
   .strip a {
     /* Generous hit area around a short label. */
@@ -398,8 +346,7 @@
     border-radius: var(--radius-sm);
     text-underline-offset: 3px;
   }
-  .terminus a,
-  .interchange a {
+  .terminus a {
     font-weight: var(--weight-strong);
   }
   .strip a:hover {

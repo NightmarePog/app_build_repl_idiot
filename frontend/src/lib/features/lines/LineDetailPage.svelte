@@ -10,6 +10,7 @@
   import { LINES, linesOf } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsFailed, stopsList } from '$lib/features/network/stops-store.svelte';
   import Isa from './Isa.svelte';
+  import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import LineTrips from '$lib/features/timetable/LineTrips.svelte';
   import BusIllustration from '$lib/features/network/BusIllustration.svelte';
   import { clock } from '$lib/features/timetable/clock.svelte';
@@ -180,8 +181,11 @@
         title={line.name}
         color={line.color}
       >
-        {#snippet lead()}<span class="plate tabular" aria-hidden="true">{line?.number}</span
-          >{/snippet}
+        {#snippet lead()}<LinePlate
+            number={line?.number ?? ''}
+            color={line?.color ?? ''}
+            size="lg"
+          />{/snippet}
         {#snippet meta()}<span
             >{typeLabel(line?.type ?? '')} linka {line?.number} ·
             {(line?.routes.length ?? 0) > 1 ? 'dva směry' : 'jeden směr'}</span
@@ -211,9 +215,16 @@
                   Směr {option.direction}
                 </span>
                 <span class="dir-label tabular">
-                  z {option.stops[0]?.name}{#if travelByRoute.get(option.id) != null}
-                    · jízda {travelByRoute.get(option.id)} min{/if}
+                  {[
+                    `z ${option.stops[0]?.name ?? ''}`,
+                    travelByRoute.get(option.id) != null
+                      ? `jízda ${travelByRoute.get(option.id)} min`
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
+                {#if option.id !== route.id}<span class="dir-switch">Přepnout směr ›</span>{/if}
               </a>
             {/each}
           </nav>
@@ -228,21 +239,21 @@
           <h2 id="route-heading" class="section-title">Trasa</h2>
           <p class="caption">
             {#if firstTrip}
-              <span class="tabular">Minuty od výchozí zastávky podle spoje v {firstTrip}.</span>
+              <span class="tabular">Minuty od startu spoje v {firstTrip}.</span>
             {/if}
             {#if stopsList()}
               <span class="isa-count tabular">
                 <Isa size={18} />
-                bezbariérově {accessible}
+                bezbariérový nástup na {accessible}
                 {zOrZe(route.stops.length)}
-                {route.stops.length}
+                {route.stops.length} zastávek
               </span>
             {:else if stopsFailed()}
               <span>Bezbariérovost zastávek se nepodařilo zjistit.</span>
             {/if}
           </p>
           <p class="diagram-head" aria-hidden="true">
-            <span></span><span class="r">Od výchozí</span><span>Zastávka</span>
+            <span></span><span class="r">Min. od startu</span><span>Zastávka</span>
           </p>
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
             {#each route.stops as stop, index (stop.id)}
@@ -317,22 +328,6 @@
   .state {
     margin-top: 1rem;
   }
-  .plate {
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    min-width: 4rem;
-    height: 4rem;
-    padding-inline: 0.625rem;
-    border-radius: var(--radius-md);
-    background: var(--line);
-    color: var(--line-ink);
-    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
-    font-size: var(--fs-2xl);
-    font-weight: var(--font-display-weight);
-    letter-spacing: 0;
-    line-height: 1;
-  }
 
   .direction-bar {
     display: grid;
@@ -360,8 +355,18 @@
   .directions a + a {
     border-left: 1.5px solid var(--border);
   }
+  .directions a:not([aria-current='page']) {
+    background: var(--muted);
+  }
   .directions a:hover {
     background: var(--accent);
+  }
+  .dir-switch {
+    color: var(--primary);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .directions a[aria-current='page'] {
     background: var(--line);
@@ -415,7 +420,7 @@
   }
   .diagram-head {
     display: grid;
-    grid-template-columns: 2rem 4.25rem minmax(0, 1fr);
+    grid-template-columns: 2rem 5.75rem minmax(0, 1fr);
     column-gap: 0.75rem;
     margin-top: 1rem;
     padding-bottom: 0.375rem;
@@ -442,7 +447,7 @@
   .diagram li {
     position: relative;
     display: grid;
-    grid-template-columns: 2rem 4.25rem minmax(0, 1fr);
+    grid-template-columns: 2rem 5.75rem minmax(0, 1fr);
     align-items: start;
     column-gap: 0.75rem;
     min-height: 3.5rem;
@@ -480,12 +485,6 @@
     border-radius: var(--radius-pill);
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
-  }
-  .terminus .dot {
-    width: 1.375rem;
-    height: 1.375rem;
-    margin-top: 0.9375rem;
-    background: var(--line);
   }
   .stop {
     display: grid;
@@ -589,11 +588,6 @@
   }
 
   @media (max-width: 639px) {
-    .plate {
-      min-width: 3.25rem;
-      height: 3.25rem;
-      font-size: var(--fs-xl);
-    }
     .directions {
       max-width: none;
     }
