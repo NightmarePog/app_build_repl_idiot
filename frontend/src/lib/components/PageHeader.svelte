@@ -61,8 +61,7 @@
     justify-self: start;
     padding: 0.3rem 0.7rem 0.3rem 0.55rem;
     border-radius: var(--radius-sm);
-    background: color-mix(in oklch, var(--tag, var(--primary)) 16%, var(--background));
-    border-left: 4px solid var(--tag, var(--primary));
+    background: var(--muted);
     color: var(--foreground);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);

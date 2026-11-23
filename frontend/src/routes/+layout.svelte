@@ -7,7 +7,6 @@
   import CommandPalette, { type PaletteItem } from '$lib/components/CommandPalette.svelte';
   import ProjectCredits from '$lib/features/about/ProjectCredits.svelte';
   import FooterLines from '$lib/features/network/FooterLines.svelte';
-  import NavMenus from '$lib/features/network/NavMenus.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { onMount } from 'svelte';
   import { onNavigate } from '$app/navigation';
@@ -110,10 +109,6 @@
   <FooterLines />
 {/snippet}
 
-{#snippet menus(kind: 'stops' | 'lines', close: () => void)}
-  <NavMenus {kind} id={`menu-${kind}`} onclose={close} />
-{/snippet}
-
 {#snippet paletteIcon(item: PaletteItem)}
   {@const entry = paletteItems.find((candidate) => candidate.key === item.key)}
   {#if entry?.page}
@@ -127,7 +122,7 @@
   {/if}
 {/snippet}
 
-<AppShell {menus} {footerCredits} {footerLines} bind:paletteOpen>{@render children()}</AppShell>
+<AppShell {footerCredits} {footerLines} bind:paletteOpen>{@render children()}</AppShell>
 <CommandPalette
   bind:open={paletteOpen}
   items={paletteItems}

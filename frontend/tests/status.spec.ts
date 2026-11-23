@@ -211,27 +211,15 @@ test('landing stays usable when stops fail to load', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: /^Status:/ })).toHaveText('Status: OK');
 });
 
-test('header menus list stops by line and lines as routes', async ({ page }) => {
-  await page.route('**/api/v1/stops', (route) =>
-    route.fulfill({
-      json: [featuredStop, createStop(43, { name: 'Ada Exchange', image_url: null })]
-    })
-  );
+test('header links go straight to stops and lines', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  const stopsMenu = page.getByRole('button', { name: 'Zastávky' });
-  await stopsMenu.click();
-  await expect(stopsMenu).toHaveAttribute('aria-expanded', 'true');
-  const panel = page.locator('#menu-stops');
-  await expect(panel.getByRole('link', { name: 'Ada Exchange' })).toHaveCount(2);
-  await expect(panel.getByText('Další zastávky')).toBeVisible();
-  await expect(panel.getByRole('link', { name: featuredStop.name })).toBeVisible();
-  await stopsMenu.press('Escape');
-  await expect(stopsMenu).toHaveAttribute('aria-expanded', 'false');
-  await page.getByRole('button', { name: 'Linky' }).click();
-  const lines = page.locator('#menu-lines');
-  await expect(lines.getByLabel('Linka A')).toBeVisible();
-  await expect(lines.getByText('Turing Terminal')).toBeVisible();
+  const nav = page.getByRole('navigation', { name: 'Hlavní navigace' });
+  await expect(nav.getByRole('button')).toHaveCount(0);
+  await nav.getByRole('link', { name: 'Linky', exact: true }).click();
+  await expect(page).toHaveURL(/\/lines$/);
+  await nav.getByRole('link', { name: 'Zastávky', exact: true }).click();
+  await expect(page).toHaveURL(/\/stops$/);
 });
 
 test('footer links open contact and terms', async ({ page }, testInfo) => {
