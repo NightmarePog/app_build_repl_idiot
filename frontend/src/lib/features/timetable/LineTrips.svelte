@@ -165,9 +165,7 @@
           <span class="next-row">
             <span class="next-tag">Další odjezd</span>
             {#if next.tomorrow}<span class="next-gone">dnes už nejede ·</span>{/if}
-            <span class="next-time tabular"
-              >{next.tomorrow ? 'zítra ' : ''}{next.row.at.time}</span
-            >
+            <span class="next-time tabular">{next.tomorrow ? 'zítra ' : ''}{next.row.at.time}</span>
             {#if cd && !next.tomorrow}<strong class="next-cd">{cd}</strong>{/if}
           </span>
           <span class="next-info tabular"
