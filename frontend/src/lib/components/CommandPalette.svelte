@@ -303,7 +303,7 @@
     min-height: 2.75rem;
     margin-right: -0.375rem;
     padding: 0 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     color: var(--primary);
     font: inherit;
     font-size: var(--fs-base);

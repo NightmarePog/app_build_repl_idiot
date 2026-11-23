@@ -90,6 +90,9 @@
   --shadow-sheet: 0 -8px 24px -12px oklch(0.21 0.008 70 / 0.25);
   --page-pad-x: 1.25rem;
   --page-pad-y: 2rem;
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --loop-fast: 0.7s;
+  --lamp: oklch(0.9 0.11 88);
   --header-h: 3.5rem;
   /* Mobile bottom tab bar, not counting the home-indicator safe area. */
   --tabbar-h: 0px;
@@ -187,6 +190,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-full: 9999px;
 }
 
 @layer base {
@@ -333,7 +337,7 @@ html {
  * dark keyline on light surfaces so rails and stop rings keep 3:1 contrast.
  */
 .line-cased {
-  --line-stroke: color-mix(in oklch, var(--line) 45%, #1a1a1a);
+  --line-stroke: color-mix(in oklch, var(--line) 45%, var(--foreground));
 }
 .dark .line-cased {
   --line-stroke: var(--line);

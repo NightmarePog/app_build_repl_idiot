@@ -737,7 +737,7 @@
   .loading-label {
     position: relative;
     padding: 0.375rem 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
