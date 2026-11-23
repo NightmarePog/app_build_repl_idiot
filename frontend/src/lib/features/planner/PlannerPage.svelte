@@ -14,7 +14,15 @@
   import { clock as clockText, countdown, minutesUntil } from '$lib/features/timetable/time';
   import ConnectionCard from './ConnectionCard.svelte';
   import PlannerForm from './PlannerForm.svelte';
-  import { absolute, connectionKey, dayNote, parseQuery, plannerHref, shifted } from './planner';
+  import {
+    absolute,
+    connectionKey,
+    dayNote,
+    fastestDuration,
+    parseQuery,
+    plannerHref,
+    shifted
+  } from './planner';
 
   const PAGE = 5;
 
@@ -56,6 +64,7 @@
   /** Pages added with "earlier" and "later", already shifted to the first search's day. */
   let extra = $state<Connection[]>([]);
   let paging = $state<'earlier' | 'later' | null>(null);
+  let pageNote = $state('');
   let noMore = $state<{ earlier: boolean; later: boolean }>({ earlier: false, later: false });
   let opened = $state<string | null>(untrack(() => page.url.searchParams.get('detail')));
 
@@ -105,6 +114,8 @@
       const before = connections.length;
       extra = [...extra, ...data.connections.map((c) => shifted(c, shift))];
       if (connections.length === before) noMore = { ...noMore, [direction]: true };
+      else
+        pageNote = `Načteno ${connections.length - before} ${direction === 'later' ? 'pozdějších' : 'dřívějších'} spojení`;
     } catch (error) {
       console.error(`Planner: loading ${direction} connections failed`, error);
       pageError = direction;
@@ -135,13 +146,12 @@
     });
   });
 
-  const fastestMinutes = $derived(
-    connections.length > 1 ? Math.min(...connections.map((c) => c.duration_minutes)) : null
-  );
+  const fastestMinutes = $derived(fastestDuration(connections));
 
   /** "zítra · út 24. 11." for a day divider; the search day itself needs none. */
   function dayLabel(offset: number) {
-    const base = new Date(clock.now);
+    // Before the clock ticks (SSR, first render) it is 0, the epoch: fall back to the real date.
+    const base = new Date(clock.now || Date.now());
     const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
     const day = date.toLocaleDateString('cs-CZ', {
       weekday: 'short',
@@ -213,7 +223,7 @@
             >{query.mode === 'arrival' ? 'příjezd do' : 'odjezd od'} {searchedTime}</span
           >{/if}
       </h2>
-      <p class="sr-only" aria-live="polite">{connections.length} spojení</p>
+      <p class="sr-only" aria-live="polite">{pageNote || `${connections.length} spojení`}</p>
 
       {#if errorKind}
         <PageState
@@ -238,7 +248,7 @@
       {:else if connections.length}
         <div class="pager">
           {#if noMore.earlier}
-            <p class="pager-end">Dřívější spojení v tento den nejsou.</p>
+            <p class="pager-end" role="status">Žádná další dřívější spojení nejsou.</p>
           {:else}
             <Button variant="outline" onclick={() => more('earlier')} disabled={!!paging}>
               <ChevronUp aria-hidden="true" />
@@ -270,7 +280,7 @@
         </ol>
         <div class="pager">
           {#if noMore.later}
-            <p class="pager-end">Pozdější spojení v tento den nejsou.</p>
+            <p class="pager-end" role="status">Žádná další pozdější spojení nejsou.</p>
           {:else}
             <Button variant="outline" onclick={() => more('later')} disabled={!!paging}>
               <ChevronDown aria-hidden="true" />
@@ -337,15 +347,16 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    font-size: var(--fs-sm);
+    padding-block: 0.25rem;
+    font-size: var(--fs-base);
     font-weight: var(--weight-strong);
   }
   .day-divider::before,
   .day-divider::after {
     content: '';
     flex: 1;
-    height: 1px;
-    background: var(--border);
+    height: 2px;
+    background: var(--foreground);
   }
   .same-stop {
     color: var(--destructive);
