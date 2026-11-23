@@ -165,11 +165,8 @@
           {#if next.tomorrow}
             <span class="next-row">
               <span class="next-tag">Další odjezd</span>
-              <strong class="next-cd">Dnes už nejede</strong>
-            </span>
-            <span class="next-row">
-              <span class="next-gone">Nejbližší</span>
               <span class="next-time tabular">zítra {next.row.at.time}</span>
+              <span class="next-gone">(dnes už nejede)</span>
             </span>
           {:else}
             <span class="next-row">
@@ -180,14 +177,17 @@
           {/if}
           <span class="next-info tabular"
             >{#if next.row.end}příjezd {next.row.trip.destination.name}
-              {next.row.end.time}{next.row.night ? ' (po půlnoci)' : ''} · jízda {duration(
+              {next.row.end.time}{next.row.night ? ' (+1 den)' : ''} · jízda {duration(
                 next.row.end.minutes - next.row.dep
               )}{/if}</span
           >
         </a>
       {/if}
 
-      {#if rows.length <= 12}
+      {#if rows.length === 1 && next}
+        <!-- One trip a day: the next-departure block above already is the whole timetable. -->
+        <p class="inline-note">Jediný spoj dne v tomto směru.</p>
+      {:else if rows.length <= 12}
         <table class="list">
           <caption class="sr-only">
             Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}.
@@ -195,7 +195,7 @@
           <thead class="grid-head">
             <tr>
               <th scope="col">Odjezd</th>
-              <th scope="col">Příjezd {route.direction}</th>
+              <th scope="col">Příjezd</th>
               <th scope="col"><span class="sr-only">Detail</span></th>
             </tr>
           </thead>
@@ -205,19 +205,19 @@
               {@const gone = row.dep < nowOp && !next?.tomorrow}
               <tr class:next-row-l={isNext} class:gone style:--row={index}>
                 <td class="t tabular"
-                  >{row.at.time}{#if row.dep >= 1440}<span class="moon" title="po půlnoci">☾</span
-                    >{/if}</td
+                  >{row.at.time}{#if row.dep >= 1440}
+                    <span class="moon">(+1 den)</span>{/if}</td
                 >
                 <td class="tabular"
-                  >{row.end?.time ?? '…'}{#if row.night}<span class="moon" title="po půlnoci"
-                      >☾</span
-                    >{/if}</td
+                  >{row.end?.time ?? '…'}{#if row.night}
+                    <span class="moon">(+1 den)</span>{/if}
+                  <span class="toward-tag">do {row.trip.destination.name}</span></td
                 >
                 <td class="r"
                   ><a
                     class="detail"
                     href={tripHref(row.trip.id)}
-                    aria-label={`Detail spoje: ${label(row)}`}>Spoj ›</a
+                    aria-label={`Detail spoje: ${label(row)}`}>Detail spoje ›</a
                   ></td
                 >
               </tr>
@@ -275,7 +275,7 @@
       {/if}
 
       {#if hasAfterMidnight || hasNight}
-        <p class="inline-note">☾ = po půlnoci, patří k večernímu provozu.</p>
+        <p class="inline-note">(+1 den) = po půlnoci, spoj patří k večernímu provozu.</p>
       {/if}
 
       {#if waiting > 0}
@@ -589,8 +589,16 @@
     box-shadow: inset 0 0 0 2px var(--foreground);
   }
   .moon {
+    margin-left: 0.25rem;
+    color: var(--muted-foreground);
     font-size: var(--fs-xs);
-    font-weight: var(--font-display-weight);
+    font-weight: var(--weight-strong);
+    white-space: nowrap;
+  }
+  .toward-tag {
+    display: block;
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
   }
   /* Picking a stop re-flows the minutes row by row. */
   .grid tr {
