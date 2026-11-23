@@ -7,7 +7,6 @@
   import { motionMs } from '$lib/motion';
   import { byTrip, overtakes } from './board';
   import { clock as appClock } from './clock.svelte';
-  import FlapTime from './FlapTime.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock, minutesOf, minutesUntil, relative, spokenTime } from './time';
   import { lineDirectionHref, tripDetail, withQuery } from './trips';
@@ -76,7 +75,15 @@
     /** Arrival at the "kam jedete" stop, when one is chosen. */
     reach: { time: string; dayOffset: number; minutes: number } | null;
     label: string;
+    /** The next stop after this one, so two trips to the same terminus are told apart. */
+    via: string | null;
   };
+
+  function nextStopOf(d: Departure) {
+    const route = LINES[d.line.number]?.routes.find((r) => r.bound === d.direction);
+    const here = route?.stops.findIndex((stop) => stop.id === stopId) ?? -1;
+    return here < 0 ? null : (route?.stops[here + 1]?.name ?? null);
+  }
 
   const lines = $derived(
     [...new Map((departures ?? []).map((d) => [d.line.number, d.line])).values()].sort((a, b) =>
@@ -93,7 +100,8 @@
         arr: minutesOf(d.arrival_time, d.arrival_day_offset),
         dep: minutesOf(d.departure_time, d.departure_day_offset),
         reach: reachOf(trips.data?.get(d.trip_id)),
-        label: `${d.line.number} → ${d.destination.name} ${d.departure_time}`
+        label: `${d.line.number} → ${d.destination.name} ${d.departure_time}`,
+        via: nextStopOf(d)
       }))
       .filter(
         (d) =>
@@ -198,7 +206,7 @@
       </div>
       <p class="clock" aria-label={`Teď je ${clock(now)} pražského času`}>
         <span class="clock-label" aria-hidden="true">Nyní</span>
-        <FlapTime time={clock(now)} size="md" />
+        <span class="clock-time tabular" aria-hidden="true">{clock(now)}</span>
       </p>
     </header>
 
@@ -218,7 +226,8 @@
 
     {#if departures && departures.length > 0}
       <div class="controls">
-        <div class="segmented" role="group" aria-label="Rozsah">
+        <span class="chips-label" id="board-range-label">Zobrazit:</span>
+        <div class="segmented" role="group" aria-labelledby="board-range-label">
           <button
             type="button"
             aria-pressed={mode === 'upcoming'}
@@ -296,20 +305,14 @@
           >Celý jízdní řád linky {onlyLine.number} →</a
         >
       {/if}
+      {#if rows.every((r) => r.tomorrow)}
+        <p class="today-done">Dnes už odsud nic nejede · další spoje zítra</p>
+      {/if}
       <div class="legend" aria-hidden="true">
         <span>Linka</span><span>Směr</span><span class="r"
           >{target !== null ? `V cíli` : 'Odjezd'}</span
-        ><span class="r">Za</span>
+        ><span class="r">{rows.some((r) => !r.tomorrow) ? 'Za' : ''}</span>
       </div>
-      {#if rows.length > 0 && rows.every((r) => r.tomorrow)}
-        <!-- Drawn as a dimmed board row, so the board keeps one visual language. -->
-        <p class="row today-done">
-          <span class="done-plate" aria-hidden="true">–</span>
-          <span class="dest"><strong>Dnes už odsud nic nejede</strong></span>
-          <span class="dep"><span class="time tabular">--:--</span></span>
-          <span class="in"></span>
-        </p>
-      {/if}
       {#if target !== null}
         <!-- On a phone the column legend is gone; say what the big time means. -->
         <p class="target-note">
@@ -345,6 +348,9 @@
               <LinePlate number={row.line.number} color={row.line.color} />
               <div class="dest">
                 <strong>{row.destination.name}</strong>
+                {#if row.via && row.via !== row.destination.name}<span class="via"
+                    >přes {row.via}</span
+                  >{/if}
                 {#if waits > 0 || by || row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
@@ -362,13 +368,13 @@
                     >odjezd {row.departure_time} · {row.reach.minutes - row.dep} min</span
                   >
                 {:else}
-                  {#if waits > 0}<span class="dep-label">odjezd</span>{/if}
+                  <span class="dep-label">odjezd</span>
                   <span class="time tabular"
                     >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
                   >
-                  {#if waits > 0}<span class="arr-m tabular"
-                      >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;☾{/if}</span
-                    >{/if}
+                  <span class="arr-m tabular"
+                    >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;(+1 den){/if}</span
+                  >
                 {/if}
               </span>
               <span class="in" aria-hidden="true">
@@ -385,6 +391,7 @@
           Zobrazit další ({more})
         </button>
       {/if}
+      <p class="foot-note">Spoje, které tu končí, nejsou uvedeny: odsud už dál nejedou.</p>
     {/if}
   </div>
 </section>
@@ -826,20 +833,32 @@
     animation: shimmer var(--loop-pulse) linear infinite;
   }
   .today-done {
-    opacity: 0.7;
-    border-bottom: 1px dashed var(--board-line);
+    margin-top: 1.25rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radius-lg);
+    background: var(--board-raised);
+    color: var(--board-fg);
+    font-weight: var(--weight-strong);
   }
-  .today-done .dest strong {
-    white-space: normal;
-  }
-  .done-plate {
-    display: grid;
-    place-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border: 1.5px dashed var(--board-muted);
-    border-radius: var(--radius-md);
+  .via {
     color: var(--board-muted);
+    font-size: var(--fs-sm);
+  }
+  .clock-time {
+    color: var(--board-led);
+    font-size: var(--fs-h2);
+    font-weight: var(--font-display-weight);
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .foot-note {
+    margin-top: 0.75rem;
+    padding-inline: 0.75rem;
+    color: var(--board-muted);
+    font-size: var(--fs-xs);
+  }
+  .row.later {
+    opacity: 0.7;
   }
   .empty {
     padding: 2rem 0.75rem 0.75rem;
@@ -866,9 +885,20 @@
       background-position: -200% 0;
     }
   }
+  @media (min-width: 640px) {
+    .dep-label {
+      display: none;
+    }
+  }
   @media (max-width: 639px) {
+    .board-wrap {
+      /* Full-bleed on phones, clear of the fixed bottom tab bar. */
+      margin-inline: calc(50% - 50vw);
+      margin-bottom: 5rem;
+    }
     .board {
       padding: 1rem 0.75rem;
+      border-radius: 0;
     }
     .legend {
       display: none;
