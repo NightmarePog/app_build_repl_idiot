@@ -102,13 +102,18 @@
   }
 
   /** "Bus B03", or the line number when the trip has no vehicle assigned. */
-  const vehicle = (row: (typeof rows)[number]) =>
-    vehicleLabel(row.trip.block_ref) ?? `Linka ${lineNumber}`;
+  const vehicle = (row: (typeof rows)[number]) => vehicleLabel(row.trip.block_ref) ?? '';
+
+  /** The trip's departure from the first stop, when the sheet is read at a later stop. */
+  const originTime = (row: (typeof rows)[number]) => (atOrigin ? null : row.trip.departure_time);
 
   /** Short per-minute label; the shared context (line, stop, direction) is in the caption. */
   function label(row: (typeof rows)[number]) {
     return [
-      `${vehicle(row)} · ${spokenTime(row.at.time, row.at.dayOffset)}`,
+      [vehicle(row), spokenTime(row.at.time, row.at.dayOffset)].filter(Boolean).join(' · '),
+      originTime(row)
+        ? `z ${route.stops[0]?.name} ${spokenTime(row.trip.departure_time, row.trip.departure_day_offset)}`
+        : '',
       row.end
         ? `příjezd ${row.trip.destination.name} ${spokenTime(row.end.time, row.end.dayOffset)}`
         : '',
@@ -195,14 +200,21 @@
             {#if h.kind === 'gap'}
               <tr class="gap" aria-current={isNow ? 'time' : undefined} style:--row={index}>
                 <th scope="row" class="hour tabular">
-                  {h.label}{#if isNow}<span class="now-tick">teď</span>{/if}
+                  {h.label}{#if isNow}<span class="sr-only">, teď</span>{/if}
                 </th>
-                <td><span class="sr-only">bez spojů</span></td>
+                <td>
+                  <span class="gap-text tabular"
+                    >Nejede {String(h.from % 24).padStart(2, '0')}:00–{String(h.to % 24).padStart(
+                      2,
+                      '0'
+                    )}:59</span
+                  >
+                </td>
               </tr>
             {:else}
               <tr aria-current={isNow ? 'time' : undefined} style:--row={index}>
                 <th scope="row" class="hour tabular">
-                  {String(h.hour % 24).padStart(2, '0')}{#if isNow}<span class="now-tick">teď</span
+                  {String(h.hour % 24).padStart(2, '0')}{#if isNow}<span class="sr-only">, teď</span
                     >{/if}
                 </th>
                 <td>
@@ -219,7 +231,8 @@
                           aria-label={label(row)}
                           ><span class="min-mm tabular">{row.at.time.slice(3, 5)}</span><span
                             class="min-bus">{row.trip.block_ref ?? lineNumber}</span
-                          >{#if isNext}<span class="next-tag" aria-hidden="true">další</span
+                          >{#if originTime(row)}<span class="min-origin tabular" aria-hidden="true"
+                              >start {originTime(row)}</span
                             >{/if}</a
                         >
                       </li>
@@ -383,16 +396,9 @@
     width: 100%;
     padding: 0.25rem 0.5rem;
   }
-  /* Now: a small tick in the hour column, not an inverted cell. */
-  .now-tick {
-    display: block;
-    margin-top: 0.25rem;
-    padding: 0.0625rem 0.25rem;
-    border-radius: var(--radius);
-    background: var(--foreground);
-    color: var(--background);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
+  /* Now: a thin line on top of the current hour row, across the whole sheet. */
+  .grid tr[aria-current='time'] {
+    box-shadow: inset 0 2px 0 var(--foreground);
   }
   /* An empty run of hours: one thin hatched row, its range is the whole message. */
   .gap .hour {
@@ -400,25 +406,31 @@
     font-size: var(--fs-base);
   }
   .gap td {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent 0 6px,
-      color-mix(in oklch, var(--border) 70%, transparent) 6px 7px
-    );
+    padding-block: 0.5rem;
+  }
+  .gap-text {
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
+    color: var(--muted-foreground);
   }
   /* Minutes as text on one row, like a PID sheet; the vehicle run follows each minute. */
   .mins {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.375rem;
+    padding-block: 0.25rem;
   }
+  /* Each minute is a button-like chip: minute big, the vehicle run underneath. */
   .min {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
     min-height: 2.75rem;
     padding: 0.375rem 0.5rem;
+    border: 1px solid var(--border);
     border-radius: var(--radius);
+    background: var(--background);
     color: var(--foreground);
     transition: background var(--motion-fast) var(--ease-out);
   }
@@ -432,6 +444,7 @@
     font-weight: var(--weight-strong);
   }
   .min:hover {
+    border-color: var(--foreground);
     background: var(--accent);
   }
   .min:hover .min-mm {
@@ -446,10 +459,8 @@
     color: var(--line-ink);
     box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
   }
-  .next-tag {
-    align-self: center;
+  .min-origin {
     font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
   }
   .grid tr {
     animation: reflow var(--motion-slow) var(--ease-out) both;

@@ -208,6 +208,7 @@
       <!-- One direction switch drives the whole page: the route and the timetable below. -->
       <div class="direction-bar">
         {#if line.routes.length > 1}
+          <span class="dir-caption" aria-hidden="true">Směr</span>
           <nav class="directions" aria-label="Směr jízdy">
             {#each line.routes as option (option.id)}
               <a
@@ -244,13 +245,26 @@
 
       <div class="line-body">
         <section class="route" aria-labelledby="route-heading">
+          <!-- Infobox, the same pattern as the stop and trip pages: the facts of the line. -->
+          <dl class="infobox">
+            <div>
+              <dt>Typ</dt>
+              <dd>{typeNoun(line.type)}</dd>
+            </div>
+            <div>
+              <dt>Zastávek</dt>
+              <dd class="tabular">{route.stops.length}</dd>
+            </div>
+            {#if route.stops.some((s) => stepFree.get(s.id) === false)}
+              <div class="legend">
+                <dt><Isa size={18} off /></dt>
+                <dd>bez bezbariérového nástupu</dd>
+              </div>
+            {/if}
+          </dl>
           <div class="route-head">
             <h2 id="route-heading" class="heading">Trasa linky</h2>
-            <span class="leg-head" title={`Jízdní doba od zastávky ${route.stops[0]?.name}`}
-              ><Clock size={20} aria-hidden="true" /><span class="sr-only"
-                >Jízdní doba od zastávky {route.stops[0]?.name}</span
-              ></span
-            >
+            <span class="leg-head"><Clock size={16} aria-hidden="true" />Jízdní doba</span>
           </div>
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
             {#each route.stops as stop, index (stop.id)}
@@ -393,8 +407,35 @@
   }
   /* Same segmented look as the other toggles: the pressed option is the solid one. */
   .directions a[aria-current='page'] {
-    background: var(--foreground);
-    color: var(--background);
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+  }
+  .dir-caption {
+    align-self: center;
+    font-weight: var(--weight-strong);
+  }
+  .infobox {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 44rem;
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .infobox div {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .infobox dt {
+    font-weight: var(--weight-strong);
+  }
+  .infobox .legend dt {
+    display: flex;
   }
   .dir-name {
     display: flex;
@@ -475,9 +516,7 @@
   }
   /* Interchange: a bigger white ring, as on PID and TfL maps; the connecting badges follow. */
   .interchange .dot {
-    width: 1.25rem;
-    height: 1.25rem;
-    margin-top: calc(1.625rem - 0.625rem);
+    border-color: var(--foreground);
   }
   /* Plain stop: a small white dot inside the line. */
   .dot {
@@ -487,7 +526,7 @@
     margin-top: calc(1.625rem - 0.4375rem);
     width: 0.875rem;
     height: 0.875rem;
-    border: 3px solid var(--foreground);
+    border: 3px solid var(--line-stroke, var(--line));
     border-radius: 50%;
     background: var(--background);
   }
@@ -502,7 +541,13 @@
   }
   .leg-head {
     display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     align-self: center;
+    font-weight: var(--weight-strong);
+  }
+  #schedule-heading {
+    scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
   }
   /* Row-wide button that picks the boarding stop; the links sit above it. */
   .pick {
@@ -641,7 +686,7 @@
       grid-auto-flow: row;
     }
     .dir-name {
-      font-size: var(--fs-base, 1rem);
+      font-size: var(--fs-base);
     }
   }
   @media (prefers-reduced-motion: reduce) {
