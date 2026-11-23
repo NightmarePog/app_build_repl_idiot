@@ -1,11 +1,16 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { flip } from 'svelte/animate';
-  import { listStopDepartures, type Departure, type TripDetail } from '$lib/api/generated';
+  import {
+    listLineTrips,
+    listStopDepartures,
+    type Departure,
+    type TripDetail
+  } from '$lib/api/generated';
   import { createResource, unwrap } from '$lib/api/resource.svelte';
   import { LINES, loadNetwork } from '$lib/features/network/lines.svelte';
   import { motionMs } from '$lib/motion';
-  import { byTrip, overtakes } from './board';
+  import { arrivalsAt, byTrip, overtakes, type Arrival } from './board';
   import { clock as appClock } from './clock.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock, minutesOf, minutesUntil, relative, spokenTime } from './time';
@@ -25,7 +30,9 @@
   $effect(() => appClock.subscribe());
   const now = $derived(appClock.now);
 
-  let mode = $state<'upcoming' | 'day'>('upcoming');
+  let mode = $state<'upcoming' | 'day' | 'arrivals'>('upcoming');
+  /** Rows that get a countdown: the next two, like a platform display. */
+  const COUNTDOWNS = 2;
   let limit = $state(PAGE);
   let lineFilter = $state<string[]>([]);
   /** "Kam jedete": only trips that later reach this stop, with the arrival time there. */
@@ -60,6 +67,28 @@
     const details = await Promise.all(departures.map((d) => tripDetail(d.trip_id, signal)));
     return byTrip(details.map((detail) => ({ ...detail, trip_id: detail.id })));
   });
+
+  /** Lines whose route ends here: those trips only arrive, so the departures API leaves them out. */
+  const endingLines = $derived(
+    Object.values(LINES).filter((line) =>
+      line.routes.some((route) => route.stops.at(-1)?.id === stopId)
+    )
+  );
+  const ending = createResource(async (signal) => {
+    if (mode !== 'arrivals') return null;
+    const lists = await Promise.all(
+      endingLines.map((line) => unwrap(listLineTrips({ path: { lineId: line.apiId }, signal })))
+    );
+    const ends = lists.flat().filter((trip) => trip.destination.id === stopId);
+    return Promise.all(ends.map((trip) => tripDetail(trip.id, signal)));
+  });
+  const originOf = (d: Departure) =>
+    LINES[d.line.number]?.routes.find((r) => r.bound === d.direction)?.stops[0]?.name ?? '';
+  const arrivals = $derived<Arrival[] | null>(
+    mode === 'arrivals' && departures && ending.data
+      ? arrivalsAt(stopId, departures, ending.data, originOf)
+      : null
+  );
 
   /** When the trip reaches the target stop after calling here, or null. */
   function reachOf(trip: TripDetail | undefined) {
@@ -229,7 +258,7 @@
       </a>
     {/if}
 
-    {#if departures && departures.length > 0}
+    {#if departures && (departures.length > 0 || endingLines.length > 0)}
       <div class="controls">
         <span class="chips-label" id="board-range-label">Zobrazit:</span>
         <div class="segmented" role="group" aria-labelledby="board-range-label">
@@ -241,8 +270,13 @@
           <button type="button" aria-pressed={mode === 'day'} onclick={() => (mode = 'day')}
             >Celý den</button
           >
+          <button
+            type="button"
+            aria-pressed={mode === 'arrivals'}
+            onclick={() => (mode = 'arrivals')}>Příjezdy</button
+          >
         </div>
-        {#if lines.length > 1}
+        {#if lines.length > 1 && mode !== 'arrivals'}
           <div class="chips" role="group" aria-labelledby="board-lines-label">
             <span class="chips-label" id="board-lines-label">Filtrovat linky:</span>
             {#each lines as line (line.number)}
@@ -260,7 +294,7 @@
             {/each}
           </div>
         {/if}
-        {#if reachable.length > 0}
+        {#if reachable.length > 0 && mode !== 'arrivals'}
           <div class="dests">
             <label class="dests-label" for="board-dest">Kam jedete</label>
             <div class="dests-field">
@@ -308,10 +342,64 @@
           <li class="row skeleton" style:animation-delay={`${index * 120}ms`}></li>
         {/each}
       </ol>
+    {:else if mode === 'arrivals'}
+      {#if ending.error}
+        <p class="empty">
+          Příjezdy se nepodařilo načíst.
+          <button type="button" class="retry" onclick={ending.retry}>Zkusit znovu</button>
+        </p>
+      {:else if !arrivals}
+        <ol class="rows" aria-busy="true" aria-label="Načítáme příjezdy">
+          {#each [0, 1, 2] as index (index)}
+            <li class="row skeleton" style:animation-delay={`${index * 120}ms`}></li>
+          {/each}
+        </ol>
+      {:else if arrivals.length === 0}
+        <p class="empty">Sem dnes žádný spoj nepřijíždí.</p>
+      {:else}
+        <div class="legend" aria-hidden="true">
+          <span>Linka</span><span>Odkud</span><span class="r">Příjezd</span><span></span>
+        </div>
+        <ol class="rows" aria-label={`Příjezdy do zastávky ${stopName}`}>
+          {#each arrivals as row, index (row.trip_id)}
+            <li
+              class="row"
+              class:gone={row.minutes < nowOp}
+              style:--i={index}
+              animate:flip={{ duration: motionMs(320) }}
+            >
+              <a
+                class="hit"
+                href={tripHref(row.trip_id)}
+                aria-label={`Linka ${row.line.number} ze zastávky ${row.from}, příjezd ${spokenTime(row.time, row.dayOffset)}${row.ends ? ', tady končí' : ''}`}
+              ></a>
+              <LinePlate number={row.line.number} color={row.line.color} />
+              <div class="dest">
+                <strong><span class="arrow" aria-hidden="true">← </span>{row.from}</strong>
+                {#if row.ends || row.dayOffset === 1}
+                  <span class="tags" aria-hidden="true">
+                    {#if row.ends}<span class="tag end">⏹ tady končí</span>{/if}
+                    {#if row.dayOffset === 1}<span class="tag night">☾ po půlnoci</span>{/if}
+                  </span>
+                {/if}
+              </div>
+              <span class="dep" aria-hidden="true">
+                <span class="dep-label">příjezd</span>
+                <span class="time tabular">{row.time}</span>
+              </span>
+              <span class="in" aria-hidden="true"></span>
+            </li>
+          {/each}
+        </ol>
+      {/if}
     {:else if departures.length === 0}
       <p class="empty">
-        Odsud žádný spoj neodjíždí: linky tu jen končí, nebo tudy zatím nejezdí. Přehled linek a
-        jejich jízdní řády najdete níže v části „Linky na zastávce“.
+        Odsud žádný spoj neodjíždí: linky tu jen končí.
+        {#if endingLines.length > 0}
+          <button type="button" class="retry" onclick={() => (mode = 'arrivals')}
+            >Zobrazit příjezdy</button
+          >
+        {/if}
       </p>
     {:else if target !== null && trips.error}
       <p class="empty">
@@ -341,11 +429,10 @@
           Dnes už odsud nic nejede · další odjezd zítra {rows[0].departure_time}
         </p>
       {/if}
-      <p class="foot-note">Spoje, které tu končí, nejsou uvedeny: odsud už dál nejedou.</p>
       <div class="legend" aria-hidden="true">
         <span>Linka</span><span>Směr</span><span class="r"
           >{target !== null ? `V cíli` : 'Odjezd'}</span
-        ><span class="r">{rows.some((r) => !r.tomorrow) ? 'Za' : ''}</span>
+        ><span class="r">{mode === 'upcoming' && nextRow ? 'Za' : ''}</span>
       </div>
       {#if target !== null}
         <!-- On a phone the column legend is gone; say what the big time means. -->
@@ -381,19 +468,17 @@
               <a class="hit" href={tripHref(row.trip_id)} aria-label={rowLabel(row, by)}></a>
               <LinePlate number={row.line.number} color={row.line.color} />
               <div class="dest">
-                <span class="line-name" aria-hidden="true">Linka {row.line.number}</span>
                 <strong
                   ><span class="arrow" aria-hidden="true">→ </span>{row.destination.name}</strong
                 >
                 {#if row.via && row.via !== row.destination.name}<span class="via"
                     >přes {row.via}</span
                   >{/if}
-                {#if waits > 0 || by || row.departure_day_offset === 1}
+                {#if by || row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
                         >{row.tomorrow ? '☾ v noci' : '☾ dnes v noci, po půlnoci'}</span
                       >{/if}
-                    {#if waits > 0}<span class="tag wait">stojí {waits} min</span>{/if}
                     {#if by}<span class="tag warn">odjede až po {by.join(', ')}</span>{/if}
                   </span>
                 {/if}
@@ -411,15 +496,16 @@
                   <span class="time tabular"
                     >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
                   >
-                  {#if waits > 0}
-                    <span class="arr-m tabular"
-                      >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;+1{/if}</span
-                    >
-                  {/if}
+                  <!-- Every row says when the bus pulls in, so arrival and departure read the same
+                       way whether it waits or not (diary #6, #8). -->
+                  <span class="arr-m tabular" class:dwell={waits > 0}
+                    >přijede {row.arrival_time}{#if row.arrival_day_offset > row.departure_day_offset}&nbsp;+1{/if}{#if waits > 0}
+                      · čeká {waits} min{/if}</span
+                  >
                 {/if}
               </span>
               <span class="in" aria-hidden="true">
-                {#if !row.tomorrow && soon}
+                {#if !row.tomorrow && soon && mode === 'upcoming' && index < COUNTDOWNS}
                   <span class="countdown tabular" class:first={row === nextRow}>{soon}</span>
                 {/if}
               </span>
@@ -721,10 +807,6 @@
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
-  .wait {
-    background: var(--board-raised);
-    color: var(--board-fg);
-  }
   .warn {
     background: var(--board-warn-bg);
     color: var(--board-fg);
@@ -737,9 +819,18 @@
   }
   .arr-m {
     display: block;
-    color: var(--board-fg);
-    font-size: var(--fs-sm);
+    color: var(--board-muted);
+    font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
+    white-space: nowrap;
+  }
+  .arr-m.dwell {
+    color: var(--board-fg);
+  }
+  .tag.end {
+    background: var(--board-raised);
+    color: var(--board-fg);
+    box-shadow: inset 0 0 0 1px var(--board-line);
   }
   .countdown {
     color: var(--board-muted);
@@ -893,14 +984,6 @@
     color: var(--board-fg);
     font-weight: var(--weight-strong);
   }
-  .line-name {
-    display: block;
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    opacity: 0.75;
-  }
   .via {
     color: var(--board-muted);
     font-size: var(--fs-sm);
@@ -911,12 +994,6 @@
     font-weight: var(--font-display-weight);
     line-height: 1;
     white-space: nowrap;
-  }
-  .foot-note {
-    margin-top: 0.75rem;
-    padding-inline: 0.75rem;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
   }
   .row.later {
     opacity: 0.7;

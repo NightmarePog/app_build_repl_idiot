@@ -20,7 +20,7 @@
       <PageHeader kind="Zastávka" icon={MapPin} title={stop.name}>
         {#snippet meta()}
           <span class="serves">
-            <span>Obsluhují linky</span>
+            <span class="sr-only">Linky:</span>
             {#each linesOf(stop.name) as id (id)}<LineBadge {id} size="lg" />{/each}
           </span>
         {/snippet}
