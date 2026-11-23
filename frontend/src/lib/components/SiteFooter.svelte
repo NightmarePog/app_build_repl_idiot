@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { withHash } from '$lib/links';
+  import { NAV_LABELS } from '$lib/links';
   import type { Snippet } from 'svelte';
   import { resolve } from '$app/paths';
   import { ArrowUp, ArrowUpRight } from '@lucide/svelte';
@@ -52,9 +52,9 @@
       <nav class="column" aria-labelledby="footer-explore" {@attach reveal({ delay: 0.07 })}>
         <h2 id="footer-explore">Procházet</h2>
         <ul>
-          <li><a href={resolve('/')}>Úvod</a></li>
-          <li><a href={resolve('/stops')}>Mapa zastávek</a></li>
-          <li><a href={withHash(resolve('/'), 'lines')}>Přehled linek</a></li>
+          <li><a href={resolve('/')}>{NAV_LABELS.home}</a></li>
+          <li><a href={resolve('/stops')}>{NAV_LABELS.stops}</a></li>
+          <li><a href={resolve('/lines')}>{NAV_LABELS.lines}</a></li>
         </ul>
       </nav>
 

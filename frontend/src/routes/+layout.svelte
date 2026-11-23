@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NAV_LABELS } from '$lib/links';
   import '../app.css';
   import { resolve } from '$app/paths';
   import { FileText } from '@lucide/svelte';
@@ -49,9 +50,9 @@
 
   const pages: Item[] = (
     [
-      ['Domů', 'Úvodní stránka', resolve('/')],
-      ['Mapa zastávek', 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
-      ['Linky', 'Přehled všech linek', resolve('/lines')],
+      [NAV_LABELS.home, 'Úvodní stránka', resolve('/')],
+      [NAV_LABELS.stops, 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
+      [NAV_LABELS.lines, 'Přehled všech linek', resolve('/lines')],
       ['Kontakt', 'Napište týmu', resolve('/contact')],
       ['Podmínky', 'Podmínky používání', resolve('/terms')]
     ] as const

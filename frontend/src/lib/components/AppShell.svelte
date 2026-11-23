@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NAV_LABELS } from '$lib/links';
   import { onMount, type Snippet } from 'svelte';
   import { afterNavigate, onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -247,13 +248,13 @@
         <a
           href={resolve('/')}
           aria-current={onHome ? 'page' : undefined}
-          class={cn('nav-link', onHome && 'is-active')}>Domů</a
+          class={cn('nav-link', onHome && 'is-active')}>{NAV_LABELS.home}</a
         >
         <div class="nav-item">
           <a
             href={resolve('/stops')}
             aria-current={onStops ? 'page' : undefined}
-            class={cn('nav-link only-small', onStops && 'is-active')}>Zastávky</a
+            class={cn('nav-link only-small', onStops && 'is-active')}>{NAV_LABELS.stops}</a
           >
           <span
             class="nav-split only-large"
@@ -265,7 +266,7 @@
               href={resolve('/stops')}
               aria-current={onStops ? 'page' : undefined}
               class={cn('nav-link split-label', onStops && 'is-active')}
-              onclick={closeMenu}>Zastávky</a
+              onclick={closeMenu}>{NAV_LABELS.stops}</a
             >
             <button
               type="button"
@@ -283,7 +284,7 @@
           {/if}
         </div>
         <div class="nav-item">
-          <a href={resolve('/lines')} class="nav-link only-small">Linky</a>
+          <a href={resolve('/lines')} class="nav-link only-small">{NAV_LABELS.lines}</a>
           <span
             class="nav-split only-large"
             role="presentation"
@@ -293,7 +294,7 @@
             <a
               href={resolve('/lines')}
               class={cn('nav-link split-label', false)}
-              onclick={closeMenu}>Linky</a
+              onclick={closeMenu}>{NAV_LABELS.lines}</a
             >
             <button
               type="button"
@@ -354,7 +355,7 @@
     class:active={activeTab === 'home'}
     aria-current={activeTab === 'home' ? 'page' : undefined}
   >
-    <House aria-hidden="true" /><span>Úvod</span>
+    <House aria-hidden="true" /><span>{NAV_LABELS.home}</span>
   </a>
   <a
     href={resolve('/stops')}
@@ -362,7 +363,7 @@
     class:active={activeTab === 'map'}
     aria-current={activeTab === 'map' ? 'page' : undefined}
   >
-    <MapIcon aria-hidden="true" /><span>Zastávky</span>
+    <MapIcon aria-hidden="true" /><span>{NAV_LABELS.stops}</span>
   </a>
   <a
     href={resolve('/lines')}
@@ -370,7 +371,7 @@
     class:active={activeTab === 'lines'}
     aria-current={activeTab === 'lines' ? 'page' : undefined}
   >
-    <Route aria-hidden="true" /><span>Linky</span>
+    <Route aria-hidden="true" /><span>{NAV_LABELS.lines}</span>
   </a>
   <button
     type="button"
