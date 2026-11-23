@@ -141,8 +141,8 @@
 
   /** "zítra · út 24. 11." for a day divider; the search day itself needs none. */
   function dayLabel(offset: number) {
-    const date = new Date(clock.now);
-    date.setDate(date.getDate() + offset);
+    const base = new Date(clock.now);
+    const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
     const day = date.toLocaleDateString('cs-CZ', {
       weekday: 'short',
       day: 'numeric',

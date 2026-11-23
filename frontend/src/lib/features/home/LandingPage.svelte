@@ -197,10 +197,6 @@
     letter-spacing: var(--tracking-display);
     margin-bottom: 0.5rem;
   }
-  .lines p {
-    color: var(--muted-foreground);
-    line-height: 1.5;
-  }
   @media (max-width: 979px) {
     .landing {
       padding: 2rem 1.25rem 0;

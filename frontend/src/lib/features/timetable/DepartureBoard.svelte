@@ -490,9 +490,7 @@
                     ><span class="day">odjezd</span>{row.departure_time}</span
                   >
                 {:else}
-                  <span class="time tabular"
-                    >{row.departure_time}</span
-                  >
+                  <span class="time tabular">{row.departure_time}</span>
                   {#if waits >= DWELL_SHOWN}
                     <!-- Only a real wait here is worth a second time. -->
                     <span class="time sub tabular"

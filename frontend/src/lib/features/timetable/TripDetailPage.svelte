@@ -1,7 +1,14 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, ChevronRight, LogIn, LogOut, Timer as TimerIcon, Clock as TripIcon } from '@lucide/svelte';
+  import {
+    ArrowRight,
+    ChevronRight,
+    LogIn,
+    LogOut,
+    Timer as TimerIcon,
+    Clock as TripIcon
+  } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import type { TripDetail } from '$lib/api/generated';
@@ -143,12 +150,7 @@
   >
     <BackLink href={lineHref(trip)} label="Jízdní řád linky" />
 
-    <PageHeader
-      kind="Spoj"
-      icon={TripIcon}
-      {title}
-      color={trip.line.color}
-    >
+    <PageHeader kind="Spoj" icon={TripIcon} {title} color={trip.line.color}>
       {#snippet lead()}<span class="vt-plate"
           ><span class="sr-only">Linka {trip.line.number}</span><LinePlate
             number={trip.line.number}
