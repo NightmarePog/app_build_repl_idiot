@@ -76,6 +76,13 @@
       : ''
   );
 
+  /** Share 0..1 of the ride from boarding to the end already done, while the bus is under way. */
+  const progress = $derived.by(() => {
+    if (!vehicle || !board || !last) return null;
+    const t = [now, now + 1440].find((m) => m >= board.dep && m <= last.arr);
+    return t === undefined ? null : (t - board.dep) / Math.max(1, last.arr - board.dep);
+  });
+
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
   const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
 
@@ -151,11 +158,11 @@
     <PageHeader
       kind="Spoj"
       icon={TicketIcon}
-      title={`${trip.departure_time} ${trip.origin.name} → ${trip.destination.name}`}
+      title={`${trip.departure_time} → ${trip.destination.name}`}
       color={trip.line.color}
     >
       {#snippet meta()}<span
-          >Spoj linky {trip.line.number} · {czechCount(
+          >Linka {trip.line.number} · z {trip.origin.name} · {czechCount(
             trip.stops.length,
             'zastávka',
             'zastávky',
@@ -187,36 +194,41 @@
             </div>
           </div>
           <dl class="ticket-times">
-            <div class="from">
+            <div class="leg">
               <dt>{fromIndex > 0 ? 'Odjezd odsud' : 'Odjezd'}</dt>
               <dd>
                 <FlapTime
                   time={board.departure_time}
                   dayOffset={board.departure_day_offset}
-                  size="lg"
+                  size="md"
                   showDay={false}
                 />
                 <span class="place">{board.stop.name}</span>
               </dd>
             </div>
             <!-- One continuous ribbon from departure to arrival; a night band marks midnight. -->
-            <div class="ribbon" aria-hidden="true">
-              <span class="ribbon-track">
+            <div class="ribbon">
+              <span class="ribbon-track" aria-hidden="true">
                 {#if ribbon.night !== null}
-                  <span class="ribbon-night" style:left={`${ribbon.night}%`}>
-                    <span class="moon">☾ půlnoc</span>
-                  </span>
+                  <span class="ribbon-night" style:top={`${ribbon.night}%`}></span>
+                {/if}
+                {#if progress !== null}
+                  <span class="ribbon-dot" style:top={`${progress * 100}%`}></span>
                 {/if}
               </span>
-              <span class="ribbon-time tabular">{duration(ribbon.total)}</span>
+              <span class="ribbon-time"
+                >jízda <strong class="tabular">{duration(ribbon.total)}</strong
+                >{#if ribbon.night !== null}
+                  · ☾ přes půlnoc{/if}</span
+              >
             </div>
-            <div class="to">
+            <div class="leg">
               <dt>Příjezd</dt>
               <dd>
                 <FlapTime
                   time={last.arrival_time}
                   dayOffset={last.arrival_day_offset}
-                  size="lg"
+                  size="md"
                   delay={200}
                   showDay={false}
                 />
@@ -247,7 +259,7 @@
         {#if hidden > 0}
           <button type="button" class="earlier" onclick={() => (showEarlier = true)}>
             <ChevronDown aria-hidden="true" class="size-4" />
-            {hidden === 1 ? '1 předchozí zastávka' : `${hidden} předchozí zastávky`}
+            {czechCount(hidden, 'předchozí zastávka', 'předchozí zastávky', 'předchozích zastávek')}
           </button>
         {/if}
 
@@ -296,8 +308,8 @@
                 {:else if end || stop.dwell === 0}
                   <span class="t">{stop.arrival_time}</span>
                 {:else}
-                  <span class="t arr"><small>příj.</small> {stop.arrival_time}</span>
-                  <span class="t dep"><small>odj.</small> {stop.departure_time}</span>
+                  <span class="t arr">{stop.arrival_time}</span>
+                  <span class="t dep">{stop.departure_time}</span>
                 {/if}
               </div>
               <span class="node" aria-hidden="true"></span>
@@ -308,8 +320,7 @@
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
                 {#if !first && !passed}<a
                     class="from-here"
-                    href={resolve('/stops/[id]', { id: String(stop.stop.id) })}
-                    >{end ? 'navazující odjezdy ›' : 'odjezdy odsud ›'}</a
+                    href={resolve('/stops/[id]', { id: String(stop.stop.id) })}>odjezdy odsud ›</a
                   >{/if}
                 {#if stop.dwell > 0 && !first && !end}<span class="wait" aria-hidden="true"
                     >stojí {stop.dwell} min</span
@@ -334,7 +345,7 @@
 
         <!-- The end of the trip: where to go next. -->
         <section class="onward" aria-labelledby="onward-heading">
-          <h2 id="onward-heading" class="section-title">Navazující odjezdy · {last.stop.name}</h2>
+          <h2 id="onward-heading" class="section-title">Na konečné · {last.stop.name}</h2>
           {#if transfers.length}
             <div class="onward-block">
               <h3>Změnit na</h3>
@@ -376,6 +387,11 @@
               Další spoj této trasy se nepodařilo načíst.
               <button type="button" class="retry" onclick={lineTrips.retry}>Zkusit znovu</button>
             </p>
+          {:else if !lineTrips.loading && !transfers.length}
+            <p class="empty-onward">
+              <span class="end-sign" aria-hidden="true">K</span>
+              Konečná. Na tento spoj tu žádné jiné linky ani další spoje nenavazují.
+            </p>
           {/if}
         </section>
       </div>
@@ -414,11 +430,6 @@
   .cols .r {
     text-align: right;
   }
-  .t small {
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-regular);
-    color: var(--muted-foreground);
-  }
   .from-here {
     color: var(--primary);
     font-size: var(--fs-sm);
@@ -448,7 +459,7 @@
     border-bottom: 2px dashed var(--board-line);
   }
   .dest {
-    font-size: var(--fs-h2, var(--fs-h1));
+    font-size: var(--fs-h2);
     font-weight: var(--weight-regular);
     letter-spacing: var(--tracking-display);
     line-height: var(--lh-tight);
@@ -464,16 +475,15 @@
   }
   .ticket-times {
     display: grid;
-    grid-template-columns: auto minmax(4rem, 1fr) auto;
-    align-items: end;
-    gap: 1rem;
-    margin-top: 1.5rem;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
   }
-  .to {
-    text-align: right;
-  }
-  .to dd {
-    justify-items: end;
+  .leg dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.75rem;
+    min-width: 0;
   }
   dt {
     color: var(--sign-marker);
@@ -483,58 +493,57 @@
     text-transform: uppercase;
   }
   dd {
-    display: grid;
-    gap: 0.375rem;
     margin-top: 0.375rem;
   }
   .place {
+    min-width: 0;
+    overflow-wrap: anywhere;
     color: var(--board-place);
+    font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
   }
-  /* The ribbon between the two times: line colour by day, a dark band with a moon by night. */
+  /* A vertical ribbon between the two legs: line colour by day, a dark band past midnight. */
   .ribbon {
-    position: relative;
-    align-self: center;
-    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: stretch;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding-left: 0.875rem;
   }
   .ribbon-track {
     position: relative;
-    display: block;
-    height: 0.625rem;
-    border-radius: 999px;
+    flex: none;
+    width: 0.5rem;
+    border-radius: var(--radius-md);
     background: var(--line);
-    overflow: visible;
+    overflow: hidden;
   }
   .ribbon-night {
     position: absolute;
-    top: -0.25rem;
-    bottom: -0.25rem;
-    right: 0;
-    border-radius: 0 999px 999px 0;
-    background: linear-gradient(90deg, oklch(0.16 0.03 270), oklch(0.22 0.05 270));
-    box-shadow: inset 2px 0 0 var(--sign-marker);
-  }
-  .moon {
-    position: absolute;
     left: 0;
-    top: -1.5rem;
-    transform: translateX(-50%);
-    color: var(--sign-marker);
-    font-size: var(--fs-xs);
-    font-weight: var(--font-display-weight);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-    white-space: nowrap;
+    right: 0;
+    bottom: 0;
+    background: oklch(0.2 0.05 270);
+    box-shadow: inset 0 2px 0 var(--sign-marker);
   }
-  .ribbon-time {
+  .ribbon-dot {
     position: absolute;
     left: 50%;
-    top: 1rem;
-    transform: translateX(-50%);
-    white-space: nowrap;
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: translate(-50%, -50%);
+    border-radius: var(--radius-md);
+    background: var(--status-ok);
+    box-shadow: 0 0 0 2px var(--board-fg);
+  }
+  .ribbon-time {
+    align-self: center;
     color: var(--board-muted);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
+  }
+  .ribbon-time strong {
+    color: var(--board-fg);
   }
   .night-note {
     margin-top: 1rem;
@@ -624,10 +633,6 @@
     background: var(--background);
     transition: transform var(--motion-fast) var(--ease-out);
   }
-  .stop:not(.no-wait):not(.terminus) .node {
-    width: 1.375rem;
-    background: color-mix(in oklch, var(--line) 35%, var(--background));
-  }
   .stop:hover .node {
     transform: scale(1.15);
   }
@@ -664,8 +669,6 @@
   }
   .t.arr {
     color: var(--muted-foreground);
-    font-size: var(--fs-base);
-    font-weight: var(--weight-strong);
   }
   .body {
     grid-area: body;
@@ -688,7 +691,10 @@
     text-decoration: underline;
   }
   .wait {
-    color: var(--muted-foreground);
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-md);
+    background: var(--secondary);
+    color: var(--foreground);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
     font-variant-numeric: tabular-nums;
@@ -817,6 +823,25 @@
       box-shadow: 0 0 0 10px transparent;
     }
   }
+  .empty-onward {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    color: var(--muted-foreground);
+    font-weight: var(--weight-strong);
+  }
+  .end-sign {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-md);
+    background: var(--line);
+    color: var(--line-ink);
+    font-weight: var(--font-display-weight);
+  }
   .muted-note {
     margin-top: 1rem;
     color: var(--muted-foreground);
@@ -841,18 +866,8 @@
     .dest {
       font-size: var(--fs-lg);
     }
-    .ticket-times {
-      gap: 0.5rem;
-      margin-top: 0.875rem;
-    }
-    .ticket-times :global(.flap.lg) {
-      font-size: var(--fs-lg);
-    }
     .place {
-      font-size: var(--fs-sm);
-    }
-    .ribbon {
-      margin-bottom: 1.5rem;
+      font-size: var(--fs-base);
     }
     .timeline {
       --rail-x: 5rem;
@@ -863,7 +878,8 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .stop,
-    .vehicle {
+    .vehicle,
+    .ticket :global(.tile) {
       animation: none;
     }
     .node {
