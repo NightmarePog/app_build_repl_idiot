@@ -170,22 +170,27 @@
   .amenities li.no {
     color: var(--muted-foreground);
   }
-  .amenities li.no .amenity-label {
-    text-decoration: line-through;
-  }
   .amenities li.no .icon {
+    position: relative;
     background: var(--muted);
     color: var(--muted-foreground);
   }
-  .amenities li.no .icon :global(svg) {
-    /* A struck-through icon: the amenity is missing. */
-    background: linear-gradient(
-      to top right,
-      transparent 46%,
-      currentColor 46%,
-      currentColor 54%,
-      transparent 54%
-    );
+  /* Not available: a small x badge on the muted icon, like SBB/DB station info. */
+  .amenities li.no .icon::after {
+    content: '\2715';
+    position: absolute;
+    right: -0.3rem;
+    bottom: -0.3rem;
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background: var(--muted-foreground);
+    color: var(--background);
+    font-size: 0.65rem;
+    font-weight: var(--weight-strong);
+    line-height: 1;
   }
   @media (max-width: 1023px) {
     .stop-detail {

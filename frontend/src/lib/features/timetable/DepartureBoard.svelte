@@ -176,11 +176,8 @@
   const more = $derived(allRows.length - rows.length);
 
   const nextRow = $derived(mode === 'upcoming' ? rows.find((r) => !r.tomorrow) : undefined);
-  /** The hero card shows the next departure; the list then starts with the one after it. */
-  const heroShown = $derived(
-    nextRow !== undefined && nextRow.inMinutes !== null && nextRow.inMinutes <= 60
-  );
-  const listRows = $derived(heroShown ? rows.filter((row) => row !== nextRow) : rows);
+  /** The next departure stays in the list as its highlighted first row. */
+  const listRows = $derived(rows);
   const firstTomorrow = $derived(listRows.findIndex((row) => row.tomorrow));
   /** Full-day view: the "teď" divider goes before the first row still to come. */
   const nowIndex = $derived(mode === 'day' ? rows.findIndex((row) => !row.gone) : -1);
@@ -251,19 +248,6 @@
         <span class="clock-time tabular" aria-hidden="true">{clock(now)}</span>
       </p>
     </header>
-
-    {#if heroShown && nextRow && nextRow.inMinutes !== null}
-      <!-- The one big number a passenger looks for; polite so it is announced once per change. -->
-      <a class="hero" class:leaving={nextRow.inMinutes <= 2} href={tripHref(nextRow.trip_id)}>
-        <LinePlate number={nextRow.line.number} color={nextRow.line.color} size="lg" />
-        <span class="hero-dest">
-          <strong>{nextRow.destination.name}</strong>
-        </span>
-        <span class="hero-time" aria-live="polite">
-          {nextRow.inMinutes <= 1 ? 'odjíždí' : `za ${nextRow.inMinutes} min`}
-        </span>
-      </a>
-    {/if}
 
     {#if departures && (departures.length > 0 || endingLines.length > 0)}
       <div class="controls">
@@ -430,7 +414,13 @@
         </div>
       {/if}
 
-      <!-- Not a live region: rows only reorder once a minute and the hero above announces the
+      {#if nextRow && nextRow.inMinutes !== null}
+        <p class="sr-only" aria-live="polite">
+          Nejbližší odjezd: linka {nextRow.line.number} směr {nextRow.destination.name}
+          {nextRow.departure_time}
+        </p>
+      {/if}
+      <!-- Not a live region: rows only reorder once a minute; the status above announces the
            next departure. -->
       {#key filterKey}
         <ol
@@ -489,12 +479,6 @@
                     {/each}
                   </ol>
                 {/if}
-                {#if by}
-                  <!-- Arrives before an earlier-leaving bus but waits for it. -->
-                  <span class="tags" aria-hidden="true"
-                    ><span class="tag end">odjede až po {by.join(', ')}</span></span
-                  >
-                {/if}
                 {#if row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
@@ -510,10 +494,16 @@
                     ><span class="day">odjezd</span>{row.departure_time}</span
                   >
                 {:else}
-                  <span class="time tabular">{row.departure_time}</span>
                   {#if by || waits >= DWELL_SHOWN}
-                    <!-- Only a real wait here is worth a second time. -->
-                    <span class="dwell tabular">příj. {row.arrival_time} · stojí {waits} min</span>
+                    <!-- Arrival and departure differ: two clear times, same size. -->
+                    <span class="time sub tabular"
+                      ><span class="day">příjezd</span>{row.arrival_time}</span
+                    >
+                    <span class="time tabular"
+                      ><span class="day">odjezd</span>{row.departure_time}</span
+                    >
+                  {:else}
+                    <span class="time tabular">{row.departure_time}</span>
                   {/if}
                 {/if}
                 {#if !row.tomorrow && soon && mode === 'upcoming' && (row.inMinutes ?? Infinity) <= COUNTDOWN_MIN}
@@ -689,8 +679,17 @@
   .row:hover {
     background: var(--board-raised);
   }
+  /* The next departure: the first row, raised and with larger figures. */
   .row.next {
     background: var(--board-raised);
+    box-shadow: inset 0 0 0 1px var(--board-line);
+  }
+  .row.next .dep .time:not(.sub) {
+    font-size: var(--fs-h2);
+  }
+  .row.next .countdown {
+    color: var(--board-led);
+    font-weight: var(--weight-strong);
   }
   /* Full day: buses that already left step back. */
   .row.gone .dest,
@@ -851,36 +850,6 @@
       line-height: 1;
     }
   }
-  .hero {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: var(--radius);
-    background: var(--board-raised);
-  }
-  .hero-dest {
-    display: grid;
-    min-width: 0;
-  }
-  .hero-dest strong {
-    overflow: hidden;
-    font-size: var(--fs-lg);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .hero-time {
-    color: var(--board-led);
-    font-size: var(--fs-h2);
-    font-weight: var(--font-display-weight);
-    font-variant-numeric: tabular-nums;
-  }
-  /* The one ambient loop on this screen: the bus is leaving. */
-  .hero.leaving .hero-time {
-    animation: pulse var(--loop-pulse) var(--ease-in-out) infinite;
-  }
   .skeleton {
     background: linear-gradient(
         90deg,
@@ -949,7 +918,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hero.leaving .hero-time,
     .skeleton,
     .rows.flap .row {
       animation: none;
@@ -972,16 +940,6 @@
     font-weight: var(--weight-strong);
   }
   /* Arrival and wait in one readable line under the departure time, never stacked. */
-  .dwell {
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius);
-    background: var(--board-raised);
-    box-shadow: inset 0 0 0 1px var(--board-line);
-    color: var(--board-fg);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    white-space: nowrap;
-  }
   .via li + li::before {
     content: '·';
     margin-right: 0.375rem;
