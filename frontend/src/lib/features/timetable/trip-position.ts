@@ -1,4 +1,4 @@
-import { countdown, minutesUntil } from './time';
+import { countdown, minutesUntil, spokenTime } from './time';
 
 /**
  * Where a trip is at a given minute, from its stop times in operating-day minutes. Kept pure so
@@ -107,7 +107,40 @@ export type TripStatus = {
   tone: 'live' | 'soon' | 'waiting' | 'done';
   /** One sentence for the status card, the only place the page talks about the day. */
   title: string;
+  /** Relative countdown under the title ('za 5 h 27 min'), when the trip is still to come. */
+  detail?: string;
 };
+
+/** Czech 'v'/'ve' before a clock time: 've' before hours said with a consonant cluster. */
+export function atTime(time: string) {
+  const hour = Number(time.slice(0, 2));
+  return `${[2, 3, 4, 12, 13, 14, 20, 21, 22, 23].includes(hour) ? 've' : 'v'} ${time}`;
+}
+
+/** 'za 5 h 27 min' / 'za 40 min' for a wait in minutes. */
+export function waitLabel(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `za ${h ? `${h} h ` : ''}${m || !h ? `${m} min` : ''}`.trim();
+}
+
+type Spoken = {
+  arrival_time: string;
+  arrival_day_offset: number;
+  departure_time: string;
+  departure_day_offset: number;
+  dwell: number;
+};
+
+/** What a screen reader says for one row of the trip timetable. */
+export function spokenStop(stop: Spoken, first: boolean, end: boolean) {
+  const arr = spokenTime(stop.arrival_time, stop.arrival_day_offset);
+  const dep = spokenTime(stop.departure_time, stop.departure_day_offset);
+  if (first) return `odjezd ${dep}`;
+  if (end) return `příjezd ${arr}`;
+  if (stop.dwell === 0) return `příjezd a odjezd ${dep}`;
+  return `příjezd ${arr}, odjezd ${dep}, stojí ${stop.dwell} min`;
+}
 
 /**
  * What the trip is doing at `now`, in one sentence. The page title stays stable because the
@@ -129,12 +162,14 @@ export function tripStatus(
       tone: 'live',
       title: `Jede z ${stops[vehicle.index].stop.name} do ${stops[vehicle.index + 1].stop.name}`
     };
-  const soon = countdown(minutesUntil(board.dep, now));
+  const wait = minutesUntil(board.dep, now);
+  const soon = countdown(wait);
   if (soon)
     return { tone: 'soon', title: soon === 'odjíždí' ? 'Právě odjíždí' : `Odjíždí ${soon}` };
-  if (board.dep > now)
-    return { tone: 'waiting', title: `Ještě nevyjel · odjíždí v ${departureTime}` };
-  return { tone: 'done', title: `Dnes už dojel · další jízda zítra v ${departureTime}` };
+  // Not on the road: the next run is later today, or (once today's has ended) tomorrow.
+  const title = `Odjíždí ${board.dep > now ? '' : 'zítra '}${atTime(departureTime)}`;
+  const detail = waitLabel(wait ?? (board.dep + 1440 - (now % 1440)) % 1440);
+  return { tone: board.dep > now ? 'waiting' : 'done', title, detail };
 }
 
 /** Share 0..1 of the ride from boarding to the terminus done at `now`; null when not under way. */

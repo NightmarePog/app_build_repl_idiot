@@ -7,7 +7,9 @@ import {
   rideProgress,
   timedStops,
   tripPosition,
-  tripStatus
+  tripStatus,
+  spokenStop,
+  waitLabel
 } from '../src/lib/features/timetable/trip-position';
 
 const call = (id: number, arr: string, dep: string, arrDay = 0, depDay = arrDay) => ({
@@ -85,8 +87,14 @@ const run = [named(420, 420, 'Turing'), named(424, 425, 'Ada'), named(438, 438, 
 test('tripStatus says what the trip does now in one sentence', () => {
   assert.deepEqual(tripStatus(run, 0, '07:00', 300), {
     tone: 'waiting',
-    title: 'Ještě nevyjel · odjíždí v 07:00'
+    title: 'Odjíždí v 07:00',
+    detail: 'za 2 h'
   });
+  // An evening trip seen after midnight is still running, not 'not left yet'.
+  const night = [named(1432, 1432, 'Turing'), named(1444, 1445, 'Ada'), named(1454, 1454, 'Stack')];
+  assert.equal(tripStatus(night, 0, '23:52', 2)?.tone, 'live');
+  assert.equal(tripStatus(night, 0, '23:52', 100)?.title, 'Odjíždí ve 23:52');
+  assert.equal(tripStatus(run, 0, '07:00', 600)?.title, 'Odjíždí zítra v 07:00');
   assert.equal(tripStatus(run, 0, '07:00', 410)?.title, 'Odjíždí za 10 min');
   assert.equal(tripStatus(run, 0, '07:00', 424)?.title, 'Stojí v zastávce Ada');
   assert.equal(tripStatus(run, 0, '07:00', 430)?.title, 'Jede z Ada do Stack');
@@ -100,4 +108,23 @@ test('rideProgress is null off the road and runs 0..1 from boarding', () => {
   assert.equal(rideProgress(run[0], run[2], 438), 1);
   // Just after midnight, on the previous operating day's 24:xx clock.
   assert.equal(rideProgress({ dep: 1432 }, { arr: 1454 }, 3), 0.5);
+});
+
+test('spokenStop reads each row of the timetable', () => {
+  const s = (arr: string, dep: string, dwell: number, offset = 0) => ({
+    arrival_time: arr,
+    arrival_day_offset: offset,
+    departure_time: dep,
+    departure_day_offset: offset,
+    dwell
+  });
+  assert.equal(spokenStop(s('07:00', '07:00', 0), true, false), 'odjezd 07:00');
+  assert.equal(spokenStop(s('07:20', '07:20', 0), false, true), 'příjezd 07:20');
+  assert.equal(spokenStop(s('07:04', '07:04', 0), false, false), 'příjezd a odjezd 07:04');
+  assert.equal(
+    spokenStop(s('00:04', '00:05', 1, 1), false, false),
+    'příjezd 00:04, následující den, odjezd 00:05, následující den, stojí 1 min'
+  );
+  assert.equal(waitLabel(327), 'za 5 h 27 min');
+  assert.equal(waitLabel(40), 'za 40 min');
 });
