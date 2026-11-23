@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import {
     ArrowRight,
+    Shuffle,
     ChevronRight,
     LogIn,
     LogOut,
@@ -110,11 +111,9 @@
           .filter(Boolean)
       : [];
 
-  /** The title names MY ride: where I board and get off, with times, not the whole route. */
+  /** The title names the vehicle; the spine carries my boarding and alighting times. */
   const title = $derived(
-    board && alight
-      ? `${vehicleName ? `${vehicleName} · ` : ''}${board.stop.name} ${board.departure_time} → ${alight.stop.name} ${alight.arrival_time}`
-      : ''
+    vehicleName ?? (trip ? `${trip.origin.name} → ${trip.destination.name}` : '')
   );
 
   function lineHref(trip: TripDetail) {
@@ -154,9 +153,32 @@
     style:--line={trip.line.color}
     style:--line-ink={inkFor(trip.line.color)}
   >
-    <BackLink href={lineHref(trip)} label="Jízdní řád linky" />
+    <BackLink href={lineHref(trip)} label={`Linka ${trip.line.number}`} />
 
     <PageHeader kind="Spoj" icon={TripIcon} {title} color={trip.line.color}>
+      {#snippet meta()}
+        <div class="meta-row" role="status">
+          {#if partial}<span class="chip tabular"
+              ><span class="sr-only">Vaše jízda </span>{board.stop.name} → {alight.stop.name} · {duration(
+                ribbon.total
+              )}</span
+            >{/if}
+          {#if status}
+            <span class="chip tabular" data-tone={status.tone}>
+              {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
+              <TimerIcon aria-hidden="true" class="size-4" />
+              {#if status.detail}{status.tone === 'done' ? 'zítra · ' : ''}odjezd {status.detail}{:else}{status.title}{/if}
+            </span>
+          {/if}
+          {#if progress !== null}
+            <span class="progress" aria-label={`Ujeto ${Math.round(progress * 100)} % vaší jízdy`}>
+              <span class="progress-track">
+                <span class="progress-fill" style:width={`${progress * 100}%`}></span>
+              </span>
+            </span>
+          {/if}
+        </div>
+      {/snippet}
       {#snippet lead()}<span class="vt-plate"
           ><span class="sr-only">Linka {trip.line.number}</span><LinePlate
             number={trip.line.number}
@@ -166,53 +188,6 @@
         >{/snippet}
     </PageHeader>
 
-    <!-- My ride, then its live state: one card, read left to right, top to bottom. -->
-    <section class="ride-hero" aria-label="Vaše jízda">
-      {#if partial}
-        <div class="ends">
-          <div class="end">
-            <span class="flag"><LogIn aria-hidden="true" class="size-4" />Nástup</span>
-            <strong class="hero-time tabular">{board.departure_time}</strong>
-            <span class="hero-stop">{board.stop.name}</span>
-          </div>
-          <span class="hero-mid" aria-hidden="true">
-            <span class="chip tabular">{duration(ribbon.total)}</span>
-            <ArrowRight class="hero-arrow size-6" />
-          </span>
-          <span class="sr-only">jízda {duration(ribbon.total)}</span>
-          <div class="end">
-            <span class="flag out"><LogOut aria-hidden="true" class="size-4" />Výstup</span>
-            <strong class="hero-time tabular">{alight.arrival_time}</strong>
-            <span class="hero-stop">{alight.stop.name}</span>
-          </div>
-        </div>
-      {/if}
-      {#if status}
-        <div class="status-row" role="status">
-          <p class="status" data-tone={status.tone}>
-            {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
-            {#if status.detail}
-              <!-- The boarding time is already the big number above: only the countdown here. -->
-              <span class="chip countdown tabular"
-                ><TimerIcon aria-hidden="true" class="size-4" />{status.tone === 'done'
-                  ? 'zítra · '
-                  : ''}{status.detail}</span
-              >
-            {:else}
-              {status.title}
-            {/if}
-          </p>
-          {#if progress !== null}
-            <div class="progress" aria-label={`Ujeto ${Math.round(progress * 100)} % vaší jízdy`}>
-              <span class="progress-track">
-                <span class="progress-fill" style:width={`${progress * 100}%`}></span>
-                <span class="progress-dot" style:left={`${progress * 100}%`}></span>
-              </span>
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </section>
     <p class="sr-only" aria-live="polite">{vehicleStop}</p>
 
     {#if part.missing}
@@ -256,8 +231,14 @@
                 ></span>
               {/if}
               <div class="times" aria-hidden="true">
-                <!-- One time column: the departure; the arrival only as a small mark where the bus waits. -->
-                <span class="t">{isTo && !end ? stop.arrival_time : shown}</span>
+                {#if stop.dwell > 0 && !first && !end && !isTo && !isFrom}
+                  <span class="t">{stop.arrival_time}</span>
+                  <span class="t">{stop.departure_time}</span>
+                {:else}
+                  <span class="t" class:big={isFrom || isTo}
+                    >{isTo && !end ? stop.arrival_time : shown}</span
+                  >
+                {/if}
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
@@ -267,10 +248,8 @@
                     class="name-chevron size-4"
                   /></a
                 >
-                {#if stop.dwell > 0 && !first && !end && !isTo}<span
-                    class="dwell tabular"
-                    title={`Příjezd ${stop.arrival_time}, odjezd ${stop.departure_time}`}
-                    ><TimerIcon aria-hidden="true" class="size-4" />{stop.dwell} min stání</span
+                {#if otherLines(stop.stop.name).length}<span class="xfer" aria-hidden="true"
+                    ><Shuffle class="size-4" /></span
                   >{/if}
                 {#each otherLines(stop.stop.name) as other (other.number)}<a
                     class="stop-line"
@@ -321,45 +300,12 @@
     padding-bottom: calc(var(--tabbar-h, 0px) + env(safe-area-inset-bottom) + 2rem);
   }
 
-  /* My ride: boarding → alighting in large tabular numerals, then the live state under it. */
-  .ride-hero {
-    margin-top: 1rem;
-    padding: 1rem 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-  }
-  .ends {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0.5rem 1.25rem;
-  }
-  .end {
-    display: grid;
-    gap: 0.125rem;
-  }
-  .hero-mid {
-    display: grid;
-    justify-items: center;
-    gap: 0.125rem;
-    align-self: center;
-  }
   .chip {
     padding: 0.125rem 0.5rem;
     border-radius: var(--radius);
     background: var(--secondary);
     font-weight: var(--weight-strong);
   }
-  .hero-time {
-    font-size: var(--fs-2xl, 1.75rem);
-    font-weight: var(--font-display-weight);
-    line-height: 1.1;
-  }
-  .hero-stop {
-    font-weight: var(--weight-strong);
-  }
-
   /* Boarding and alighting share the flag shape; the icon and fill tell them apart. */
   .flag {
     display: inline-flex;
@@ -375,31 +321,23 @@
     font-weight: var(--weight-strong);
     line-height: 1.5rem;
   }
-  .flag.out {
-    background: var(--background);
-    color: var(--foreground);
-    box-shadow: inset 0 0 0 2px var(--line-stroke, var(--line));
-  }
 
-  .status-row {
-    display: grid;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-  }
-  .status-row:first-child {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
-  }
-  .status {
+  .meta-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem 0.625rem;
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
+    gap: 0.5rem;
+    font-size: var(--fs-base, 1rem);
+  }
+  .meta-row .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2rem;
+  }
+  .progress {
+    display: block;
+    width: 8rem;
   }
   .progress-track {
     position: relative;
@@ -415,17 +353,6 @@
     background: var(--line);
     transition: width var(--motion-xslow) var(--ease-out);
   }
-  .progress-dot {
-    position: absolute;
-    top: 50%;
-    width: 1rem;
-    height: 1rem;
-    border: 3px solid var(--card);
-    border-radius: 50%;
-    background: var(--status-ok);
-    transform: translate(-50%, -50%);
-    transition: left var(--motion-xslow) var(--ease-out);
-  }
   .live-dot {
     flex: none;
     width: 0.75rem;
@@ -436,7 +363,7 @@
   }
 
   .trip-grid {
-    margin-top: 1.5rem;
+    margin-top: 0.5rem;
     max-width: 48rem;
   }
   .heading {
@@ -459,7 +386,7 @@
   .timeline {
     position: relative;
     margin-top: 1rem;
-    --rail-x: 5.5rem;
+    --rail-x: 6.5rem;
     --scale: 0.42rem;
     --row-min: 0.75rem;
     --vehicle-at: calc(max(var(--row-min), var(--gap)) + 0.75rem);
@@ -565,23 +492,16 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
   }
-  .dwell {
+  .t.big {
+    font-size: var(--fs-2xl, 1.75rem);
+    line-height: 1.75rem;
+  }
+  .xfer {
     display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0 0.375rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: var(--fs-sm);
+    color: var(--muted-foreground);
   }
   .stop-line {
     display: inline-flex;
-  }
-  .countdown {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: var(--fs-lg);
   }
   .body {
     grid-area: body;
