@@ -1188,11 +1188,11 @@
           },
           "stops": {
             "type": "array",
-            "description": "Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.",
+            "description": "Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops (the contract only requires one).",
             "items": {
               "$ref": "#/components/schemas/TripStopTime"
             },
-            "minItems": 2
+            "minItems": 1
           }
         },
         "required": [

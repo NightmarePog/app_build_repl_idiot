@@ -137,7 +137,7 @@ export type TripDetail = {
     origin: StopSummary;
     route_id: number;
     /**
-     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.
+     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops (the contract only requires one).
      */
     stops: Array<TripStopTime>;
 };
@@ -257,7 +257,7 @@ export type TripDetailWritable = {
     origin: StopSummary;
     route_id: number;
     /**
-     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.
+     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops (the contract only requires one).
      */
     stops: Array<TripStopTime>;
 };

@@ -43,7 +43,7 @@ public record TripDetailResponse(
                 @Schema(
                     description =
                         "Timetabled stops in route order (ascending `stop_order`). A trip has at"
-                            + " least two stops."),
-            minItems = 2,
+                            + " least two stops (the contract only requires one)."),
+            minItems = 1,
             schema = @Schema(implementation = TripStopTimeResponse.class))
         List<TripStopTimeResponse> stops) {}
