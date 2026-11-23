@@ -75,6 +75,22 @@ export function boarding(stops: { stop: { id: number } }[], fromId: number | nul
   return { index: Math.max(0, found), missing: fromId !== null && stops.length > 0 && found < 0 };
 }
 
+/**
+ * The passenger's part of a trip: boarding at ?od= (origin when absent or not served), getting
+ * off at ?do= (terminus when absent, not served or not after boarding). Indexes into `stops`.
+ */
+export function segment(
+  stops: { stop: { id: number } }[],
+  fromId: number | null,
+  toId: number | null
+) {
+  const from = boarding(stops, fromId);
+  const found =
+    toId === null ? -1 : stops.findIndex((s, i) => i > from.index && s.stop.id === toId);
+  const to = found > from.index ? found : Math.max(from.index, stops.length - 1);
+  return { from: from.index, to, missing: from.missing };
+}
+
 /** Ride length from boarding to the end, and where midnight falls on it in percent (or null). */
 export function ribbon(
   board: { dep: number; departure_day_offset: number },

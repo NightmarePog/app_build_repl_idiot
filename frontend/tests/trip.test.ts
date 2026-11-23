@@ -5,6 +5,7 @@ import {
   nextTrip,
   ribbon,
   rideProgress,
+  segment,
   timedStops,
   tripPosition,
   tripStatus,
@@ -127,4 +128,12 @@ test('spokenStop reads each row of the timetable', () => {
   );
   assert.equal(waitLabel(327), 'za 5 h 27 min');
   assert.equal(waitLabel(40), 'za 40 min');
+});
+
+test('segment runs from ?od= to ?do=, falling back to the ends', () => {
+  const stops = [1, 2, 3, 4].map((id) => ({ stop: { id } }));
+  assert.deepEqual(segment(stops, null, null), { from: 0, to: 3, missing: false });
+  assert.deepEqual(segment(stops, 2, 3), { from: 1, to: 2, missing: false });
+  assert.deepEqual(segment(stops, 3, 1), { from: 2, to: 3, missing: false });
+  assert.deepEqual(segment(stops, 99, null), { from: 0, to: 3, missing: true });
 });
