@@ -342,7 +342,8 @@
                 <strong>{row.destination.name}</strong>
                 {#if waits > 0 || by || row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
-                    {#if row.departure_day_offset === 1}<span class="tag night">☾ po půlnoci</span
+                    {#if row.departure_day_offset === 1}<span class="tag night"
+                        >{row.tomorrow ? '☾ v noci' : '☾ dnes v noci, po půlnoci'}</span
                       >{/if}
                     {#if waits > 0}<span class="tag wait">stojí {waits} min</span>{/if}
                     {#if by}<span class="tag warn">odjede až po {by.join(', ')}</span>{/if}
@@ -356,16 +357,16 @@
                     >odjezd {row.departure_time} · {row.reach.minutes - row.dep} min</span
                   >
                 {:else}
-                  <span class="time tabular">{row.departure_time}</span>
+                  <span class="time tabular"
+                    >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
+                  >
                   {#if waits > 0}<span class="arr-m tabular"
                       >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;☾{/if}</span
                     >{/if}
                 {/if}
               </span>
               <span class="in" aria-hidden="true">
-                {#if row.tomorrow}
-                  <span class="countdown tabular">zítra</span>
-                {:else if soon}
+                {#if !row.tomorrow && soon}
                   <span class="countdown tabular" class:first={row === nextRow}>{soon}</span>
                 {/if}
               </span>
@@ -708,12 +709,33 @@
     min-height: 2.5rem;
     max-width: 14rem;
     padding: 0 2rem 0 0.75rem;
-    border: 1.5px solid var(--board-line);
+    border: 1.5px solid color-mix(in oklch, var(--board-fg) 55%, transparent);
     border-radius: 999px;
-    background: var(--board-raised);
+    background: var(--board-raised)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E")
+      no-repeat right 0.75rem center;
+    appearance: none;
     color: var(--board-fg);
     font: inherit;
     font-weight: var(--weight-strong);
+  }
+  .dests select:hover {
+    border-color: var(--board-fg);
+  }
+  .time .day {
+    margin-right: 0.35em;
+    font-size: 0.75em;
+    font-weight: var(--weight-strong);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    vertical-align: 0.25em;
+  }
+  @media (max-width: 639px) {
+    .time .day {
+      display: block;
+      margin: 0;
+      line-height: 1;
+    }
   }
   .dests select:focus-visible {
     outline: 2px solid var(--sign-marker);

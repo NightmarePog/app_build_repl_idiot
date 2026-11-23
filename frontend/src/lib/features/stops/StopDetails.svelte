@@ -64,7 +64,7 @@
     </div>
 
     <div class="detail-side">
-      <StopSchematic stopId={stop.id} stopName={stop.name} />
+      <StopSchematic stopId={stop.id} />
     </div>
   </div>
 </article>
