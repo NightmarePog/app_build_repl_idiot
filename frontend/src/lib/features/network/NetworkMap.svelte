@@ -44,7 +44,8 @@
     fit = null,
     onhover,
     cooperative = false,
-    legend = true
+    legend = true,
+    insetLeft = 0
   }: {
     stops: Stop[];
     selected?: number | null;
@@ -76,7 +77,14 @@
     /** Small embedded map: scroll and one-finger drag scroll the page, not the map. */
     cooperative?: boolean;
     legend?: boolean;
+    /** Pixels on the left covered by an overlay panel; framing keeps clear of it. */
+    insetLeft?: number;
   } = $props();
+  const fitPadding = () => ({
+    ...FIT_PADDING,
+    left: FIT_PADDING.left + insetLeft,
+    bottom: FIT_PADDING.bottom + inset
+  });
 
   const padding = () => ({ ...PADDING, bottom: PADDING.bottom + inset });
 
@@ -759,7 +767,7 @@
       const bounds = boundsOf(fit!);
       if (bounds)
         m.fitBounds(bounds, {
-          padding: FIT_PADDING,
+          padding: fitPadding(),
           maxZoom: 16.5,
           pitch: PITCH,
           bearing: BEARING,
@@ -773,7 +781,7 @@
     const bounds = fit ? boundsOf(fit) : null;
     if (map && bounds)
       map.fitBounds(bounds, {
-        padding: FIT_PADDING,
+        padding: fitPadding(),
         maxZoom: 16.5,
         pitch: PITCH,
         bearing: BEARING,

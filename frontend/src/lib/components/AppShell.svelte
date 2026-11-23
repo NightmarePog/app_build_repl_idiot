@@ -188,7 +188,9 @@
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
   /** A trip is a "Spoj", not a line: it lights up no section. */
   /** The landing and the map page manage their own width; everything else gets the column. */
-  const fullBleed = $derived(onHome || page.url.pathname === '/stops');
+  const fullBleed = $derived(
+    onHome || page.url.pathname === '/stops' || page.url.pathname === '/lines'
+  );
 </script>
 
 <svelte:window onkeydown={handleShortcut} />

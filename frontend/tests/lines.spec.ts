@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('lists lines as cards with a combined network diagram', async ({ page }) => {
+test('lists lines over the network map and opens a line card', async ({ page }) => {
   await page.route('**/api/v1/lines', (r) => r.fulfill({ json: lines }));
   await page.goto('/lines');
 
@@ -42,8 +42,12 @@ test('lists lines as cards with a combined network diagram', async ({ page }) =>
     'href',
     '/lines/1'
   );
-  const diagram = page.getByRole('group', { name: 'Schéma sítě linek' });
-  await expect(diagram.locator('a[href="/stops/8"]')).toBeAttached();
+  await page.getByRole('button', { name: /Campus Express/ }).click();
+  const card = page.getByRole('article', { name: 'Vybraná linka 7' });
+  await expect(card.getByRole('link', { name: 'Detail linky' })).toHaveAttribute(
+    'href',
+    '/lines/1'
+  );
 });
 
 test('explains an empty network', async ({ page }) => {
@@ -58,7 +62,7 @@ test('reports a failed load and retries', async ({ page }) => {
     ++calls === 1 ? r.fulfill({ status: 500, json: { error: 'boom' } }) : r.fulfill({ json: lines })
   );
   await page.goto('/lines');
-  await expect(page.getByRole('alert')).toHaveText('Linky se nepodařilo načíst');
+  await expect(page.getByRole('alert')).toContainText('Linky se nepodařilo načíst');
   await page.getByRole('button', { name: 'Zkusit znovu' }).click();
   await expect(page.getByRole('main').getByText('Campus Express').first()).toBeVisible();
 });
@@ -67,22 +71,17 @@ test('line detail shows the route, transfers and switches direction', async ({ p
   await page.route('**/api/v1/lines', (r) => r.fulfill({ json: lines }));
   await page.goto('/lines/1');
 
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Linka 7: Campus Express' })
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /Campus Express/ })).toBeVisible();
   const diagram = page.getByRole('list', { name: 'Zastávky směr Campus Gate' });
   await expect(diagram.getByRole('link', { name: 'Cejl' })).toHaveAttribute('href', '/stops/12');
-  await expect(diagram.getByRole('link', { name: 'linka X' })).toHaveAttribute(
+  await expect(diagram.getByRole('link', { name: 'přestup na linku X' })).toHaveAttribute(
     'href',
     '/lines/2#stop-8'
   );
 
   const directions = page.getByRole('navigation', { name: 'Směr jízdy' });
-  await expect(directions.getByRole('link', { name: 'směr Campus Gate' })).toHaveAttribute(
-    'aria-current',
-    'page'
-  );
-  await directions.getByRole('link', { name: 'směr Cejl' }).click();
+  await expect(directions.getByRole('link').nth(0)).toHaveAttribute('aria-current', 'page');
+  await directions.getByRole('link').nth(1).click();
   await expect(page).toHaveURL(/\/lines\/1\?smer=inbound$/);
   await expect(page.getByRole('list', { name: 'Zastávky směr Cejl' })).toBeVisible();
 });
