@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ChevronDown, ChevronUp, Navigation } from '@lucide/svelte';
+  import { ChevronDown, ChevronUp, Moon, Navigation } from '@lucide/svelte';
   import { searchConnections, type Connection, type ConnectionSearch } from '$lib/api/generated';
   import { createResource, ResourceError } from '$lib/api/resource.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -19,6 +19,7 @@
     connectionKey,
     dayNote,
     fastestDuration,
+    LONG_WAIT,
     parseQuery,
     plannerHref,
     shifted
@@ -178,6 +179,43 @@
   const fastestMinutes = $derived(fastestDuration(connections));
 
   /**
+   * Probe once per search whether anything runs before the first result; when nothing does the
+   * "earlier" button would lead nowhere, so it is not shown at all.
+   */
+  $effect(() => {
+    const first = search.data?.connections[0];
+    const { from, to } = query;
+    if (!first || from === null || to === null) return;
+    const key = searchKey;
+    const controller = new AbortController();
+    const edge = absolute(first.arrival_time, first.arrival_day_offset) - 1;
+    fetchPage(from, to, clockText(edge), 'arrival', controller.signal)
+      .then((data) => {
+        if (key !== searchKey) return;
+        const shift = Math.floor(edge / 1440);
+        const known = new Set(connections.map(connectionKey));
+        const fresh = data.connections.filter((c) => !known.has(connectionKey(shifted(c, shift))));
+        if (fresh.length === 0) noMore = { ...noMore, earlier: true };
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  });
+
+  /**
+   * The first result leaves long after the searched time: say so in the heading ("nejbližší
+   * v 15:30" or "nejbližší zítra 07:00"), as IDOS does, so one late result is not read as "now".
+   */
+  const gapNote = $derived.by(() => {
+    const first = connections[0];
+    const at = searchedTime;
+    if (query.mode !== 'departure' || !first || !at) return null;
+    const start = absolute(first.departure_time, first.departure_day_offset);
+    if (start - absolute(at, 0) < LONG_WAIT) return null;
+    const day = dayNote(first.departure_day_offset);
+    return `nejbližší ${day ? `${day} ` : 'v '}${first.departure_time}`;
+  });
+
+  /**
    * "zítra · úterý 24. 11." for a day divider, the same wording as the stop board. The day is
    * today's Prague calendar date moved by `offset` (clock.now is minutes since midnight, not a date).
    */
@@ -250,7 +288,7 @@
     <section class="results" aria-labelledby="results-title" aria-busy={search.loading}>
       <h2 id="results-title" class="results-title">
         {query.mode === 'arrival' ? 'Příjezd do' : 'Odjezd po'}
-        {searchedTime ?? 'teď'}{#if connections.length}{` · ${connections.length} spojení`}{/if}
+        {searchedTime ?? 'teď'}{#if gapNote}<span class="gap-note">{gapNote}</span>{/if}
       </h2>
       <p class="sr-only" aria-live="polite">{pageNote || `${connections.length} spojení`}</p>
 
@@ -275,19 +313,17 @@
           headingLevel={2}
         />
       {:else if connections.length}
-        <div class="pager">
-          {#if noMore.earlier}
-            <p class="pager-end" role="status">Žádná další dřívější spojení nejsou.</p>
-          {:else}
+        {#if !noMore.earlier}
+          <div class="pager">
             <Button variant="outline" onclick={() => more('earlier')} disabled={!!paging}>
               <ChevronUp aria-hidden="true" />
               {paging === 'earlier' ? 'Načítáme…' : 'Dřívější spojení'}
             </Button>
-          {/if}
-          {#if pageError === 'earlier'}
-            <p class="page-error" role="alert">Nepodařilo se načíst, zkuste to znovu.</p>
-          {/if}
-        </div>
+            {#if pageError === 'earlier'}
+              <p class="page-error" role="alert">Nepodařilo se načíst, zkuste to znovu.</p>
+            {/if}
+          </div>
+        {/if}
         <ol class="list" bind:this={list}>
           {#each connections as connection, index (connectionKey(connection))}
             {@const key = connectionKey(connection)}
@@ -312,11 +348,17 @@
             <p class="pager-end" role="status">Žádná další pozdější spojení nejsou.</p>
           {:else}
             {#if endOfDay}
-              <p class="day-divider end" aria-hidden="true"><span>Další spojení zítra</span></p>
+              <p class="day-end" role="status">
+                <Moon class="size-5" aria-hidden="true" /> Dnes už žádné další spojení
+              </p>
             {/if}
             <Button variant="outline" onclick={() => more('later')} disabled={!!paging}>
               <ChevronDown aria-hidden="true" />
-              {paging === 'later' ? 'Načítáme…' : endOfDay ? 'Spojení zítra' : 'Pozdější spojení'}
+              {paging === 'later'
+                ? 'Načítáme…'
+                : endOfDay
+                  ? 'Zobrazit zítřejší spojení'
+                  : 'Pozdější spojení'}
             </Button>
           {/if}
           {#if pageError === 'later'}
@@ -351,8 +393,20 @@
     font-weight: var(--weight-strong);
   }
 
-  .day-divider.end {
+  .gap-note {
+    padding: 0.125rem 0.625rem;
+    border-radius: var(--radius);
+    background: var(--muted);
+    font-size: var(--fs-lg);
+  }
+  .day-end {
+    display: flex;
     flex-basis: 100%;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
   }
   .pager-end {
     font-size: var(--fs-sm);
