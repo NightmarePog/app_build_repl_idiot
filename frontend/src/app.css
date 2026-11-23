@@ -41,21 +41,21 @@
   --sign-marker: var(--board-led);
   /* Platform display: always dark in both themes (brand black #1A1A1A), times in the brand
      green #91F5AD (docs/brand); the palette has no amber or yellow. */
-  --board-bg: oklch(0.218 0 0);
-  --board-fg: oklch(0.964 0.007 88.6);
-  --board-muted: oklch(0.74 0.012 80);
-  --board-raised: oklch(0.27 0.004 70);
-  --board-line: oklch(0.32 0.004 70);
-  --board-led: oklch(0.89 0.138 151.8);
+  --board-bg: oklch(0.955 0.006 85);
+  --board-fg: oklch(0.21 0.008 70);
+  --board-muted: oklch(0.42 0.012 70);
+  --board-raised: oklch(0.93 0.006 80);
+  --board-line: oklch(0.88 0.006 80);
+  --board-led: oklch(0.45 0.12 151.8);
   --sign-marker-foreground: oklch(0.21 0.008 70);
   /* Board details: secondary text, flap tiles, skeleton shimmer and the light sweep. Warnings
      on the board are a tint of the same brand green with an outline, never a new colour. */
   --board-place: color-mix(in oklch, var(--board-fg) 82%, var(--board-bg));
-  --board-tile-top: oklch(0.27 0 0);
-  --board-tile-bottom: oklch(0.23 0 0);
-  --board-shadow: oklch(0 0 0 / 0.6);
-  --board-skeleton: oklch(0.24 0 0);
-  --board-skeleton-hi: oklch(0.29 0 0);
+  --board-tile-top: oklch(0.985 0.004 85);
+  --board-tile-bottom: oklch(0.945 0.006 85);
+  --board-shadow: oklch(0.21 0.008 70 / 0.12);
+  --board-skeleton: oklch(0.93 0.004 80);
+  --board-skeleton-hi: oklch(0.96 0.004 80);
   --board-warn-bg: color-mix(in oklch, var(--board-led) 16%, transparent);
   --board-marker-glow: color-mix(in oklch, var(--sign-marker) 14%, transparent);
   --sweep: oklch(1 0 0);
@@ -86,7 +86,7 @@
   --weight-regular: 500;
   --weight-strong: 700;
   --tracking-eyebrow: 0.1em;
-  --ink-on-line-dark: var(--board-bg);
+  --ink-on-line-dark: oklch(0.218 0 0);
   --ink-on-line-light: oklch(1 0 0);
   --motion-xslow: 900ms;
   --ease-in: cubic-bezier(0.55, 0, 0.9, 0.4);
@@ -101,7 +101,7 @@
   --loop-pulse: 1.4s;
   /* Delay between rows when a list enters, the same for every list. */
   --motion-stagger: 35ms;
-  --radius-pill: 999px;
+  --radius-pill: var(--radius);
   /* Elevation: a raised card (board, ticket) and a ring around a highlighted marker. */
   --shadow-raised: 0 20px 40px -24px oklch(0.21 0.008 70 / 0.45);
   --ring-halo: 0 0 0 4px color-mix(in oklch, var(--line, var(--primary)) 22%, transparent);
@@ -115,7 +115,7 @@
   --chart-3: #49b3b4;
   --chart-4: #2592b8;
   --chart-5: #0257a5;
-  --radius: 0.5rem;
+  --radius: 0.375rem;
   --map: oklch(0.975 0.004 85);
   /* Dark ink on every line colour, so A, B and C badges read as one set. */
   --sidebar: var(--muted);
@@ -130,6 +130,18 @@
 
 .dark {
   color-scheme: dark;
+  --board-bg: oklch(0.218 0 0);
+  --board-fg: oklch(0.964 0.007 88.6);
+  --board-muted: oklch(0.74 0.012 80);
+  --board-raised: oklch(0.27 0.004 70);
+  --board-line: oklch(0.32 0.004 70);
+  --board-led: oklch(0.89 0.138 151.8);
+  --board-tile-top: oklch(0.27 0 0);
+  --board-tile-bottom: oklch(0.23 0 0);
+  --board-shadow: oklch(0 0 0 / 0.6);
+  --board-skeleton: oklch(0.24 0 0);
+  --board-skeleton-hi: oklch(0.29 0 0);
+  --ink-on-line-dark: oklch(0.218 0 0);
   --background: oklch(0.17 0.005 70);
   --foreground: oklch(0.955 0.004 85);
   --card: oklch(0.205 0.006 70);
@@ -200,13 +212,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
   --radius-full: 9999px;
 }
 
@@ -263,7 +275,7 @@ kbd {
   padding: 0 0.3125rem;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 0.3125rem;
+  border-radius: var(--radius);
   background: var(--card);
   color: var(--muted-foreground);
   font: inherit;

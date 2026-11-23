@@ -1,19 +1,10 @@
 <script lang="ts">
   import { NAV_LABELS } from '$lib/links';
   import { onMount, type Snippet } from 'svelte';
-  import { afterNavigate, onNavigate } from '$app/navigation';
+  import { onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import {
-    ChevronDown,
-    House,
-    Map as MapIcon,
-    Moon,
-    Navigation,
-    Route,
-    Search,
-    Sun
-  } from '@lucide/svelte';
+  import { House, Map as MapIcon, Moon, Navigation, Route, Search, Sun } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import { prefersReducedMotion } from '$lib/motion';
   import { cn } from '$lib/utils';
@@ -23,48 +14,18 @@
     children,
     footerCredits,
     footerLines,
-    menus,
     paletteOpen = $bindable(false)
   }: {
     children: Snippet;
     /** Footer content owned by features: project status and team, line links. */
     footerCredits?: Snippet;
     footerLines?: Snippet;
-    /** Dropdown content for the header; the shell only owns open/close state. */
-    menus?: Snippet<[kind: 'stops' | 'lines', close: () => void]>;
     /** Whether the search palette (rendered by the layout) is open; the shell owns shortcuts. */
     paletteOpen?: boolean;
   } = $props();
-  // Hover opens a menu for pointer users; a click keeps it open until clicked again or closed.
-  let pinned = $state(false);
-  // Hover intent: a pointer passing over a trigger should not flash a menu open.
-  let hoverTimer: ReturnType<typeof setTimeout> | undefined;
-  const cancelHover = () => clearTimeout(hoverTimer);
-  const closeMenu = () => {
-    cancelHover();
-    menu = null;
-    pinned = false;
-  };
-  function hoverMenu(kind: 'stops' | 'lines') {
-    cancelHover();
-    if (menu === kind) return;
-    hoverTimer = setTimeout(() => {
-      menu = kind;
-      pinned = false;
-    }, 150);
-  }
-  function clickMenu(kind: 'stops' | 'lines') {
-    cancelHover();
-    if (menu === kind && pinned) closeMenu();
-    else {
-      menu = kind;
-      pinned = true;
-    }
-  }
   let dark = $state(false);
   let isMac = $state(false);
   let transition: ViewTransition | undefined;
-  let menu = $state<'stops' | 'lines' | null>(null);
 
   const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
   function storedTheme() {
@@ -127,12 +88,9 @@
     return () => {
       media.removeEventListener('change', handleSystem);
       window.removeEventListener('storage', handleStorage);
-      cancelHover();
       transition?.skipTransition();
     };
   });
-
-  afterNavigate(closeMenu);
 
   function flipTheme() {
     document.documentElement.classList.toggle('dark');
@@ -258,7 +216,7 @@
         />
       </a>
       <!-- Hover-out only closes a dropdown; keyboard users close it with Escape on the trigger. -->
-      <nav aria-label="Hlavní navigace" class="main-nav" onmouseleave={closeMenu}>
+      <nav aria-label="Hlavní navigace" class="main-nav">
         <a
           href={resolve('/')}
           aria-current={onHome ? 'page' : undefined}
@@ -269,72 +227,16 @@
           aria-current={onPlanner ? 'page' : undefined}
           class={cn('nav-link', onPlanner && 'is-active')}>{NAV_LABELS.connections}</a
         >
-        <div class="nav-item">
-          <a
-            href={resolve('/stops')}
-            aria-current={onStops ? 'page' : undefined}
-            class={cn('nav-link only-small', onStops && 'is-active')}>{NAV_LABELS.stops}</a
-          >
-          <span
-            class="nav-split only-large"
-            role="presentation"
-            onmouseenter={() => hoverMenu('stops')}
-            onmouseleave={cancelHover}
-          >
-            <a
-              href={resolve('/stops')}
-              aria-current={onStops ? 'page' : undefined}
-              class={cn('nav-link split-label', onStops && 'is-active')}
-              onclick={closeMenu}>{NAV_LABELS.stops}</a
-            >
-            <button
-              type="button"
-              class={cn('nav-link split-toggle', onStops && 'is-active')}
-              aria-label="Další: Zastávky"
-              aria-expanded={menu === 'stops'}
-              aria-controls="menu-stops"
-              onclick={() => clickMenu('stops')}
-              onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-              ><ChevronDown class="size-4" aria-hidden="true" /></button
-            >
-          </span>
-          {#if menu === 'stops' && menus}
-            {@render menus('stops', closeMenu)}
-          {/if}
-        </div>
-        <div class="nav-item">
-          <a
-            href={resolve('/lines')}
-            aria-current={onLines ? 'page' : undefined}
-            class={cn('nav-link only-small', onLines && 'is-active')}>{NAV_LABELS.lines}</a
-          >
-          <span
-            class="nav-split only-large"
-            role="presentation"
-            onmouseenter={() => hoverMenu('lines')}
-            onmouseleave={cancelHover}
-          >
-            <a
-              href={resolve('/lines')}
-              aria-current={onLines ? 'page' : undefined}
-              class={cn('nav-link split-label', onLines && 'is-active')}
-              onclick={closeMenu}>{NAV_LABELS.lines}</a
-            >
-            <button
-              type="button"
-              class={cn('nav-link split-toggle', onLines && 'is-active')}
-              aria-label="Další: Linky"
-              aria-expanded={menu === 'lines'}
-              aria-controls="menu-lines"
-              onclick={() => clickMenu('lines')}
-              onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-              ><ChevronDown class="size-4" aria-hidden="true" /></button
-            >
-          </span>
-          {#if menu === 'lines' && menus}
-            {@render menus('lines', closeMenu)}
-          {/if}
-        </div>
+        <a
+          href={resolve('/stops')}
+          aria-current={onStops ? 'page' : undefined}
+          class={cn('nav-link', onStops && 'is-active')}>{NAV_LABELS.stops}</a
+        >
+        <a
+          href={resolve('/lines')}
+          aria-current={onLines ? 'page' : undefined}
+          class={cn('nav-link', onLines && 'is-active')}>{NAV_LABELS.lines}</a
+        >
       </nav>
       <button
         type="button"
