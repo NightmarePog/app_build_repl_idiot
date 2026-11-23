@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Every read uses one REPEATABLE_READ snapshot, so an existence check and its list agree. */
 @Service
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 @RequiredArgsConstructor
 public class TripService {
   private final TripRepository trips;
@@ -28,7 +29,6 @@ public class TripService {
   }
 
   /** Header and stop list are read in one snapshot so they always agree. */
-  @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public TripDetailResponse get(long tripId) {
     var trip = trips.trip(tripId).orElseThrow(() -> new TripNotFoundException(tripId));
     var start = trip.startMinute();

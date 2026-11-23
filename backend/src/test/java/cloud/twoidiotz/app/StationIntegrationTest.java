@@ -56,7 +56,10 @@ class StationIntegrationTest {
             Boolean.parseBoolean(row.get("has_ticket_machine")), station.isHasTicketMachine());
         assertEquals(Boolean.parseBoolean(row.get("has_display")), station.isHasDisplay());
         assertTrue(validator.validate(station).isEmpty());
-        assertEquals(row.get("image_url"), station.getImageUrl());
+        // V18 renamed the one seed file whose name had a space.
+        assertEquals(
+            row.get("image_url").replace("quantum%20Commons", "quantumCommons"),
+            station.getImageUrl());
         assertTrue(station.getImageUrl().startsWith("/api/v1/stops-images/"));
         var response =
             HttpClient.newHttpClient()
@@ -76,7 +79,7 @@ class StationIntegrationTest {
         }
       }
       assertEquals(
-          "/api/v1/stops-images/quantum%20Commons.png",
+          "/api/v1/stops-images/quantumCommons.png",
           stations.findById(15L).orElseThrow().getImageUrl());
     }
   }
