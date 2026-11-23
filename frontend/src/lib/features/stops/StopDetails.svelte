@@ -28,8 +28,6 @@
         eager
         class="info-photo"
       />
-      <!-- The stop's signature: its name on an enamel stop sign over the photo. -->
-      <span class="sign" aria-hidden="true">{stop.name}</span>
     </div>
     <div class="info-body">
       <h2 class="info-heading">Linky</h2>
@@ -58,9 +56,7 @@
             <span class="icon" aria-hidden="true"
               ><amenity.icon size={20} strokeWidth={1.75} /></span
             >
-            <span class="caption"
-              ><span class="sr-only">{has ? '' : 'Není: '}</span>{amenity.label}</span
-            >
+            <span class="sr-only">{has ? '' : 'Není: '}{amenity.label}</span>
           </li>
         {/each}
       </ul>
@@ -110,21 +106,6 @@
   .photo {
     position: relative;
   }
-  .sign {
-    position: absolute;
-    left: 0.75rem;
-    bottom: 0.75rem;
-    max-width: calc(100% - 1.5rem);
-    padding: 0.25rem 0.625rem;
-    border: 2px solid var(--background);
-    border-radius: var(--radius);
-    background: var(--foreground);
-    color: var(--background);
-    font-size: var(--fs-base);
-    font-weight: var(--font-display-weight);
-    line-height: 1.2;
-    box-shadow: 0 0 0 1px var(--foreground);
-  }
   .info-heading {
     font-size: var(--fs-base);
     font-weight: var(--font-display-weight);
@@ -159,9 +140,11 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  /* A compact icon row: tinted = present, struck grey = missing; the name is the tooltip. */
   .amenities {
-    display: grid;
-    gap: 0.375rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   .amenities li {
     display: flex;
@@ -213,10 +196,6 @@
     .infobox :global(.info-photo) {
       height: 100%;
       aspect-ratio: auto;
-    }
-    /* The strip photo is too narrow for a sign; the page title names the stop. */
-    .sign {
-      display: none;
     }
     .info-body {
       gap: 0.625rem;

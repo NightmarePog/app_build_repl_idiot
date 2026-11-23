@@ -338,7 +338,7 @@
         <button type="button" class="retry" onclick={board.retry}>Zkusit znovu</button>
       </p>
     {:else if !departures}
-      <ol class="rows" aria-busy="true" aria-label="Načítáme odjezdy">
+      <ol class="rows" aria-busy="true" aria-label="Načítáme odjezdy…">
         {#each [0, 1, 2] as index (index)}
           <li class="row skeleton" style:animation-delay={`${index * 120}ms`}></li>
         {/each}
@@ -350,7 +350,7 @@
           <button type="button" class="retry" onclick={ending.retry}>Zkusit znovu</button>
         </p>
       {:else if !arrivals}
-        <ol class="rows" aria-busy="true" aria-label="Načítáme příjezdy">
+        <ol class="rows" aria-busy="true" aria-label="Načítáme příjezdy…">
           {#each [0, 1, 2] as index (index)}
             <li class="row skeleton" style:animation-delay={`${index * 120}ms`}></li>
           {/each}
@@ -478,18 +478,22 @@
                   <span class="vehicle" aria-hidden="true">Bus {row.block_ref}</span>
                 {/if}
                 {#if row.via.length > 0}
-                  <ol class="via" aria-hidden="true" title={row.via.map((v) => v.name).join(' · ')}>
+                  <ol
+                    class="via"
+                    aria-hidden="true"
+                    data-label="přes"
+                    title={row.via.map((v) => v.name).join(' · ')}
+                  >
                     {#each row.via as stop (stop.id)}
                       <li class:hit-stop={stop.id === target}>{stop.name}</li>
                     {/each}
                   </ol>
                 {/if}
-                {#if by || row.departure_day_offset === 1}
+                {#if row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
                         >{row.tomorrow ? '☾ v noci' : '☾ po půlnoci'}</span
                       >{/if}
-                    {#if by}<span class="tag warn">odjede až po {by.join(', ')}</span>{/if}
                   </span>
                 {/if}
               </div>
@@ -501,7 +505,13 @@
                   >
                 {:else}
                   <span class="time tabular">{row.departure_time}</span>
-                  {#if waits >= DWELL_SHOWN}
+                  {#if by}
+                    <!-- Arrives before an earlier-leaving bus but waits for it: both times matter. -->
+                    <span class="time sub tabular"
+                      ><span class="day">příj.</span>{row.arrival_time}</span
+                    >
+                    <span class="overtaken">odjede po {by.join(', ')}</span>
+                  {:else if waits >= DWELL_SHOWN}
                     <!-- Only a real wait here is worth a second time. -->
                     <span class="time sub tabular"
                       ><span class="day">příj.</span>{row.arrival_time}</span
@@ -769,11 +779,6 @@
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
-  .warn {
-    background: var(--board-warn-bg);
-    color: var(--board-fg);
-    box-shadow: inset 0 0 0 1px var(--sign-marker);
-  }
   .dep {
     display: grid;
     justify-items: end;
@@ -961,6 +966,19 @@
     color: var(--board-fg);
     font-size: var(--fs-sm);
     line-height: 1.4;
+  }
+  .via::before {
+    content: attr(data-label);
+    margin-right: 0.375rem;
+    color: var(--board-muted);
+    font-weight: var(--weight-strong);
+  }
+  .overtaken {
+    max-width: 10rem;
+    color: var(--board-fg);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    text-align: right;
   }
   .via li + li::before {
     content: '·';
