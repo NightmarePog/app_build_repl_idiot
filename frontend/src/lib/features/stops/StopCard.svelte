@@ -3,7 +3,7 @@
   import { resolve } from '$app/paths';
   import { Check, Minus } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
-  import { describeStop, linesOf } from '$lib/features/network/lines.svelte';
+  import { linesOf } from '$lib/features/network/lines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { rememberStop } from './selected-stop';
   import StopImage from './StopImage.svelte';
@@ -36,7 +36,6 @@
     <h2 style:view-transition-name={titleTransition}>{stop.name}</h2>
     <span class="stop-row-sub">
       {#each linesOf(stop.name) as id (id)}<LineBadge {id} />{/each}
-      <span>{describeStop(stop.name)}</span>
     </span>
   </span>
   <span class="stop-row-amenities">
