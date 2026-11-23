@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { NAV_LABELS } from '$lib/links';
   import type { Snippet } from 'svelte';
   import { resolve } from '$app/paths';
   import { ArrowUp, ArrowUpRight } from '@lucide/svelte';
+  import { reveal } from '$lib/motion';
 
   /** Feature content comes from the layout: project status and team, and the line links. */
   let { credits, lines }: { credits?: Snippet; lines?: Snippet } = $props();
@@ -20,7 +20,7 @@
 <footer class="site-footer" aria-label="Patička webu">
   <div class="footer-inner">
     <div class="footer-top">
-      <section class="brand" aria-label="Think different Academy">
+      <section class="brand" aria-label="Think different Academy" {@attach reveal()}>
         <a
           href={resolve('/')}
           class="brand-mark"
@@ -41,30 +41,31 @@
             class="logo logo-dark"
           />
         </a>
-        <p class="tagline">
-          Vyhledejte spojení mezi zastávkami kampusu, i s přestupy. Odjezdy, linky a jízdní řády na
-          jednom místě.
-        </p>
         {@render credits?.()}
       </section>
 
-      <nav class="column" aria-labelledby="footer-explore">
+      <nav class="column" aria-labelledby="footer-explore" {@attach reveal({ delay: 0.07 })}>
         <h2 id="footer-explore">Procházet</h2>
         <ul>
-          <li><a href={resolve('/')}>{NAV_LABELS.home}</a></li>
-          <li><a href={resolve('/lines')}>{NAV_LABELS.lines}</a></li>
-          <li><a href={resolve('/stops')}>{NAV_LABELS.stops}</a></li>
+          <li><a href={resolve('/')}>Úvod</a></li>
+          <li><a href={resolve('/stops')}>Mapa zastávek</a></li>
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
+          <li><a href={`${resolve('/')}#lines`}>Přehled linek</a></li>
         </ul>
       </nav>
 
-      <nav class="column lines-column" aria-labelledby="footer-lines">
+      <nav
+        class="column lines-column"
+        aria-labelledby="footer-lines"
+        {@attach reveal({ delay: 0.14 })}
+      >
         <h2 id="footer-lines">Linky</h2>
         <ul>
           {@render lines?.()}
         </ul>
       </nav>
 
-      <nav class="column" aria-labelledby="footer-project">
+      <nav class="column" aria-labelledby="footer-project" {@attach reveal({ delay: 0.21 })}>
         <h2 id="footer-project">Projekt</h2>
         <ul>
           <li>
@@ -89,7 +90,7 @@
         >
       </p>
       <a href="#main" class="to-top" onclick={toTop}
-        >Zpátky nahoru <ArrowUp size={16} aria-hidden="true" /></a
+        >Zpátky nahoru <ArrowUp size={15} aria-hidden="true" /></a
       >
     </div>
   </div>
@@ -101,7 +102,7 @@
     border-top: 1px solid var(--border);
     background: color-mix(in oklch, var(--muted) 55%, var(--background));
     color: var(--muted-foreground);
-    font-size: var(--fs-sm);
+    font-size: 0.875rem;
   }
   .footer-inner {
     max-width: 85rem;
@@ -123,7 +124,7 @@
   }
   .brand-mark {
     display: block;
-    border-radius: var(--radius-sm);
+    border-radius: 0.25rem;
   }
   .logo {
     display: block;
@@ -137,16 +138,13 @@
   :global(.dark) .logo-dark {
     display: block;
   }
-  .tagline {
-    line-height: 1.55;
-  }
 
   .column h2 {
     margin-bottom: 0.75rem;
     color: var(--foreground);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
   .column :global(ul) {
@@ -160,7 +158,7 @@
     gap: 0.375rem;
     min-height: 2.25rem;
     color: var(--muted-foreground);
-    font-weight: var(--weight-strong);
+    font-weight: 600;
     transition:
       color var(--motion-fast) var(--ease-out),
       transform var(--motion-fast) var(--ease-out);
@@ -179,7 +177,7 @@
     margin-top: 2.5rem;
     padding-top: 1.25rem;
     border-top: 1px solid var(--border);
-    font-size: var(--fs-sm);
+    font-size: 0.8125rem;
   }
   .attribution a {
     color: inherit;
@@ -197,7 +195,7 @@
     gap: 0.375rem;
     min-height: 2.75rem;
     color: var(--muted-foreground);
-    font-weight: var(--weight-strong);
+    font-weight: 600;
     transition: color var(--motion-fast) var(--ease-out);
   }
   .to-top :global(svg) {
@@ -212,7 +210,7 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: var(--radius-sm);
+    border-radius: 0.25rem;
   }
 
   @media (max-width: 979px) {
@@ -225,34 +223,20 @@
     }
   }
   @media (max-width: 639px) {
-    /* Phones: one compact row of links; the tab bar already covers navigation. */
-    .site-footer {
-      margin-top: 2rem;
-    }
     .footer-inner {
-      padding: 1rem 1rem 0.75rem;
+      padding: 2.5rem 1.25rem 1.25rem;
     }
     .footer-top {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 1rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .brand,
-    .lines-column,
-    .column h2,
-    .attribution {
-      display: none;
-    }
-    .column ul {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem 1rem;
+    /* Line routes need the full width to stay on one line. */
+    .lines-column {
+      grid-column: 1 / -1;
+      order: 1;
     }
     .footer-bottom {
-      margin-top: 0.5rem;
-      padding-top: 0.5rem;
-      flex-direction: row;
-      justify-content: space-between;
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
   @media (prefers-reduced-motion: reduce) {
