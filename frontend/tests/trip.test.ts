@@ -4,8 +4,10 @@ import {
   boarding,
   nextTrip,
   ribbon,
+  rideProgress,
   timedStops,
-  tripPosition
+  tripPosition,
+  tripStatus
 } from '../src/lib/features/timetable/trip-position';
 
 const call = (id: number, arr: string, dep: string, arrDay = 0, depDay = arrDay) => ({
@@ -75,4 +77,27 @@ test('nextTrip keeps to the route and wraps to tomorrow', () => {
   assert.deepEqual(nextTrip(trips, trips[3]), { trip: trips[1], tomorrow: true });
   assert.equal(nextTrip(trips, trips[2]), null);
   assert.equal(nextTrip([], trips[0]), null);
+});
+
+const named = (arr: number, dep: number, name: string) => ({ arr, dep, stop: { name } });
+const run = [named(420, 420, 'Turing'), named(424, 425, 'Ada'), named(438, 438, 'Stack')];
+
+test('tripStatus says what the trip does now in one sentence', () => {
+  assert.deepEqual(tripStatus(run, 0, '07:00', 300), {
+    tone: 'waiting',
+    title: 'Ještě nevyjel · odjíždí v 07:00'
+  });
+  assert.equal(tripStatus(run, 0, '07:00', 410)?.title, 'Odjíždí za 10 min');
+  assert.equal(tripStatus(run, 0, '07:00', 424)?.title, 'Stojí v zastávce Ada');
+  assert.equal(tripStatus(run, 0, '07:00', 430)?.title, 'Jede z Ada do Stack');
+  assert.equal(tripStatus(run, 0, '07:00', 600)?.tone, 'done');
+  assert.equal(tripStatus([], 0, '07:00', 600), null);
+});
+
+test('rideProgress is null off the road and runs 0..1 from boarding', () => {
+  assert.equal(rideProgress(run[0], run[2], 300), null);
+  assert.equal(rideProgress(run[0], run[2], 420), 0);
+  assert.equal(rideProgress(run[0], run[2], 438), 1);
+  // Just after midnight, on the previous operating day's 24:xx clock.
+  assert.equal(rideProgress({ dep: 1432 }, { arr: 1454 }, 3), 0.5);
 });
