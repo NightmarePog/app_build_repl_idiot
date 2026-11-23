@@ -56,7 +56,8 @@
                 <span class="title">Linka {line.number} → <strong>{route.direction}</strong></span>
               {:else}
                 <span class="title"
-                  >Linka {line.number} přijíždí z <strong>{route.stops[0]?.name}</strong></span
+                  >Linka {line.number} končí zde
+                  <span class="from">(← ze <strong>{route.stops[0]?.name}</strong>)</span></span
                 >
               {/if}
               {#if next}
@@ -65,7 +66,7 @@
                   {#if !previous}<span>výchozí zastávka linky</span>{/if}
                 </span>
               {:else}
-                <span class="hops">Konečná, jen výstup</span>
+                <span class="hops">Konečná, jen výstup · odjezdy jsou v opačném směru</span>
               {/if}
             </span>
             <span class="action" aria-hidden="true"
