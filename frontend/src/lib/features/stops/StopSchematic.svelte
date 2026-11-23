@@ -52,19 +52,25 @@
           <a class="row-link" href={lineDirectionHref(line.apiId, route.bound, stopId)}>
             <span class="plate tabular" aria-hidden="true">{line.number}</span>
             <span class="what">
-              <span class="title">Linka {line.number} → <strong>{route.direction}</strong></span>
+              {#if next}
+                <span class="title">Linka {line.number} → <strong>{route.direction}</strong></span>
+              {:else}
+                <span class="title"
+                  >Linka {line.number} přijíždí z <strong>{route.stops[0]?.name}</strong></span
+                >
+              {/if}
               {#if next}
                 <span class="hops">
                   <span>další zastávka <strong>{next.name}</strong></span>
                   {#if !previous}<span>výchozí zastávka linky</span>{/if}
                 </span>
               {:else}
-                <span class="hops">
-                  <span class="end-badge">Konečná – nenastupujte</span>
-                  spoje sem přijíždějí jen k výstupu
-                </span>
+                <span class="hops">Konečná, jen výstup</span>
               {/if}
             </span>
+            <span class="action" aria-hidden="true"
+              ><span class="action-text">Jízdní řád linky </span>›</span
+            >
           </a>
         </li>
       {/each}
@@ -83,9 +89,16 @@
     background: color-mix(in oklch, var(--line) 10%, var(--background));
   }
   li.ends {
-    border-left-style: dashed;
     background: transparent;
     box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .action {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--primary);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    white-space: nowrap;
   }
   .row-link {
     display: flex;
@@ -130,14 +143,12 @@
     color: var(--foreground);
     font-weight: var(--weight-strong);
   }
-  .end-badge {
-    padding: 0 0.5rem;
-    border: 1.5px solid currentColor;
-    border-radius: var(--radius-pill);
-    color: var(--foreground);
-    font-weight: var(--weight-strong);
-  }
   .note {
     color: var(--muted-foreground);
+  }
+  @media (max-width: 639px) {
+    .action-text {
+      display: none;
+    }
   }
 </style>
