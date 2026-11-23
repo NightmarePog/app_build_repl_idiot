@@ -506,7 +506,7 @@
     min-height: 2.875rem;
     padding: 0 0.5rem 0 0.75rem;
     border: 1px solid var(--input);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--card);
     color: var(--muted-foreground);
     cursor: text;
@@ -551,7 +551,7 @@
     height: 2.75rem;
     place-items: center;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--background);
     cursor: pointer;
     opacity: 0.85;
@@ -697,19 +697,19 @@
     z-index: 2;
     width: min(26rem, calc(100% - 5rem));
     box-shadow: var(--shadow-pop);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
   }
   .summary :global(.stop-summary) {
     grid-template-columns: 8.5rem minmax(0, 1fr);
     gap: 1rem;
     padding: 0.75rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--card);
   }
   .summary :global(.summary-image) {
     min-height: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
   }
   @media (max-width: 979px) {
     .finder {
@@ -779,7 +779,7 @@
       padding: 0 1rem 1.25rem;
       overflow-y: auto;
       overscroll-behavior: contain;
-      border-radius: var(--radius-4xl) var(--radius-4xl) 0 0;
+      border-radius: var(--radius) var(--radius) 0 0;
       background: var(--background);
       box-shadow: var(--shadow-pop);
       transition: height var(--motion-slow) var(--ease-out);
@@ -808,7 +808,7 @@
       content: '';
       width: 2.5rem;
       height: 0.3125rem;
-      border-radius: var(--radius-pill);
+      border-radius: var(--radius);
       background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
       transition: width var(--motion-fast) var(--ease-out);
     }
@@ -818,7 +818,7 @@
     .sheet-handle:focus-visible {
       outline: 2px solid var(--ring);
       outline-offset: -4px;
-      border-radius: var(--radius-xl);
+      border-radius: var(--radius);
     }
     .search :global(kbd) {
       display: none;

@@ -44,7 +44,7 @@
     gap: 0.5rem;
     padding: 0 0.875rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--background);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);

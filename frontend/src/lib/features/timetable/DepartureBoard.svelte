@@ -12,6 +12,7 @@
   import { motionMs } from '$lib/motion';
   import { arrivalsAt, byTrip, overtakes, type Arrival } from './board';
   import { clock as appClock } from './clock.svelte';
+  import FlapTime from './FlapTime.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock, minutesOf, minutesUntil, relative, spokenTime } from './time';
   import { lineDirectionHref, tripDetail, withQuery } from './trips';
@@ -111,14 +112,14 @@
     /** Arrival at the "kam jedete" stop, when one is chosen. */
     reach: { time: string; dayOffset: number; minutes: number } | null;
     label: string;
-    /** The next stop after this one, so two trips to the same terminus are told apart. */
-    via: string | null;
+    /** Every stop the trip still calls at after this one, terminus excluded. */
+    via: { id: number; name: string }[];
   };
 
-  function nextStopOf(d: Departure) {
+  function remainingStopsOf(d: Departure) {
     const route = LINES[d.line.number]?.routes.find((r) => r.bound === d.direction);
     const here = route?.stops.findIndex((stop) => stop.id === stopId) ?? -1;
-    return here < 0 ? null : (route?.stops[here + 1]?.name ?? null);
+    return here < 0 || !route ? [] : route.stops.slice(here + 1, -1);
   }
 
   const lines = $derived(
@@ -137,7 +138,7 @@
         dep: minutesOf(d.departure_time, d.departure_day_offset),
         reach: reachOf(trips.data?.get(d.trip_id)),
         label: `${d.line.number} → ${d.destination.name} ${d.departure_time}`,
-        via: nextStopOf(d)
+        via: remainingStopsOf(d)
       }))
       .filter(
         (d) =>
@@ -236,7 +237,6 @@
       <div>
         <!-- The page title already names the stop; the board only says what it lists. -->
         <h2 id="board-heading" class="board-title">Odjezdy</h2>
-        <p class="board-sub">ze zastávky <strong>{stopName}</strong> · živě podle pražského času</p>
       </div>
       <p class="clock" aria-label={`Teď je ${clock(now)} pražského času`}>
         <span class="clock-label" aria-hidden="true">Nyní</span>
@@ -249,7 +249,6 @@
       <a class="hero" class:leaving={nextRow.inMinutes <= 2} href={tripHref(nextRow.trip_id)}>
         <LinePlate number={nextRow.line.number} color={nextRow.line.color} size="lg" />
         <span class="hero-dest">
-          <span class="hero-label">Nejbližší · {nextRow.departure_time}</span>
           <strong>{nextRow.destination.name}</strong>
         </span>
         <span class="hero-time" aria-live="polite">
@@ -260,8 +259,7 @@
 
     {#if departures && (departures.length > 0 || endingLines.length > 0)}
       <div class="controls">
-        <span class="chips-label" id="board-range-label">Zobrazit:</span>
-        <div class="segmented" role="group" aria-labelledby="board-range-label">
+        <div class="segmented" role="group" aria-label="Zobrazit">
           <button
             type="button"
             aria-pressed={mode === 'upcoming'}
@@ -277,8 +275,7 @@
           >
         </div>
         {#if lines.length > 1 && mode !== 'arrivals'}
-          <div class="chips" role="group" aria-labelledby="board-lines-label">
-            <span class="chips-label" id="board-lines-label">Filtrovat linky:</span>
+          <div class="chips" role="group" aria-label="Filtrovat linky">
             {#each lines as line (line.number)}
               {@const on = lineFilter.includes(line.number)}
               <button
@@ -320,11 +317,7 @@
               </datalist>
             </div>
             <span class="dests-hint" aria-live="polite">
-              {target === null
-                ? destQuery.trim()
-                  ? 'Vyberte zastávku ze seznamu'
-                  : 'Zobrazujeme spoje do všech zastávek'
-                : 'Jen spoje, které tam jedou, s časem příjezdu'}
+              {target === null && destQuery.trim() ? 'Vyberte zastávku ze seznamu' : ''}
             </span>
           </div>
         {/if}
@@ -357,9 +350,6 @@
       {:else if arrivals.length === 0}
         <p class="empty">Sem dnes žádný spoj nepřijíždí.</p>
       {:else}
-        <div class="legend" aria-hidden="true">
-          <span>Linka</span><span>Odkud</span><span class="r">Příjezd</span><span></span>
-        </div>
         <ol class="rows" aria-label={`Příjezdy do zastávky ${stopName}`}>
           {#each arrivals as row, index (row.trip_id)}
             <li
@@ -384,10 +374,8 @@
                 {/if}
               </div>
               <span class="dep" aria-hidden="true">
-                <span class="dep-label">příjezd</span>
                 <span class="time tabular">{row.time}</span>
               </span>
-              <span class="in" aria-hidden="true"></span>
             </li>
           {/each}
         </ol>
@@ -425,59 +413,69 @@
         >
       {/if}
       {#if rows.every((r) => r.tomorrow)}
-        <p class="today-done">
-          Dnes už odsud nic nejede · další odjezd zítra {rows[0].departure_time}
-        </p>
+        <div class="today-done" role="status">
+          <span class="closed">Dnes už odsud nic nejede</span>
+          <span class="next-day">
+            <span class="next-label">Zítra</span>
+            <FlapTime time={rows[0].departure_time} size="lg" showDay={false} />
+          </span>
+        </div>
       {/if}
-      <div class="legend" aria-hidden="true">
-        <span>Linka</span><span>Směr</span><span class="r"
-          >{target !== null ? `V cíli` : 'Odjezd'}</span
-        ><span class="r">{mode === 'upcoming' && nextRow ? 'Za' : ''}</span>
-      </div>
-      {#if target !== null}
-        <!-- On a phone the column legend is gone; say what the big time means. -->
-        <p class="target-note">
-          Velký čas = příjezd do zastávky <strong>{targetName}</strong>, pod ním odjezd odsud.
-        </p>
-      {/if}
+
       <!-- Not a live region: rows only reorder once a minute and the hero above announces the
            next departure. -->
       {#key filterKey}
-        <ol class="rows" aria-label={`Odjezdy ze zastávky ${stopName}`}>
+        <ol
+          class="rows"
+          class:timeline={mode === 'day'}
+          aria-label={`Odjezdy ze zastávky ${stopName}`}
+        >
           {#each rows as row, index (row.key)}
             {@const waits = row.dep - row.arr}
             {@const soon = relative(row.inMinutes)}
             {@const by = overtaken.get(row.key)}
-            {@const band =
-              index === firstTomorrow && index > 0
-                ? `'zítra · ${tomorrowDate}'`
-                : index === nowIndex && index > 0
-                  ? `'teď · ${clock(now)}'`
-                  : ''}
+            {@const hour = Math.floor(row.dep / 60)}
+            {@const prevHour = index > 0 ? Math.floor(rows[index - 1].dep / 60) : null}
+            {@const tomorrowStart = index === firstTomorrow && index > 0}
             <li
               class="row"
               class:next={row === nextRow}
               class:later={row.tomorrow}
               class:gone={row.gone}
-              class:banded={band !== ''}
-              class:now-band={index === nowIndex && index > 0}
-              style:--band={band}
+              class:new-hour={mode === 'day' && hour !== prevHour}
+              class:gap={mode === 'day' && prevHour !== null && hour - prevHour > 1}
+              class:tomorrow-start={tomorrowStart}
               style:--i={index}
+              style:--gap-hours={mode === 'day' && prevHour !== null
+                ? Math.min(hour - prevHour - 1, 6)
+                : 0}
+              data-hour={mode === 'day' && hour !== prevHour
+                ? String(hour % 24).padStart(2, '0')
+                : undefined}
+              data-day={tomorrowStart ? `zítra · ${tomorrowDate}` : undefined}
               animate:flip={{ duration: motionMs(320) }}
             >
+              {#if mode === 'day' && index === nowIndex}
+                <span class="now-mark" aria-hidden="true"><span>{clock(now)}</span></span>
+              {/if}
               <a class="hit" href={tripHref(row.trip_id)} aria-label={rowLabel(row, by)}></a>
               <LinePlate number={row.line.number} color={row.line.color} />
               <div class="dest">
                 <strong
-                  ><span class="arrow" aria-hidden="true">→ </span>{row.destination.name}</strong
+                  ><span class="arrow" aria-hidden="true">→</span>
+                  {row.destination.name}</strong
                 >
-                {#if row.via && row.via !== row.destination.name}<span class="via"
-                    >přes {row.via}</span
-                  >{/if}
+                {#if row.via.length > 0}
+                  <ol class="via" aria-hidden="true" title={row.via.map((v) => v.name).join(' · ')}>
+                    {#each row.via as stop (stop.id)}
+                      <li class:hit-stop={stop.id === target}>{stop.name}</li>
+                    {/each}
+                  </ol>
+                {/if}
                 {#if by || row.departure_day_offset === 1}
                   <span class="tags" aria-hidden="true">
                     {#if row.departure_day_offset === 1}<span class="tag night"
-                        >{row.tomorrow ? '☾ v noci' : '☾ dnes v noci, po půlnoci'}</span
+                        >{row.tomorrow ? '☾ v noci' : '☾ po půlnoci'}</span
                       >{/if}
                     {#if by}<span class="tag warn">odjede až po {by.join(', ')}</span>{/if}
                   </span>
@@ -485,26 +483,21 @@
               </div>
               <span class="dep" aria-hidden="true">
                 {#if row.reach}
-                  <span class="time tabular">{row.reach.time}</span>
-                  <span class="arr-m tabular" style:display="block"
-                    >{#if waits > 0}příjezd {row.arrival_time} ·
-                    {/if}odjezd {row.departure_time}
-                    · {row.reach.minutes - row.dep} min</span
+                  <span class="time tabular"><span class="day">v cíli</span>{row.reach.time}</span>
+                  <span class="time sub tabular"
+                    ><span class="day">odjezd</span>{row.departure_time}</span
                   >
                 {:else}
-                  <span class="dep-label">odjezd</span>
                   <span class="time tabular"
                     >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
                   >
-                  <!-- Every row says when the bus pulls in, so arrival and departure read the same
-                       way whether it waits or not (diary #6, #8). -->
-                  <span class="arr-m tabular" class:dwell={waits > 0}
-                    >přijede {row.arrival_time}{#if row.arrival_day_offset > row.departure_day_offset}&nbsp;+1{/if}{#if waits > 0}
-                      · čeká {waits} min{/if}</span
-                  >
+                  {#if waits > 0}
+                    <!-- The bus waits here: arrival and departure read at the same size. -->
+                    <span class="time sub tabular"
+                      ><span class="day">příj.</span>{row.arrival_time}</span
+                    >
+                  {/if}
                 {/if}
-              </span>
-              <span class="in" aria-hidden="true">
                 {#if !row.tomorrow && soon && mode === 'upcoming' && index < COUNTDOWNS}
                   <span class="countdown tabular" class:first={row === nextRow}>{soon}</span>
                 {/if}
@@ -526,14 +519,31 @@
   .board-wrap {
     margin-top: 2.5rem;
   }
-  /* Always dark, like the platform display it imitates, in both themes. */
+  /* Signage in both themes: a dark platform display in dark mode, an enamel sign in light. */
+  :global(:root:not(.dark)) .board {
+    --board-bg: oklch(0.965 0.006 85);
+    --board-fg: oklch(0.21 0.008 70);
+    --board-muted: oklch(0.45 0.012 70);
+    --board-raised: oklch(0.925 0.008 80);
+    --board-line: oklch(0.86 0.008 80);
+    --board-led: oklch(0.42 0.12 152);
+    --board-tile-top: oklch(0.3 0.004 70);
+    --board-tile-bottom: oklch(0.24 0.004 70);
+    --board-skeleton: oklch(0.93 0.004 80);
+    --board-skeleton-hi: oklch(0.97 0.004 80);
+    --sign-marker: var(--board-led);
+    --sign-marker-foreground: oklch(0.99 0.003 85);
+    background-image: none;
+    border: 1px solid var(--board-line);
+  }
   .board {
     position: relative;
     overflow: hidden;
     padding: 1.25rem;
-    border-radius: var(--radius-2xl);
+    border-radius: var(--radius);
     color: var(--board-fg);
-    box-shadow: var(--shadow-raised);
+    /* No accent stripe on top: the board is told apart by its surface, not a coloured bar. */
+    border-top: 0;
   }
   .board-head {
     display: flex;
@@ -550,22 +560,9 @@
   .board-title {
     font-weight: var(--font-display-weight);
   }
-  .board-sub {
-    margin-top: 0.125rem;
-    color: var(--board-muted);
-    font-size: var(--fs-sm);
-  }
   .clock-label {
     color: var(--board-fg);
     font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
-  .dep-label {
-    display: block;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
@@ -589,13 +586,13 @@
   .segmented {
     display: inline-flex;
     padding: 3px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     background: var(--board-raised);
   }
   .segmented button {
     min-height: 2.5rem;
     padding-inline: 1rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     color: var(--board-muted);
     font-weight: var(--weight-strong);
     transition:
@@ -611,14 +608,6 @@
     align-items: center;
     gap: 0.375rem;
   }
-  .chips-label {
-    margin-right: 0.25rem;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
   .chip {
     position: relative;
   }
@@ -631,7 +620,7 @@
     place-items: center;
     width: 1.125rem;
     height: 1.125rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     font-size: var(--fs-2xs);
     font-weight: var(--font-display-weight);
   }
@@ -645,7 +634,7 @@
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
     border: 1.5px dashed var(--board-line);
     opacity: 0.7;
     transition:
@@ -663,21 +652,11 @@
     opacity: 1;
     border: 2px solid var(--sign-marker);
   }
-  .legend,
   .row {
     display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr) minmax(5.5rem, auto) 7.5rem;
+    grid-template-columns: 2.75rem minmax(0, 1fr) minmax(5.5rem, auto);
     align-items: center;
     gap: 0.875rem;
-  }
-  .legend {
-    margin-top: 1.25rem;
-    padding-inline: 0.75rem;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
   }
   .r {
     text-align: right;
@@ -689,7 +668,7 @@
     position: relative;
     min-height: 4.25rem;
     padding: 0.625rem 0.75rem;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     transition: background-color var(--motion-fast) var(--ease-out);
   }
   .row + .row {
@@ -700,16 +679,6 @@
   }
   .row.next {
     background: linear-gradient(90deg, var(--board-marker-glow), transparent 70%);
-  }
-  .row.next::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.75rem;
-    bottom: 0.75rem;
-    width: 3px;
-    border-radius: var(--radius-sm);
-    background: var(--sign-marker);
   }
   /* Tomorrow: text steps back, plates keep their colour. */
   .row.later .dest strong,
@@ -722,9 +691,6 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
     line-height: 1;
-  }
-  .in {
-    text-align: right;
   }
   .line-link {
     display: inline-flex;
@@ -748,20 +714,12 @@
       transform: perspective(600px) rotateX(-70deg);
     }
   }
-  .target-note {
-    margin-top: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-lg);
-    background: var(--board-raised);
-    color: var(--board-fg);
-    font-size: var(--fs-sm);
-  }
   .more {
     width: 100%;
     min-height: 2.75rem;
     margin-top: 0.75rem;
     border: 1.5px solid var(--board-line);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     color: var(--board-fg);
     font-weight: var(--weight-strong);
   }
@@ -803,7 +761,7 @@
   }
   .tag {
     padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
@@ -816,16 +774,6 @@
     display: grid;
     justify-items: end;
     gap: 0.25rem;
-  }
-  .arr-m {
-    display: block;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    white-space: nowrap;
-  }
-  .arr-m.dwell {
-    color: var(--board-fg);
   }
   .tag.end {
     background: var(--board-raised);
@@ -862,7 +810,7 @@
     min-height: 2.75rem;
     padding: 0 1rem 0 2.5rem;
     border: 1.5px solid color-mix(in oklch, var(--board-fg) 55%, transparent);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     background: var(--board-raised)
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
       no-repeat 0.9rem center;
@@ -907,19 +855,12 @@
     gap: 1rem;
     margin-top: 1rem;
     padding: 1rem;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--board-raised);
   }
   .hero-dest {
     display: grid;
     min-width: 0;
-  }
-  .hero-label {
-    color: var(--sign-marker);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
   }
   .hero-dest strong {
     overflow: hidden;
@@ -939,33 +880,6 @@
   .hero.leaving .hero-time {
     animation: pulse var(--loop-pulse) var(--ease-in-out) infinite;
   }
-  .row.banded {
-    margin-top: 2.25rem;
-  }
-  .row.banded::after {
-    content: var(--band);
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -1.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-sm);
-    background: var(--board-raised);
-    color: var(--board-fg);
-  }
-  .row.now-band::after {
-    background: var(--sign-marker);
-    color: var(--sign-marker-foreground);
-    box-shadow: 0 0 12px var(--board-marker-glow);
-  }
   .skeleton {
     background: linear-gradient(
         90deg,
@@ -978,15 +892,11 @@
   }
   .today-done {
     margin-top: 1.25rem;
-    padding: 0.625rem 0.75rem;
-    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    border-radius: var(--radius);
     background: var(--board-raised);
     color: var(--board-fg);
     font-weight: var(--weight-strong);
-  }
-  .via {
-    color: var(--board-muted);
-    font-size: var(--fs-sm);
   }
   .clock-time {
     color: var(--board-led);
@@ -1023,11 +933,6 @@
       background-position: -200% 0;
     }
   }
-  @media (min-width: 640px) {
-    .dep-label {
-      display: none;
-    }
-  }
   @media (max-width: 639px) {
     .board-wrap {
       /* Full-bleed on phones, clear of the fixed bottom tab bar. */
@@ -1038,23 +943,14 @@
       padding: 1rem 0.75rem;
       border-radius: 0;
     }
-    .legend {
-      display: none;
-    }
     .dest strong {
       font-size: var(--fs-base);
       letter-spacing: 0.02em;
     }
     .row {
-      grid-template-columns: 2.5rem minmax(0, 1fr) 4.75rem;
+      grid-template-columns: 2.5rem minmax(0, 1fr) auto;
       gap: 0.25rem 0.625rem;
       padding-inline: 0.5rem;
-    }
-    .in {
-      grid-column: 3;
-    }
-    .in:empty {
-      display: none;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -1064,5 +960,106 @@
     .rows .row {
       animation: none;
     }
+  }
+  .via {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.375rem;
+    max-height: 2.8em;
+    overflow: hidden;
+    color: var(--board-fg);
+    font-size: var(--fs-sm);
+    line-height: 1.4;
+  }
+  .via li + li::before {
+    content: '·';
+    margin-right: 0.375rem;
+    color: var(--board-muted);
+  }
+  .via .hit-stop {
+    color: var(--sign-marker);
+    font-weight: var(--weight-strong);
+  }
+  .time.sub {
+    font-size: var(--fs-base);
+  }
+  .row.tomorrow-start {
+    margin-top: 2.25rem;
+  }
+  .row.tomorrow-start::after {
+    content: attr(data-day);
+    position: absolute;
+    left: 0.75rem;
+    top: -1.75rem;
+    color: var(--board-fg);
+    font-weight: var(--weight-strong);
+  }
+  /* Full day: an hour axis on the left; empty hours leave a visible gap. */
+  .rows.timeline {
+    position: relative;
+    padding-left: 3.25rem;
+  }
+  .rows.timeline::before {
+    content: '';
+    position: absolute;
+    left: 2.5rem;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--board-line);
+  }
+  .timeline .row.gap {
+    margin-top: calc(var(--gap-hours) * 1.25rem + 0.5rem);
+  }
+  .timeline .row.new-hour::after {
+    content: attr(data-hour);
+    position: absolute;
+    left: -3.25rem;
+    top: 0.75rem;
+    width: 2rem;
+    text-align: right;
+    color: var(--board-fg);
+    font-weight: var(--font-display-weight);
+    font-variant-numeric: tabular-nums;
+  }
+  .now-mark {
+    position: absolute;
+    left: -0.875rem;
+    right: 0;
+    top: -1px;
+    height: 0;
+    border-top: 2px solid var(--sign-marker);
+    pointer-events: none;
+  }
+  .now-mark span {
+    position: absolute;
+    right: 0;
+    top: -0.75rem;
+    padding: 0 0.375rem;
+    border-radius: var(--radius);
+    background: var(--sign-marker);
+    color: var(--sign-marker-foreground);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+  }
+  .today-done {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .closed {
+    font-size: var(--fs-lg);
+  }
+  .next-day {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .next-label {
+    font-size: var(--fs-lg);
+    font-weight: var(--font-display-weight);
+    text-transform: uppercase;
   }
 </style>
