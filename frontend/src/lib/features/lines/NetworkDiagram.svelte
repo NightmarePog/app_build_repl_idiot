@@ -9,6 +9,8 @@
   const X = 110;
   const Y = 90;
   const PAD = 70;
+  /** Extra room on the right so the last horizontal label is never clipped. */
+  const LABEL_ROOM = 90;
 
   const layout = $derived(
     layoutNetwork(
@@ -21,9 +23,9 @@
   const color = $derived(new Map(lines.map((line) => [line.number, line])));
 
   const px = (x: number) => PAD + x * X;
-  const py = (y: number) => PAD + 30 + y * Y;
-  const width = $derived(PAD * 2 + layout.width * X);
-  const height = $derived(py(layout.height) + 30);
+  const py = (y: number) => PAD + 10 + y * Y;
+  const width = $derived(PAD * 2 + LABEL_ROOM + layout.width * X);
+  const height = $derived(py(layout.height) + PAD);
 
   /** Metro-map segment: straight run, then a 45° bend into the next stop's row. */
   function segment(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -33,6 +35,25 @@
     if (dy === 0 || Math.abs(x2 - x1) < dy) return `L${x2},${y2}`;
     return `L${x2 - dir * dy},${y1} L${x2},${y2}`;
   }
+
+  /**
+   * Horizontal labels: the top row reads above its stops, the bottom row below; stops on inner
+   * rows alternate above/below in left-to-right order, so neighbours never share a side.
+   */
+  const below = $derived.by(() => {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch map, rebuilt per derive
+    const side = new Map<number, boolean>();
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch map, rebuilt per derive
+    const rows = new Map<number, { id: number; x: number }[]>();
+    for (const node of layout.nodes.values()) {
+      if (node.y <= 0) side.set(node.id, false);
+      else if (node.y >= layout.height) side.set(node.id, true);
+      else if (Number.isInteger(node.y)) rows.set(node.y, [...(rows.get(node.y) ?? []), node]);
+    }
+    for (const row of rows.values())
+      row.sort((a, b) => a.x - b.x).forEach((node, i) => side.set(node.id, i % 2 === 1));
+    return side;
+  });
 
   function path(stops: { x: number; y: number }[]) {
     if (!stops.length) return '';
@@ -70,23 +91,34 @@
         {/if}
       {/each}
       {#each [...layout.nodes.values()] as node (node.id)}
-        <a href={resolve('/stops/[id]', { id: String(node.id) })} class="stop">
+        {@const under = below.get(node.id)}
+        {@const r = node.lines.length > 1 ? 11 : 6}
+        <a
+          href={resolve('/stops/[id]', { id: String(node.id) })}
+          class="stop"
+          aria-label={`Zastávka ${node.name}${node.lines.length > 1 ? `, přestup ${node.lines.join(', ')}` : ''}`}
+        >
           <title
             >{node.name}{node.lines.length > 1 ? `, přestup ${node.lines.join(', ')}` : ''}</title
           >
           <circle
             cx={px(node.x)}
             cy={py(node.y)}
-            r={node.lines.length > 1 ? 11 : 6}
+            {r}
             class:interchange={node.lines.length > 1}
             style:stroke={node.lines.length > 1 ? undefined : color.get(node.lines[0]!)?.color}
           />
           <text
             class="label"
             class:strong={node.lines.length > 1}
-            x={px(node.x) + 6}
-            y={py(node.y) - 16}
-            transform={`rotate(-30 ${px(node.x) + 6} ${py(node.y) - 16})`}>{node.name}</text
+            class:side={under === undefined}
+            x={under === undefined ? px(node.x) + r + 8 : px(node.x)}
+            y={under === undefined
+              ? py(node.y) - r - 4
+              : under
+                ? py(node.y) + r + 20
+                : py(node.y) - r - 10}
+            paint-order="stroke">{node.name}</text
           >
         </a>
       {/each}
@@ -127,17 +159,24 @@
     rx: var(--radius);
   }
   .badge-text {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: var(--fs-lg);
+    font-weight: var(--weight-strong);
     text-anchor: middle;
     dominant-baseline: middle;
   }
   .label {
     fill: var(--foreground);
-    font-size: 15px;
+    stroke: var(--card);
+    stroke-width: 5px;
+    stroke-linejoin: round;
+    font-size: var(--fs-base);
+    text-anchor: middle;
+  }
+  .label.side {
+    text-anchor: start;
   }
   .label.strong {
-    font-weight: 700;
+    font-weight: var(--weight-strong);
   }
   .stop:hover .label {
     text-decoration: underline;
@@ -146,6 +185,10 @@
     fill: var(--accent);
   }
   .stop:focus-visible {
-    outline: 2px solid var(--ring);
+    outline: none;
+  }
+  .stop:focus-visible circle {
+    stroke: var(--ring);
+    stroke-width: 6;
   }
 </style>

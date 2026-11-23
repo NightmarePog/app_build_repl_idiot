@@ -150,7 +150,6 @@
 
         <span class="head">
           <span class="letter">{line.id}</span>
-          <span class="kind">Linka {line.id}</span>
           <span class="facts">
             <span class="count tabular">{line.count} zastávek</span>
             {#if line.transfers.length}
