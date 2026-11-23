@@ -389,7 +389,7 @@
     display: flex;
     align-items: center;
     min-height: 2.75rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     flex-shrink: 0;
   }
   .brand-logo {
@@ -456,7 +456,7 @@
     margin-left: auto;
     padding: 0 0.375rem 0 0.75rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--card);
     color: var(--muted-foreground);
     font: inherit;
@@ -549,7 +549,7 @@
       justify-content: center;
       gap: 0.1875rem;
       min-height: 3rem;
-      border-radius: 0.875rem;
+      border-radius: var(--radius);
       color: var(--muted-foreground);
       font-size: 0.6875rem;
       font-weight: 700;
@@ -571,7 +571,7 @@
       left: 50%;
       width: 3.5rem;
       height: 1.875rem;
-      border-radius: 999px;
+      border-radius: var(--radius);
       background: color-mix(in oklch, var(--primary) 18%, transparent);
       transform: translateX(-50%) scaleX(0.4);
       opacity: 0;

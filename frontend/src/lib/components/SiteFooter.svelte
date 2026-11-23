@@ -128,7 +128,7 @@
   }
   .brand-mark {
     display: block;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
   }
   .logo {
     display: block;
@@ -217,7 +217,7 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
   }
 
   @media (max-width: 979px) {

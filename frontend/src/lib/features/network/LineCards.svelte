@@ -237,7 +237,7 @@
     height: 15.5rem;
     padding: 1.25rem;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius);
     background: var(--card-bg);
     color: var(--card-ink);
     transition: transform var(--motion-normal) var(--ease-out);
@@ -314,7 +314,7 @@
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
-    border-radius: 0.625rem;
+    border-radius: var(--radius);
     background: var(--letter-bg);
     color: var(--letter-ink);
     font-size: 1.625rem;
@@ -338,7 +338,7 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.18);
     font-size: 0.75rem;
     font-weight: 800;
@@ -378,7 +378,7 @@
     row-gap: 0.375rem;
     height: 6.75rem;
     padding: 0.75rem 0.875rem 1.375rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius);
   }
   .compact .card:hover {
     transform: none;

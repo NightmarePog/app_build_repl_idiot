@@ -42,7 +42,7 @@
     width: 1.25rem;
     height: 1.25rem;
     flex-shrink: 0;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     font-size: 0.6875rem;
     font-weight: 800;
     line-height: 1;
