@@ -238,7 +238,7 @@
     margin: 12vh auto auto;
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--popover);
     color: var(--popover-foreground);
     box-shadow: var(--shadow-pop);
@@ -305,7 +305,7 @@
     min-height: 2.75rem;
     margin-right: -0.375rem;
     padding: 0 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--radius);
     color: var(--primary);
     font: inherit;
     font-size: 0.9375rem;
@@ -356,7 +356,7 @@
     gap: 0.5rem;
     min-height: 2.75rem;
     padding: 0.375rem 0.625rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     color: var(--foreground);
   }
   .result[aria-selected='true'] {
@@ -419,7 +419,7 @@
       max-height: min(85dvh, 40rem);
       margin: auto 0 0;
       border-width: 1px 0 0;
-      border-radius: 1.375rem 1.375rem 0 0;
+      border-radius: var(--radius) var(--radius) 0 0;
       padding-bottom: env(safe-area-inset-bottom);
     }
     .palette[open] {

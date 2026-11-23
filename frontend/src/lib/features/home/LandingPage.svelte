@@ -163,7 +163,7 @@
     min-height: 2.75rem;
     padding: 0 0.75rem;
     border: 1px solid var(--input);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--card);
     color: var(--muted-foreground);
     cursor: text;
@@ -191,7 +191,7 @@
     aspect-ratio: 4 / 3;
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--map);
   }
   .preview-map {

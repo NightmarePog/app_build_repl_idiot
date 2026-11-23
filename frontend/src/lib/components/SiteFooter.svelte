@@ -52,9 +52,8 @@
         <h2 id="footer-explore">Procházet</h2>
         <ul>
           <li><a href={resolve('/')}>Úvod</a></li>
-          <li><a href={resolve('/stops')}>Mapa zastávek</a></li>
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
-          <li><a href={`${resolve('/')}#lines`}>Přehled linek</a></li>
+          <li><a href={resolve('/stops')}>Zastávky</a></li>
+          <li><a href={resolve('/lines')}>Linky</a></li>
         </ul>
       </nav>
 
@@ -106,7 +105,7 @@
     border-top: 1px solid var(--border);
     background: color-mix(in oklch, var(--muted) 55%, var(--background));
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
   .footer-inner {
     max-width: 85rem;
@@ -128,7 +127,7 @@
   }
   .brand-mark {
     display: block;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
   }
   .logo {
     display: block;
@@ -149,7 +148,7 @@
   .column h2 {
     margin-bottom: 0.75rem;
     color: var(--foreground);
-    font-size: 0.8125rem;
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -184,7 +183,7 @@
     margin-top: 2.5rem;
     padding-top: 1.25rem;
     border-top: 1px solid var(--border);
-    font-size: 0.8125rem;
+    font-size: var(--fs-xs);
   }
   .attribution a {
     color: inherit;
@@ -217,7 +216,7 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
   }
 
   @media (max-width: 979px) {

@@ -636,7 +636,7 @@
     position: relative;
     margin: 0;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: #f4f2ee;
     overflow: hidden;
     aspect-ratio: 600 / 440;
@@ -698,7 +698,7 @@
   .loading-label {
     position: relative;
     padding: 0.375rem 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
     font-size: 0.875rem;
@@ -732,7 +732,7 @@
     min-height: 2.75rem;
     padding: 0 0.75rem;
     border: 1px solid var(--border);
-    border-radius: calc(var(--radius-lg) - 4px);
+    border-radius: var(--radius);
     background: var(--background);
     font-size: 0.8125rem;
   }
@@ -759,7 +759,7 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: 0.4rem;
+    border-radius: var(--radius);
     background: var(--pin);
     color: var(--pin-ink);
     box-shadow:
@@ -828,7 +828,7 @@
     left: 50%;
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--border);
-    border-radius: 0.375rem;
+    border-radius: var(--radius);
     background: var(--background);
     color: var(--foreground);
     font-size: 0.8125rem;
@@ -851,7 +851,7 @@
 
   /* Navigation control in the app's look. */
   .network-map :global(.maplibregl-ctrl-group) {
-    border-radius: calc(var(--radius-lg) - 4px);
+    border-radius: var(--radius);
     background: var(--background);
     box-shadow: 0 0 0 1px var(--border);
   }

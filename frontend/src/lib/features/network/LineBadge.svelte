@@ -19,7 +19,7 @@
     width: 1.375rem;
     min-width: 1.375rem;
     height: 1.375rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     font-size: 0.75rem;
     font-weight: 800;
     line-height: 1;
@@ -31,13 +31,13 @@
     min-width: 1.875rem;
     height: 1.875rem;
     font-size: 0.9375rem;
-    border-radius: 0.3125rem;
+    border-radius: var(--radius);
   }
   .line-badge.lg {
     width: 2.75rem;
     min-width: 2.75rem;
     height: 2.75rem;
     font-size: 1.375rem;
-    border-radius: 0.375rem;
+    border-radius: var(--radius);
   }
 </style>

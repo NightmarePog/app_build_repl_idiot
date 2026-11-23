@@ -115,7 +115,7 @@
     width: min(32rem, calc(100vw - 2.5rem));
     padding: 1.125rem 1.25rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: var(--shadow-pop);
     animation: drop var(--motion-fast) var(--ease-out) both;
@@ -156,7 +156,7 @@
     align-items: center;
     gap: 0.625rem;
     padding: 0.375rem 0.375rem 0.375rem 0;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     color: var(--foreground);
     font-size: 0.9375rem;
     font-weight: 600;
@@ -215,7 +215,7 @@
     place-items: center;
     width: 1.25rem;
     height: 1.25rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius);
     color: var(--foreground);
   }
   .amenities i.off {
