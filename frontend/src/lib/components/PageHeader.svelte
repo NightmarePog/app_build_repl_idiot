@@ -39,7 +39,7 @@
   </p>
   <h1>
     {#if lead}{@render lead()}{/if}
-    <span class="sr-only">{kind}: </span><span>{title}</span>
+    <span class="sr-only">{`${kind}: `}</span><span>{title}</span>
   </h1>
   {#if meta}<div class="meta">{@render meta()}</div>{/if}
 </header>

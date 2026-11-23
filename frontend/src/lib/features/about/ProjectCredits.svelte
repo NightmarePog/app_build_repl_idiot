@@ -17,7 +17,8 @@
           cache: 'no-store',
           throwOnError: true
         });
-        status = data.status.toLowerCase() === 'ok' ? 'v provozu' : data.status;
+        // Anything but the documented "ok" means the API is not healthy.
+        status = data.status === 'ok' ? 'v provozu' : 'nedostupná';
       } catch {
         status = 'nedostupná';
       }
