@@ -1,13 +1,13 @@
 <script lang="ts">
   import { czechCount } from '$lib/plural';
   import { Button } from '$lib/ui/button';
-  import { ChevronRight, Moon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, ChevronRight, MapPin, Moon } from '@lucide/svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { resolve } from '$app/paths';
   import type { Route } from '$lib/api/generated';
   import { clock } from './clock.svelte';
   import type { LineTimetable } from './line-timetable.svelte';
-  import { hourGroups, median, nextDeparture, operatingNow, travelMinutes } from './line-trips';
+  import { hourGroups, nextDeparture, operatingNow } from './line-trips';
   import { countdown, duration, minutesOf, spokenTime } from './time';
   import { withQuery } from './trips';
 
@@ -76,16 +76,6 @@
     atOrigin ? 0 : ofRoute.filter((trip) => timetable.failed.has(trip.id)).length
   );
 
-  /** Typical end-to-end time in this direction (the other one is on the direction tabs). */
-  const travel = $derived(
-    median(
-      ofRoute.flatMap((trip) => {
-        const minutes = travelMinutes(timetable.details.get(trip.id)?.stops ?? []);
-        return minutes === null ? [] : [minutes];
-      })
-    )
-  );
-
   const nowOp = $derived(operatingNow(rows, now));
   const next = $derived(nextDeparture(rows, nowOp));
   const hours = $derived(hourGroups(rows));
@@ -112,28 +102,33 @@
 <section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
   <div class="sheet">
     <header class="sheet-head">
+      <span class="plate" aria-hidden="true">{lineNumber}</span>
       <div class="sheet-title">
         <h3 id={`trips-heading-${route.id}`} class="dir-title">
-          <span class="plate" aria-hidden="true">{lineNumber}</span>
-          <span class="dir-text">
-            <span class="dir-stop">Odjezdy z {selected?.name}</span>
-            <span class="dir-to">směr {route.direction}</span>
-          </span>
+          <span class="sr-only">Odjezdy linky {lineNumber} ze zastávky</span>
+          {#if boardable.length > 1}
+            <!-- The stop is the title itself: picking it here or on the route changes it. -->
+            <label class="board-pick">
+              <MapPin size={18} aria-hidden="true" />
+              <span class="sr-only">Nástupní zastávka</span>
+              <select
+                value={selected?.id}
+                onchange={(e) => (stopId = Number(e.currentTarget.value))}
+              >
+                {#each boardable as stop (stop.id)}
+                  <option value={stop.id}>{stop.name}</option>
+                {/each}
+              </select>
+              <ChevronDown size={18} aria-hidden="true" />
+            </label>
+          {:else}
+            <span class="dir-stop">{selected?.name}</span>
+          {/if}
         </h3>
         <p class="toward tabular">
-          {#if timetable.trips}{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
-          {#if travel !== null}<span class="travel">· jízda {duration(travel)}</span>{/if}
+          <span class="dir-to"><ArrowRight size={14} aria-hidden="true" /> {route.direction}</span>
+          {#if timetable.trips}· {czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
         </p>
-        {#if boardable.length > 1}
-          <label class="board-pick">
-            <span class="board-pick-label">Nástup na zastávce</span>
-            <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
-              {#each boardable as stop, i (stop.id)}
-                <option value={stop.id}>{stop.name}{i === 0 ? ' (výchozí)' : ''}</option>
-              {/each}
-            </select>
-          </label>
-        {/if}
       </div>
       {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
         >{/if}
@@ -155,7 +150,9 @@
           výše.{/if}
       </p>
     {:else if rows.length === 0 && waiting > failedHere}
-      <p class="note" role="status">Načítáme časy pro zastávku {selected?.name}…</p>
+      <div class="note">
+        <LoadingState label={`Načítáme časy pro zastávku ${selected?.name}…`} />
+      </div>
     {:else if rows.length === 0}
       <p class="note">
         Časy pro zastávku {selected?.name} se nepodařilo načíst.
@@ -313,21 +310,33 @@
     font-size: var(--fs-sm);
   }
   .board-pick {
-    display: flex;
-    flex-wrap: wrap;
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-    font-weight: var(--weight-strong);
-  }
-  .board-pick select {
-    min-height: 2.5rem;
-    padding-inline: 0.75rem;
+    gap: 0.375rem;
+    max-width: 100%;
+    padding: 0.25rem 0.5rem;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-md);
-    background: var(--background);
-    color: var(--foreground);
+    cursor: pointer;
+  }
+  .board-pick:hover {
+    background: var(--accent);
+  }
+  .board-pick:focus-within {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .board-pick select {
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
     font: inherit;
+    cursor: pointer;
+    outline: none;
   }
   .list {
     width: 100%;
@@ -443,9 +452,6 @@
   }
   .toward {
     color: var(--muted-foreground);
-  }
-  .travel {
-    white-space: nowrap;
   }
 
   /* Day ribbon: the whole operating day on one axis, a tick per departure. */
@@ -592,13 +598,11 @@
     font-weight: var(--weight-strong);
     white-space: nowrap;
   }
-  .dir-text {
-    display: grid;
-    min-width: 0;
-  }
   .dir-to {
-    color: var(--muted-foreground);
-    font-size: var(--fs-base, 1rem);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--foreground);
     font-weight: var(--weight-strong);
   }
   @media (max-width: 639px) {
