@@ -1,3 +1,5 @@
+import { countdown, minutesUntil } from './time';
+
 /**
  * Where a trip is at a given minute, from its stop times in operating-day minutes. Kept pure so
  * the midnight cases are unit tested: at 00:05 a trip that left at 23:52 is at minute 1445.
@@ -98,4 +100,45 @@ export function nextTrip<T extends Departs>(trips: T[], trip: Departs) {
   const next = same[index + 1] ?? same[0];
   if (next.id === trip.id) return null;
   return { trip: next, tomorrow: index + 1 >= same.length };
+}
+
+export type TripStatus = {
+  /** live: under way, soon: leaves within the hour, waiting: later today, done: ran today. */
+  tone: 'live' | 'soon' | 'waiting' | 'done';
+  /** One sentence for the status card, the only place the page talks about the day. */
+  title: string;
+};
+
+/**
+ * What the trip is doing at `now`, in one sentence. The page title stays stable because the
+ * schedule runs every day; only this status says today or tomorrow.
+ */
+export function tripStatus(
+  stops: { arr: number; dep: number; stop: { name: string } }[],
+  boardIndex: number,
+  departureTime: string,
+  now: number
+): TripStatus | null {
+  const board = stops[boardIndex];
+  if (!board || stops.length < 2) return null;
+  const vehicle = tripPosition(stops, now);
+  if (vehicle?.kind === 'at')
+    return { tone: 'live', title: `Stojí v zastávce ${stops[vehicle.index].stop.name}` };
+  if (vehicle?.kind === 'between')
+    return {
+      tone: 'live',
+      title: `Jede z ${stops[vehicle.index].stop.name} do ${stops[vehicle.index + 1].stop.name}`
+    };
+  const soon = countdown(minutesUntil(board.dep, now));
+  if (soon)
+    return { tone: 'soon', title: soon === 'odjíždí' ? 'Právě odjíždí' : `Odjíždí ${soon}` };
+  if (board.dep > now)
+    return { tone: 'waiting', title: `Ještě nevyjel · odjíždí v ${departureTime}` };
+  return { tone: 'done', title: `Dnes už dojel · další jízda zítra v ${departureTime}` };
+}
+
+/** Share 0..1 of the ride from boarding to the terminus done at `now`; null when not under way. */
+export function rideProgress(board: { dep: number }, last: { arr: number }, now: number) {
+  const t = [now, now + 1440].find((m) => m >= board.dep && m <= last.arr);
+  return t === undefined ? null : (t - board.dep) / Math.max(1, last.arr - board.dep);
 }

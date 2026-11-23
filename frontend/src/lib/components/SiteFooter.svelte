@@ -3,7 +3,6 @@
   import type { Snippet } from 'svelte';
   import { resolve } from '$app/paths';
   import { ArrowUp, ArrowUpRight } from '@lucide/svelte';
-  import { reveal } from '$lib/motion';
 
   /** Feature content comes from the layout: project status and team, and the line links. */
   let { credits, lines }: { credits?: Snippet; lines?: Snippet } = $props();
@@ -21,7 +20,7 @@
 <footer class="site-footer" aria-label="Patička webu">
   <div class="footer-inner">
     <div class="footer-top">
-      <section class="brand" aria-label="Think different Academy" {@attach reveal()}>
+      <section class="brand" aria-label="Think different Academy">
         <a
           href={resolve('/')}
           class="brand-mark"
@@ -49,7 +48,7 @@
         {@render credits?.()}
       </section>
 
-      <nav class="column" aria-labelledby="footer-explore" {@attach reveal({ delay: 0.07 })}>
+      <nav class="column" aria-labelledby="footer-explore">
         <h2 id="footer-explore">Procházet</h2>
         <ul>
           <li><a href={resolve('/')}>{NAV_LABELS.home}</a></li>
@@ -58,18 +57,14 @@
         </ul>
       </nav>
 
-      <nav
-        class="column lines-column"
-        aria-labelledby="footer-lines"
-        {@attach reveal({ delay: 0.14 })}
-      >
+      <nav class="column lines-column" aria-labelledby="footer-lines">
         <h2 id="footer-lines">Linky</h2>
         <ul>
           {@render lines?.()}
         </ul>
       </nav>
 
-      <nav class="column" aria-labelledby="footer-project" {@attach reveal({ delay: 0.21 })}>
+      <nav class="column" aria-labelledby="footer-project">
         <h2 id="footer-project">Projekt</h2>
         <ul>
           <li>

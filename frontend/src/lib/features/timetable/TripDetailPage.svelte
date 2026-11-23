@@ -13,13 +13,16 @@
   import { LINES, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
-  import { countdown, duration, minutesUntil, spokenTime } from './time';
+  import { Button } from '$lib/ui/button';
+  import { duration, spokenTime } from './time';
   import {
     boarding,
     nextTrip as nextTripOf,
+    rideProgress,
     ribbon as ribbonOf,
     timedStops,
-    tripPosition
+    tripPosition,
+    tripStatus
   } from './trip-position';
   import { lineDirectionHref, tripDetail, withQuery } from './trips';
 
@@ -75,45 +78,11 @@
       : ''
   );
 
-  /** Share 0..1 of the ride from boarding to the end already done, while the bus is under way. */
-  const progress = $derived.by(() => {
-    if (!vehicle || !board || !last) return null;
-    const t = [now, now + 1440].find((m) => m >= board.dep && m <= last.arr);
-    return t === undefined ? null : (t - board.dep) / Math.max(1, last.arr - board.dep);
-  });
+  /** Share 0..1 of the ride done; null (and no bar) while the bus is not on the road. */
+  const progress = $derived(vehicle && board && last ? rideProgress(board, last, now) : null);
 
-  /**
-   * What the trip is doing right now, in words: the one thing the side card adds to the
-   * timetable (which already lists every time).
-   */
-  const status = $derived.by(() => {
-    if (!board || !last) return null;
-    if (vehicle?.kind === 'at')
-      return { tone: 'live', title: `Stojí v zastávce ${stops[vehicle.index].stop.name}` };
-    if (vehicle?.kind === 'between')
-      return {
-        tone: 'live',
-        title: `Jede z ${stops[vehicle.index].stop.name} do ${stops[vehicle.index + 1].stop.name}`
-      };
-    const until = minutesUntil(board.dep, now);
-    const soon = countdown(until);
-    if (soon)
-      return { tone: 'soon', title: soon === 'odjíždí' ? 'Právě odjíždí' : `Odjíždí ${soon}` };
-    if (board.dep > now) return { tone: 'later', title: `Odjíždí dnes v ${board.departure_time}` };
-    return { tone: 'later', title: `Dnes už jel, znovu jede zítra v ${board.departure_time}` };
-  });
-
-  /** When this run of the trip leaves, as a word next to the time in the header. */
-  const day = $derived.by(() => {
-    if (!board) return '';
-    if (vehicle) return 'právě jede';
-    return board.dep > now || countdown(minutesUntil(board.dep, now)) ? 'dnes' : 'zítra';
-  });
-
-  /** One labelled line under the bar when the bus is not on the road, so the empty bar is explained. */
-  const idle = $derived(
-    day === 'zítra' ? 'Dnes už dojel · příští jízda zítra' : 'Spoj zatím nevyjel'
-  );
+  /** What the trip is doing right now, in one sentence: the one thing the timetable lacks. */
+  const status = $derived(board ? tripStatus(stops, fromIndex, board.departure_time, now) : null);
 
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
   const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
@@ -188,14 +157,14 @@
     <PageHeader
       kind={`Spoj linky ${trip.line.number}`}
       icon={TripIcon}
-      title={`${trip.departure_time} ${day} → ${trip.destination.name}`}
+      title={`Spoj ${trip.departure_time} ${trip.origin.name} → ${trip.destination.name}`}
       color={trip.line.color}
     >
       {#snippet lead()}<span class="vt-plate" aria-hidden="true"
           ><LinePlate number={trip.line.number} color={trip.line.color} size="lg" /></span
         >{/snippet}
       {#snippet meta()}<span
-          >Jeden spoj linky {trip.line.number} · z {trip.origin.name} · {czechCount(
+          >Jede denně · jízda {duration(ribbon.total)} · {czechCount(
             trip.stops.length,
             'zastávka',
             'zastávky',
@@ -218,24 +187,20 @@
               {status.title}
             </p>
           {/if}
-          <!-- Progress from boarding to the terminus; the dot is the bus while it runs. -->
-          <p class="progress-label">
-            {progress !== null ? `Ujeto ${Math.round(progress * 100)} % trasy` : idle}
-          </p>
-          <div class="progress" class:idle={progress === null} aria-hidden="true">
-            <span class="progress-track">
-              {#if ribbon.night !== null}<span
-                  class="progress-night"
-                  style:left={`${ribbon.night}%`}
-                ></span>{/if}
-              <span class="progress-fill" style:width={`${(progress ?? 0) * 100}%`}></span>
-              <span
-                class="progress-dot"
-                class:ghost={progress === null}
-                style:left={`${(progress ?? 0) * 100}%`}
-              ></span>
-            </span>
-          </div>
+          <!-- Progress from boarding to the terminus, only while the bus is on the road. -->
+          {#if progress !== null}
+            <p class="progress-label">Ujeto {Math.round(progress * 100)} % trasy</p>
+            <div class="progress" aria-hidden="true">
+              <span class="progress-track">
+                {#if ribbon.night !== null}<span
+                    class="progress-night"
+                    style:left={`${ribbon.night}%`}
+                  ></span>{/if}
+                <span class="progress-fill" style:width={`${progress * 100}%`}></span>
+                <span class="progress-dot" style:left={`${progress * 100}%`}></span>
+              </span>
+            </div>
+          {/if}
           <dl class="ends">
             <div>
               <dt>{fromIndex > 0 ? 'Nástup' : 'Odjezd'}</dt>
@@ -263,7 +228,7 @@
 
         <h2 class="section-title">Jízdní řád spoje</h2>
         <p class="cols" aria-hidden="true">
-          <span>Odjezd</span><span>Zastávka</span><span class="r"
+          <span>Příj. / odj.</span><span>Zastávka</span><span class="r"
             >{fromIndex > 0 ? 'min. od nástupu' : 'min. od startu'}</span
           >
         </p>
@@ -282,11 +247,15 @@
               class:passed
               class:from={isFrom}
               class:terminus={first || end}
+              class:dwells={stop.dwell > 0 && !first && !end}
               style:--gap={`${index === 0 ? 0 : stop.gap * SCALE}rem`}
               style:--i={index}
             >
               {#if vehicle?.kind === 'at' && vehicle.index === i}
-                <span class="vehicle" aria-hidden="true" style:top="calc(var(--gap) + 0.75rem)"
+                <span
+                  class="vehicle"
+                  aria-hidden="true"
+                  style:top={`calc(max(0.75rem, var(--gap)) + ${stop.dwell > 0 && !first && !end ? 2 : 0.75}rem)`}
                 ></span>
               {:else if vehicle?.kind === 'between' && vehicle.index === i - 1}
                 <span
@@ -296,7 +265,9 @@
                 ></span>
               {/if}
               <div class="times" aria-hidden="true">
-                <!-- One time per row: the departure, or the arrival at the terminus. -->
+                <!-- SBB-style: the arrival small on top when the bus waits, the departure bold. -->
+                {#if stop.dwell > 0 && !first && !end}<span class="t-arr">{stop.arrival_time}</span
+                  >{/if}
                 <span class="t">{end ? stop.arrival_time : stop.departure_time}</span>
               </div>
               <span class="node" aria-hidden="true"></span>
@@ -306,9 +277,6 @@
                 >
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
                 {#if end}<span class="end-tag">konečná · příjezd</span>{/if}
-                {#if stop.dwell > 0 && !first && !end}<span class="wait" aria-hidden="true"
-                    >příjezd {stop.arrival_time} · stojí {stop.dwell} min</span
-                  >{/if}
                 <span class="sr-only">
                   {first
                     ? `odjezd ${spokenTime(stop.departure_time, stop.departure_day_offset)}`
@@ -370,7 +338,7 @@
             {:else if lineTrips.error}
               <p class="muted-note">
                 Další spoj této trasy se nepodařilo načíst.
-                <button type="button" class="retry" onclick={lineTrips.retry}>Zkusit znovu</button>
+                <Button variant="outline" size="sm" onclick={lineTrips.retry}>Zkusit znovu</Button>
               </p>
             {/if}
           </section>
@@ -483,11 +451,6 @@
     background: var(--status-ok);
     transform: translate(-50%, -50%);
     transition: left var(--motion-xslow) var(--ease-out);
-  }
-  /* Not on the road: a hollow ghost bus waiting at the start. */
-  .progress-dot.ghost {
-    border: 2px dashed var(--board-muted);
-    background: var(--board-bg);
   }
   .ends {
     display: flex;
@@ -615,7 +578,8 @@
   .times {
     grid-area: times;
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
     font-variant-numeric: tabular-nums;
     line-height: 1.5rem;
   }
@@ -655,14 +619,11 @@
   .name:hover {
     text-decoration: underline;
   }
-  .wait {
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-md);
-    background: var(--secondary);
-    color: var(--foreground);
+  .t-arr {
+    color: var(--muted-foreground);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
-    font-variant-numeric: tabular-nums;
+    line-height: 1.25rem;
   }
   .here {
     padding: 0.125rem 0.5rem;
@@ -793,12 +754,13 @@
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
   }
-  .retry {
-    margin-left: 0.25rem;
-    color: var(--primary);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  /* A waiting stop shows its arrival above the departure; dot and name line up with the departure. */
+  .dwells .node {
+    margin-top: 1.5rem;
+  }
+  .dwells .body,
+  .dwells .offset {
+    padding-top: 1.25rem;
   }
   /* Phones: a compact one-row ticket so the stop list starts near the top of the screen. */
   @media (max-width: 639px) {

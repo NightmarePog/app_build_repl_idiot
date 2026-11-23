@@ -306,8 +306,11 @@
         >
       {/if}
       {#if rows.every((r) => r.tomorrow)}
-        <p class="today-done">Dnes už odsud nic nejede · další spoje zítra</p>
+        <p class="today-done">
+          Dnes už odsud nic nejede · další odjezd zítra {rows[0].departure_time}
+        </p>
       {/if}
+      <p class="foot-note">Spoje, které tu končí, nejsou uvedeny: odsud už dál nejedou.</p>
       <div class="legend" aria-hidden="true">
         <span>Linka</span><span>Směr</span><span class="r"
           >{target !== null ? `V cíli` : 'Odjezd'}</span
@@ -347,7 +350,9 @@
               <a class="hit" href={tripHref(row.trip_id)} aria-label={rowLabel(row, by)}></a>
               <LinePlate number={row.line.number} color={row.line.color} />
               <div class="dest">
-                <strong>{row.destination.name}</strong>
+                <strong
+                  ><span class="arrow" aria-hidden="true">→ </span>{row.destination.name}</strong
+                >
                 {#if row.via && row.via !== row.destination.name}<span class="via"
                     >přes {row.via}</span
                   >{/if}
@@ -372,9 +377,11 @@
                   <span class="time tabular"
                     >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
                   >
-                  <span class="arr-m tabular"
-                    >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;(+1 den){/if}</span
-                  >
+                  {#if waits > 0}
+                    <span class="arr-m tabular"
+                      >příjezd {row.arrival_time}{#if row.arrival_day_offset === 1}&nbsp;+1{/if}</span
+                    >
+                  {/if}
                 {/if}
               </span>
               <span class="in" aria-hidden="true">
@@ -391,7 +398,6 @@
           Zobrazit další ({more})
         </button>
       {/if}
-      <p class="foot-note">Spoje, které tu končí, nejsou uvedeny: odsud už dál nejedou.</p>
     {/if}
   </div>
 </section>
@@ -657,14 +663,18 @@
     gap: 0.25rem;
     min-width: 0;
   }
+  /* Wraps instead of truncating: the destination must always be readable in full. */
   .dest strong {
-    overflow: hidden;
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
+    line-height: 1.2;
     text-transform: uppercase;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+  }
+  .dest .arrow {
+    color: var(--board-muted);
+    letter-spacing: 0;
   }
   .tags {
     display: flex;
@@ -903,8 +913,12 @@
     .legend {
       display: none;
     }
+    .dest strong {
+      font-size: var(--fs-base);
+      letter-spacing: 0.02em;
+    }
     .row {
-      grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+      grid-template-columns: 2.5rem minmax(0, 1fr) 4.75rem;
       gap: 0.25rem 0.625rem;
       padding-inline: 0.5rem;
     }

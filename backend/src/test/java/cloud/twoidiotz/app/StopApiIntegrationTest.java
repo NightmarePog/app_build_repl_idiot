@@ -238,8 +238,7 @@ class StopApiIntegrationTest {
     for (var stop : stops) {
       if (stop.get("id").asLong() == quantum.getId()) {
         assertEquals(
-            origin + "/api/v1/stops-images/quantum%20Commons.png",
-            stop.get("image_url").asString());
+            origin + "/api/v1/stops-images/quantumCommons.png", stop.get("image_url").asString());
         return;
       }
     }

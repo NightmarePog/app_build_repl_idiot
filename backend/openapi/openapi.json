@@ -1192,7 +1192,7 @@
             "items": {
               "$ref": "#/components/schemas/TripStopTime"
             },
-            "minItems": 1
+            "minItems": 2
           }
         },
         "required": [

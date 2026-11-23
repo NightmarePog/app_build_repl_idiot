@@ -1,11 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getHealth, getTeam, type TeamResponse } from '$lib/api/generated';
-  import { Badge } from '$lib/ui/badge';
   let team = $state<TeamResponse>();
   let teamError = $state(false);
 
-  let status = $state('Načítáme…');
+  let status = $state('ověřujeme…');
 
   onMount(() => {
     const controller = new AbortController();
@@ -18,9 +17,9 @@
           cache: 'no-store',
           throwOnError: true
         });
-        status = data.status.toUpperCase();
+        status = data.status.toLowerCase() === 'ok' ? 'v provozu' : data.status;
       } catch {
-        status = 'Nedostupné';
+        status = 'nedostupná';
       }
     }
 
@@ -48,7 +47,7 @@
 <div class="project-credits" aria-label="Informace o projektu">
   <div aria-label="Autoři" aria-busy={!team && !teamError}>
     {#if team}
-      <p class="font-semibold">{team.name}</p>
+      <p class="team-name">{team.name}</p>
       <p>{team.members.join(' · ')}</p>
     {:else if teamError}
       <p>Údaje o týmu nejsou k dispozici.</p>
@@ -56,8 +55,8 @@
       <p>Načítáme údaje o týmu…</p>
     {/if}
   </div>
-  <p role="status">
-    <Badge variant={status === 'Nedostupné' ? 'destructive' : 'outline'}>Status: {status}</Badge>
+  <p role="status" class="system-status" class:down={status === 'nedostupná'}>
+    <span class="dot" aria-hidden="true"></span>Data jízdních řádů: {status}
   </p>
 </div>
 
@@ -75,5 +74,25 @@
     gap: 0.25rem 0.75rem;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .team-name {
+    font-weight: var(--weight-strong);
+  }
+  .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: ui-monospace, monospace;
+    font-size: var(--fs-xs);
+    color: var(--muted-foreground);
+  }
+  .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--board-led);
+  }
+  .down .dot {
+    background: var(--destructive);
   }
 </style>

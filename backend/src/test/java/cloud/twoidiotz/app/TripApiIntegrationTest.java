@@ -162,6 +162,9 @@ class TripApiIntegrationTest {
                 + " WHERE trip_id = 101001",
             // Out of range.
             "UPDATE stop_time SET departure_time = '48:00' WHERE trip_id = 101001",
+            // Calendar units are not clock times: one month compares as 30 days.
+            "UPDATE stop_time SET departure_time = '1 mon' WHERE trip_id = 101001",
+            "UPDATE stop_time SET arrival_time = '-00:01' WHERE trip_id = 101001",
             // Seconds are not part of a timetable.
             "UPDATE stop_time SET departure_time = departure_time + INTERVAL '30 seconds'"
                 + " WHERE trip_id = 101001",

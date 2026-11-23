@@ -53,7 +53,7 @@
                   <Check aria-hidden="true" size={16} strokeWidth={2.5} /> ano
                 {:else}
                   <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne
-                  {#if amenity.value === 'tickets'}<span class="hint">kupte u řidiče</span>{/if}
+                  {#if amenity.value === 'tickets'}<span class="hint">– kupte u řidiče</span>{/if}
                 {/if}
               </dd>
             </div>
@@ -95,9 +95,6 @@
     gap: clamp(2rem, 4vw, 4rem);
   }
   .hint {
-    margin-left: 0.25rem;
-    padding-left: 0.625rem;
-    border-left: 1px solid var(--border);
     color: var(--muted-foreground);
     font-weight: var(--weight-regular);
   }

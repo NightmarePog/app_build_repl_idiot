@@ -1,5 +1,6 @@
 <script lang="ts">
   import { czechCount } from '$lib/plural';
+  import { Button } from '$lib/ui/button';
   import { resolve } from '$app/paths';
   import type { Route } from '$lib/api/generated';
   import { clock } from './clock.svelte';
@@ -11,14 +12,15 @@
   let {
     timetable,
     route,
-    lineNumber
+    lineNumber,
+    stopId = $bindable(null)
   }: {
     timetable: LineTimetable;
     route: Route;
     lineNumber: string;
+    /** Boarding stop, shared with the route diagram so it can highlight it. */
+    stopId?: number | null;
   } = $props();
-
-  let stopId = $state<number | null>(null);
 
   // A new direction starts from its own first stop.
   $effect(() => {
@@ -113,7 +115,7 @@
       <div class="sheet-title">
         <h3 id={`trips-heading-${route.id}`} class="dir-title">
           <span class="plate" aria-hidden="true">{lineNumber}</span>
-          <span>Směr {route.direction}</span>
+          <span>Odjezdy z {selected?.name} · směr {route.direction}</span>
         </h3>
         <p class="toward tabular">
           {#if timetable.trips}{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
@@ -121,15 +123,13 @@
         </p>
         {#if boardable.length > 1}
           <label class="board-pick">
-            <span class="board-pick-label">Odjezdy ze zastávky</span>
+            <span class="board-pick-label">Nástup na zastávce</span>
             <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
               {#each boardable as stop, i (stop.id)}
                 <option value={stop.id}>{stop.name}{i === 0 ? ' (výchozí)' : ''}</option>
               {/each}
             </select>
           </label>
-        {:else}
-          <p class="stop-name">Odjezdy ze zastávky {selected?.name}</p>
         {/if}
       </div>
       {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
@@ -141,7 +141,7 @@
         {timetable.error === 'missing'
           ? 'Linka už v jízdním řádu není.'
           : 'Spoje se nepodařilo načíst.'}
-        <button type="button" class="retry" onclick={timetable.retry}>Zkusit znovu</button>
+        <Button variant="outline" size="sm" onclick={timetable.retry}>Zkusit znovu</Button>
       </p>
     {:else if !timetable.trips}
       <p class="note" role="status">Načítáme spoje…</p>
@@ -152,7 +152,7 @@
     {:else if rows.length === 0}
       <p class="note">
         Časy pro zastávku {selected?.name} se nepodařilo načíst.
-        <button type="button" class="retry" onclick={timetable.retry}>Zkusit znovu</button>
+        <Button variant="outline" size="sm" onclick={timetable.retry}>Zkusit znovu</Button>
       </p>
     {:else}
       {#if next}
@@ -164,9 +164,9 @@
         >
           {#if next.tomorrow}
             <span class="next-row">
-              <span class="next-tag">Další odjezd</span>
+              <span class="next-gone">Dnes už nejede ·</span>
+              <span class="next-tag">další odjezd</span>
               <span class="next-time tabular">zítra {next.row.at.time}</span>
-              <span class="next-gone">(dnes už nejede)</span>
             </span>
           {:else}
             <span class="next-row">
@@ -283,8 +283,8 @@
           {failedHere > 0
             ? `U ${czechCount(failedHere, 'spoje', 'spojů', 'spojů')} se časy nepodařilo načíst.`
             : 'Načítáme další časy…'}
-          {#if failedHere > 0}<button type="button" class="retry" onclick={timetable.retry}
-              >Zkusit znovu</button
+          {#if failedHere > 0}<Button variant="outline" size="sm" onclick={timetable.retry}
+              >Zkusit znovu</Button
             >{/if}
         </p>
       {/if}
@@ -436,10 +436,6 @@
     color: var(--board-fg);
     font-weight: var(--weight-strong);
   }
-  .stop-name {
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
-  }
   .toward {
     color: var(--muted-foreground);
   }
@@ -465,13 +461,6 @@
   .note {
     padding: 1rem 1.25rem;
     color: var(--muted-foreground);
-  }
-  .retry {
-    min-height: 2.75rem;
-    margin-left: 0.25rem;
-    color: var(--primary);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
   }
 
   .next {

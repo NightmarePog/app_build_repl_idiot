@@ -2,9 +2,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { ResolvedPathname } from '$app/types';
-  import { ArrowRight } from '@lucide/svelte';
+  import { ArrowLeftRight } from '@lucide/svelte';
   import type { Attachment } from 'svelte/attachments';
-  import { reveal } from '$lib/motion';
   import { LINES, LINE_IDS, linesOf, type LineId } from './lines.svelte';
   import BusIllustration from './BusIllustration.svelte';
   import StreetScenery from './StreetScenery.svelte';
@@ -31,13 +30,13 @@
   });
 
   /**
-   * Street scenes: bus livery, parallax seed and a bob offset so the buses differ. Lines come
-   * from the API, so each card takes a scene by its position and the palette repeats.
+   * Street scenes: parallax seed and a bob offset so the buses differ. Lines come from the API,
+   * so each card takes a scene by its position; the bus livery is always the line's own colour.
    */
   const SCENES = [
-    { seed: 11, stripe: '#0070bb', delay: '0s' },
-    { seed: 23, stripe: '#6dd4b1', delay: '-0.25s' },
-    { seed: 37, stripe: '#49b3b4', delay: '-0.5s' }
+    { seed: 11, delay: '0s' },
+    { seed: 23, delay: '-0.25s' },
+    { seed: 37, delay: '-0.5s' }
   ];
 
   const CRUISE = 1;
@@ -55,6 +54,7 @@
         to: stops[stops.length - 1] ?? '',
         count: stops.length,
         transfers,
+        stripe: LINES[id].color,
         scene: index % SCENES.length,
         ...SCENES[index % SCENES.length]
       };
@@ -131,12 +131,14 @@
 <ul class="line-cards" class:compact class:flashing>
   {#each lines as line, index (line.id)}
     {@const href = resolve('/lines/[id]', { id: String(line.apiId) })}
-    <li {@attach !compact && reveal({ delay: index * 0.09 })}>
+    <li>
       <a
         {href}
         class="card scene-{line.scene}"
         class:leaving={leaving === line.id}
-        aria-label={`Linka ${line.id}, ${line.from} do ${line.to}, ${line.count} zastávek${line.transfers.length ? `, přestup na ${line.transfers.join(' a ')}` : ''}`}
+        aria-label={`Linka ${line.id}, ${line.from} – ${line.to}, oba směry, ${line.count} zastávek${line.transfers.length ? `, přestup na ${line.transfers.join(' a ')}` : ''}`}
+        style:--line={LINES[line.id].color}
+        style:--line-ink={LINES[line.id].ink}
         style:--bus-delay={line.delay}
         style:--index={index}
         onclick={(event) => drive(event, line.id, href)}
@@ -148,6 +150,7 @@
 
         <span class="head">
           <span class="letter">{line.id}</span>
+          <span class="kind">Linka {line.id}</span>
           <span class="facts">
             <span class="count tabular">{line.count} zastávek</span>
             {#if line.transfers.length}
@@ -165,9 +168,7 @@
           </span>
         </span>
         <span class="route">
-          <span class="from"
-            >{line.from} <ArrowRight size={16} strokeWidth={3} aria-hidden="true" /></span
-          >
+          <span class="from">{line.from} <ArrowLeftRight class="size-4" aria-hidden="true" /></span>
           <span class="to">{line.to}</span>
         </span>
       </a>
@@ -185,45 +186,20 @@
     list-style: none;
   }
 
-  /* Fixed illustration colours: the cards look the same in both themes. */
-  .scene-0 {
-    --card-bg: #0070bb;
-    --card-ink: #ffffff;
-    --letter-bg: #121413;
-    --letter-ink: #2592b8;
-    --road: #0257a5;
-    --kerb: #3d86c0;
-    --scene-cloud: rgb(255 255 255 / 0.16);
-    --scene-far: rgb(255 255 255 / 0.15);
-    --scene-mid: #0a62a3;
-    --scene-window: rgb(255 214 120 / 0.55);
-    --scene-near: #0b4f80;
-  }
-  .scene-1 {
-    --card-bg: #91f5ad;
-    --card-ink: #121413;
-    --letter-bg: #121413;
-    --letter-ink: #91f5ad;
-    --road: #35503f;
-    --kerb: #6fc48a;
-    --scene-cloud: rgb(255 255 255 / 0.6);
-    --scene-far: rgb(255 255 255 / 0.45);
-    --scene-mid: #8ee3a6;
-    --scene-window: rgb(255 255 255 / 0.7);
-    --scene-near: #5fb97c;
-  }
-  .scene-2 {
-    --card-bg: #5cc8c9;
-    --card-ink: #121413;
-    --letter-bg: #121413;
-    --letter-ink: #5cc8c9;
-    --road: #24585a;
-    --kerb: #3a9fa0;
-    --scene-cloud: rgb(255 255 255 / 0.45);
-    --scene-far: rgb(255 255 255 / 0.3);
-    --scene-mid: #4bb3b4;
-    --scene-window: rgb(255 255 255 / 0.6);
-    --scene-near: #2f8d8e;
+  /* Illustration colours come from the line's own brand colour (--line, --line-ink), so the
+     card for line A always matches its badge; shades are mixes of it, the same in both themes. */
+  .card {
+    --card-bg: var(--line);
+    --card-ink: var(--line-ink);
+    --letter-bg: var(--board-bg);
+    --letter-ink: var(--line);
+    --road: color-mix(in oklch, var(--line) 55%, black);
+    --kerb: color-mix(in oklch, var(--line) 80%, black);
+    --scene-cloud: color-mix(in oklch, white 35%, transparent);
+    --scene-far: color-mix(in oklch, white 28%, transparent);
+    --scene-mid: color-mix(in oklch, var(--line) 90%, black);
+    --scene-window: color-mix(in oklch, white 60%, transparent);
+    --scene-near: color-mix(in oklch, var(--line) 75%, black);
   }
 
   .card {
@@ -307,6 +283,16 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
+  }
+  .kind {
+    color: var(--card-ink);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .compact .kind {
+    display: none;
   }
   .letter {
     display: grid;

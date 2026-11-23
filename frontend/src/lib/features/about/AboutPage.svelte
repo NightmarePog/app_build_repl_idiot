@@ -17,7 +17,7 @@
     ><ArrowLeft data-icon="inline-start" aria-hidden="true" /> Zpět na úvod</Button
   >
   {#if kind === 'contact'}
-    <PageHeader kind="Informace" icon={Info} title="Kontakt" />
+    <PageHeader kind="Kontakt na tým" icon={Info} title="Kontakt" />
     <p class="intro">Chyby a návrhy na zlepšení přijímáme přes GitHub.</p>
     <section {@attach reveal()}>
       <h2 class="section-title">Hlášení chyb</h2>
@@ -39,28 +39,22 @@
       </p>
     </section>
   {:else}
-    <PageHeader kind="Informace" icon={Info} title="Podmínky používání" />
+    <PageHeader kind="Pravidla" icon={Info} title="Podmínky používání" />
     <p class="intro">Pravidla používání studentského projektu.</p>
     <p class="note">Nejde o právní smlouvu, jen o shrnutí, jak aplikaci používat.</p>
     <section {@attach reveal()}>
       <h2 class="section-title">Co aplikace umí</h2>
       <p>
-        Ukazuje zastávky v kampusu, linky, které jimi projíždějí, a jejich vybavení. Jízdní řády ani
-        odjezdy neobsahuje.
+        Ukazuje zastávky v kampusu, linky, které jimi projíždějí, jejich vybavení a jízdní řád každé
+        linky s odjezdy ze zastávek.
       </p>
     </section>
     <section {@attach reveal()}>
       <h2 class="section-title">Přesnost dat</h2>
       <p>
         Schéma linek je zjednodušené a neodpovídá přesné poloze zastávek. Spoje a odjezdy si ověřte
-        u dopravce. Vybavení zastávek se může změnit.
-      </p>
-    </section>
-    <section {@attach reveal()}>
-      <h2 class="section-title">Hlášení chyb</h2>
-      <p>
-        Když najdete chybu, <a href={resolve('/contact')}>napište nám</a>. Uveďte stránku a postup,
-        jak chybu zopakovat.
+        u dopravce. Vybavení zastávek se může změnit. Chybu v datech nám
+        <a href={resolve('/contact')}>nahlaste</a>.
       </p>
     </section>
     <section {@attach reveal()}>
