@@ -2,6 +2,7 @@
   import { czechCount } from '$lib/plural';
   import { Button } from '$lib/ui/button';
   import { ArrowRight, ChevronDown, MapPin } from '@lucide/svelte';
+  import LinePlate from './LinePlate.svelte';
   import { vehicleLabel } from '$lib/features/planner/planner-core';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import PageState from '$lib/components/PageState.svelte';
@@ -17,11 +18,13 @@
     timetable,
     route,
     lineNumber,
+    lineColor,
     stopId = $bindable(null)
   }: {
     timetable: LineTimetable;
     route: Route;
     lineNumber: string;
+    lineColor: string;
     /** Boarding stop, shared with the route diagram so it can highlight it. */
     stopId?: number | null;
   } = $props();
@@ -80,8 +83,19 @@
 
   const nowOp = $derived(operatingNow(rows, now));
   const next = $derived(nextDeparture(rows, nowOp));
-  const hours = $derived(hourGroups(rows));
+  /** Every empty run folds into one gap row, a single empty hour included: one rule for the scale. */
+  const hours = $derived(
+    hourGroups(rows).map((h) =>
+      h.kind === 'hour' && h.trips.length === 0
+        ? { kind: 'gap' as const, from: h.hour, to: h.hour, label: h.label }
+        : h
+    )
+  );
   const currentHour = $derived(Math.floor(nowOp / 60));
+  /** The "teď" tick sits in the hour row (or gap) that holds the current hour. */
+  const holdsNow = (h: (typeof hours)[number]) =>
+    !next?.tomorrow &&
+    (h.kind === 'gap' ? currentHour >= h.from && currentHour <= h.to : h.hour === currentHour);
 
   function tripHref(tripId: number) {
     return withQuery(resolve('/trips/[id]', { id: String(tripId) }), { od: selected?.id });
@@ -107,24 +121,24 @@
 
 <section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
   <header class="sheet-head">
-    <h3 id={`trips-heading-${route.id}`} class="dir-title">
-      <span class="sr-only">Odjezdy </span><span class="dir-word">Směr</span>
-      <ArrowRight size={18} aria-hidden="true" />{route.direction}
-    </h3>
+    <h3 id={`trips-heading-${route.id}`} class="sr-only">Odjezdy směr {route.direction}</h3>
     {#if boardable.length > 1}
-      <!-- The stop is part of the title: picking it here or on the route changes it. -->
       <label class="board-pick">
-        <MapPin size={18} aria-hidden="true" />
-        <span class="sr-only">Odjezdy ze zastávky</span>
-        <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
-          {#each boardable as stop (stop.id)}
-            <option value={stop.id}>{stop.name}</option>
-          {/each}
-        </select>
-        <ChevronDown size={18} aria-hidden="true" />
+        <span class="pick-label"><MapPin size={18} aria-hidden="true" />Ze zastávky</span>
+        <span class="pick-box">
+          <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
+            {#each boardable as stop (stop.id)}
+              <option value={stop.id}>{stop.name}</option>
+            {/each}
+          </select>
+          <ChevronDown size={18} aria-hidden="true" />
+        </span>
       </label>
     {:else}
-      <span class="board-pick static"><MapPin size={18} aria-hidden="true" />{selected?.name}</span>
+      <p class="board-pick">
+        <span class="pick-label"><MapPin size={18} aria-hidden="true" />Ze zastávky</span>
+        <strong>{selected?.name}</strong>
+      </p>
     {/if}
     {#if timetable.loading && timetable.trips}<span class="sr-only" role="status"
         >Načítáme spoje…</span
@@ -153,16 +167,19 @@
         href={tripHref(next.row.trip.id)}
         aria-label={`Nejbližší odjezd ze zastávky ${selected?.name}: ${label(next.row)}`}
       >
-        <span class="next-label">Nejbližší</span>
         <span class="next-time tabular">{next.row.at.time}</span>
-        <span class="next-vehicle">{vehicle(next.row)}</span>
-        {#if next.tomorrow}<span>zítra</span>{:else if cd}<span>{cd}</span>{/if}
-        {#if next.row.end}
-          <span class="next-end tabular"
-            ><ArrowRight size={14} aria-hidden="true" />{next.row.trip.destination.name}
-            {next.row.end.time}</span
+        <span class="next-what">
+          <span class="next-vehicle"
+            ><LinePlate number={lineNumber} color={lineColor} size="sm" />{vehicle(next.row)}</span
           >
-        {/if}
+          {#if next.row.end}
+            <span class="next-end tabular"
+              ><ArrowRight size={18} aria-hidden="true" />{next.row.trip.destination.name}
+              {next.row.end.time}</span
+            >
+          {/if}
+        </span>
+        <span class="next-when tabular">{next.tomorrow ? 'zítra' : (cd ?? 'teď')}</span>
       </a>
     {/if}
 
@@ -174,17 +191,21 @@
         </caption>
         <tbody>
           {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
+            {@const isNow = holdsNow(h)}
             {#if h.kind === 'gap'}
-              <tr class="gap" style:--row={index}>
-                <th scope="row" class="hour tabular">{h.label}</th>
-                <td>bez spojů</td>
+              <tr class="gap" aria-current={isNow ? 'time' : undefined} style:--row={index}>
+                <th scope="row" class="hour tabular">
+                  {h.label}{#if isNow}<span class="now-tick">teď</span>{/if}
+                </th>
+                <td><span class="sr-only">bez spojů</span></td>
               </tr>
             {:else}
-              {@const isNow = h.hour === currentHour}
               <tr aria-current={isNow ? 'time' : undefined} style:--row={index}>
-                <th scope="row" class="hour tabular">{String(h.hour % 24).padStart(2, '0')}</th>
+                <th scope="row" class="hour tabular">
+                  {String(h.hour % 24).padStart(2, '0')}{#if isNow}<span class="now-tick">teď</span
+                    >{/if}
+                </th>
                 <td>
-                  {#if h.trips.length === 0}<span class="empty">bez spojů</span>{/if}
                   <ul class="mins">
                     {#each h.trips as row (row.trip.id)}
                       {@const isNext = next?.row.trip.id === row.trip.id}
@@ -198,7 +219,8 @@
                           aria-label={label(row)}
                           ><span class="min-mm tabular">{row.at.time.slice(3, 5)}</span><span
                             class="min-bus">{row.trip.block_ref ?? lineNumber}</span
-                          ></a
+                          >{#if isNext}<span class="next-tag" aria-hidden="true">další</span
+                            >{/if}</a
                         >
                       </li>
                     {/each}
@@ -235,43 +257,43 @@
     scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
   }
   .sheet-head {
-    display: grid;
-    justify-items: start;
-    gap: 0.5rem;
     padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--border);
   }
-  .dir-title {
+  .board-pick {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.375rem;
-    font-size: var(--fs-xl);
-    font-weight: var(--font-display-weight);
-    line-height: var(--lh-tight);
+    gap: 0.5rem 0.75rem;
   }
-  .board-pick {
+  .pick-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: var(--weight-strong);
+  }
+  .pick-box {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     max-width: 100%;
-    min-height: 2.5rem;
-    padding: 0.25rem 0.625rem;
+    min-height: 2.75rem;
+    padding: 0.25rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--background);
     font-weight: var(--weight-strong);
     cursor: pointer;
   }
-  .board-pick:hover {
+  .pick-box:hover {
     background: var(--accent);
   }
-  .board-pick:focus-within {
+  .pick-box:focus-within {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
-  .board-pick select {
+  .pick-box select {
     appearance: none;
     min-width: 0;
     max-width: 100%;
@@ -279,15 +301,13 @@
     background: transparent;
     color: inherit;
     font: inherit;
+    font-size: var(--fs-lg);
     cursor: pointer;
     outline: none;
   }
-  .board-pick select option {
+  .pick-box select option {
     background: var(--popover);
     color: var(--popover-foreground);
-  }
-  .static {
-    cursor: default;
   }
   a:focus-visible {
     outline: 3px solid var(--ring);
@@ -297,35 +317,47 @@
     padding: 1rem 1.25rem;
   }
 
+  /* The next departure as a board row: time, line + vehicle, destination, countdown. */
   .next {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 0.75rem;
-    padding: 0.75rem 1.25rem;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.875rem 1.25rem;
     border-bottom: 1px solid var(--border);
     background: var(--muted);
     color: var(--foreground);
-    font-weight: var(--weight-strong);
-  }
-  .next-label {
-    font-weight: var(--weight-strong);
   }
   .next-time {
     font-size: var(--fs-2xl);
     font-weight: var(--font-display-weight);
     line-height: 1;
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-decoration-thickness: 2px;
   }
+  .next-what {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  .next-vehicle,
   .next-end {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.375rem;
+    font-size: var(--fs-lg);
+    font-weight: var(--weight-strong);
+  }
+  .next-when {
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius);
+    background: var(--foreground);
+    color: var(--background);
+    font-size: var(--fs-lg);
+    font-weight: var(--weight-strong);
+    white-space: nowrap;
   }
   .next:hover .next-time {
-    text-decoration-thickness: 3px;
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 
   .grid {
@@ -351,59 +383,73 @@
     width: 100%;
     padding: 0.25rem 0.5rem;
   }
-  tr[aria-current='time'] .hour {
+  /* Now: a small tick in the hour column, not an inverted cell. */
+  .now-tick {
+    display: block;
+    margin-top: 0.25rem;
+    padding: 0.0625rem 0.25rem;
+    border-radius: var(--radius);
     background: var(--foreground);
     color: var(--background);
-  }
-  .gap .hour {
     font-size: var(--fs-sm);
-  }
-  .gap td,
-  .empty {
-    color: var(--muted-foreground);
     font-weight: var(--weight-strong);
-    padding-inline: 0.75rem;
   }
+  /* An empty run of hours: one thin hatched row, its range is the whole message. */
+  .gap .hour {
+    padding-block: 0.25rem;
+    font-size: var(--fs-base);
+  }
+  .gap td {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent 0 6px,
+      color-mix(in oklch, var(--border) 70%, transparent) 6px 7px
+    );
+  }
+  /* Minutes as text on one row, like a PID sheet; the vehicle run follows each minute. */
   .mins {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.25rem 1rem;
   }
-  /* Minute over vehicle, like a PID sheet with the run number: a link that looks like one. */
   .min {
-    display: grid;
-    justify-items: center;
-    min-width: 3.5rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
     min-height: 2.75rem;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--border);
+    padding: 0.375rem 0.5rem;
     border-radius: var(--radius);
     color: var(--foreground);
     transition: background var(--motion-fast) var(--ease-out);
   }
   .min-mm {
-    font-size: var(--fs-lg);
+    font-size: var(--fs-xl);
     font-weight: var(--font-display-weight);
     line-height: 1.1;
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
   .min-bus {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base);
     font-weight: var(--weight-strong);
   }
   .min:hover {
     background: var(--accent);
   }
-  .min.gone {
-    color: var(--muted-foreground);
-    border-style: dashed;
+  .min:hover .min-mm {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
-  .min.gone .min-mm {
-    font-weight: var(--weight-regular);
+  .min.gone {
+    opacity: 0.45;
   }
   .min.next-min {
-    border: 2px solid var(--foreground);
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+  }
+  .next-tag {
+    align-self: center;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   .grid tr {
     animation: reflow var(--motion-slow) var(--ease-out) both;
@@ -424,8 +470,12 @@
     white-space: nowrap;
   }
   @media (max-width: 639px) {
-    .dir-title {
-      font-size: var(--fs-lg);
+    .next {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .next-when {
+      grid-column: 1 / -1;
+      justify-self: start;
     }
   }
   @media (prefers-reduced-motion: reduce) {

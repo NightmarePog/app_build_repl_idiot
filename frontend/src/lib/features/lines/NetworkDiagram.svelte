@@ -5,6 +5,9 @@
 
   let { lines }: { lines: Line[] } = $props();
 
+  /** Line under the pointer or focus: the others dim so its whole route reads at once. */
+  let focusLine = $state<string | null>(null);
+
   /** Grid units in px: one stop step along a line, one line row. */
   // Equal units, so a step of one across and one down is a true 45° diagonal.
   const X = 96;
@@ -45,6 +48,8 @@
   function labelAt(node: LayoutNode, r: number) {
     const [x, y] = [px(node.x), py(node.y)];
     switch (node.label) {
+      case 'above-left':
+        return { x: x - r - 4, y: y - r - 10, anchor: 'end' };
       case 'above':
         return { x, y: y - r - 10, anchor: 'middle' };
       case 'below':
@@ -97,26 +102,39 @@
         {@const meta = color.get(line.id)}
         <path
           class="rail"
+          class:dim={focusLine !== null && focusLine !== line.id}
           d={path(line.stops.map((id) => layout.nodes.get(id)!))}
           style:stroke={meta?.color}
+          role="presentation"
+          onpointerenter={() => (focusLine = line.id)}
+          onpointerleave={() => (focusLine = null)}
         />
       {/each}
       {#each layout.lines as line (line.id)}
         {@const meta = color.get(line.id)}
         {@const first = layout.nodes.get(line.stops[0]!)}
         {#if first && meta}
-          <g transform={`translate(${px(first.x) - 44},${py(first.y)})`} aria-hidden="true">
+          <!-- Badge on the side of the terminus away from its label, so they never overlap. -->
+          {@const up = first.label !== 'above'}
+          <g
+            transform={`translate(${px(first.x) - 30},${py(first.y) + (up ? -32 : 32)})`}
+            aria-hidden="true"
+            class="line-badge"
+            onpointerenter={() => (focusLine = line.id)}
+            onpointerleave={() => (focusLine = null)}
+          >
             <rect class="badge" x="-14" y="-14" width="28" height="28" style:fill={meta.color} />
             <text class="badge-text" y="1" style:fill={meta.ink}>{meta.number}</text>
           </g>
         {/if}
       {/each}
       {#each [...layout.nodes.values()] as node (node.id)}
-        {@const r = node.lines.length > 1 ? 11 : 6}
+        {@const r = node.lines.length > 1 ? 14 : 7}
         {@const at = labelAt(node, r)}
         <a
           href={resolve('/stops/[id]', { id: String(node.id) })}
           class="stop"
+          class:dim={focusLine !== null && !node.lines.includes(focusLine)}
           aria-label={`Zastávka ${node.name}${node.lines.length > 1 ? `, přestup ${node.lines.join(', ')}` : ''}`}
         >
           <title
@@ -158,6 +176,19 @@
     width: 100%;
     height: auto;
   }
+  .rail,
+  .stop {
+    transition: opacity var(--motion-fast) var(--ease-out);
+  }
+  .dim {
+    opacity: 0.25;
+  }
+  .line-badge {
+    cursor: default;
+  }
+  .stop {
+    cursor: pointer;
+  }
   .rail {
     fill: none;
     stroke-width: 10;
@@ -198,6 +229,13 @@
   }
   .stop:hover circle {
     fill: var(--accent);
+    stroke-width: 7;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rail,
+    .stop {
+      transition: none;
+    }
   }
   .stop:focus-visible {
     outline: none;

@@ -10,7 +10,7 @@
 export type LayoutInput = { id: string; stops: { id: number; name: string }[] };
 
 /** Where a stop's name sits relative to its node. */
-export type LabelSide = 'above' | 'below' | 'left' | 'right' | 'below-right';
+export type LabelSide = 'above' | 'below' | 'left' | 'right' | 'below-right' | 'above-left';
 
 export type LayoutNode = {
   id: number;
@@ -25,7 +25,7 @@ const SCHEMATIC: Record<string, { x: number; y: number; label: LabelSide }> = {
   'Turing Terminal': { x: 0, y: 1.5, label: 'above' },
   'Ada Exchange': { x: 2, y: 3.5, label: 'below' },
   'Pixel Park': { x: 4, y: 1.5, label: 'above' },
-  'Byte Square': { x: 7, y: 1.5, label: 'above' },
+  'Byte Square': { x: 7, y: 1.5, label: 'above-left' },
   'Stack Garden': { x: 8.5, y: 0, label: 'right' },
   'Hopper Hall': { x: 0.5, y: 3.5, label: 'below' },
   'Compiler Court': { x: 3.5, y: 3.5, label: 'below' },
