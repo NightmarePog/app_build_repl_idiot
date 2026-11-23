@@ -1,8 +1,9 @@
 <script lang="ts">
+  import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { BusFront, TramFront } from '@lucide/svelte';
+  import { BusFront, Check, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -130,16 +131,14 @@
     return null;
   });
 
-  /** Travel time the other way, to flag that per-stop minutes differ by direction. */
-  const otherTravel = $derived(
-    line?.routes.filter((r) => r.id !== route?.id).map((r) => travelByRoute.get(r.id))[0] ?? null
-  );
+  /** Departure of the trip the per-stop minutes come from, named in the caption. */
+  const firstTrip = $derived(routeDetails[0]?.stops[0]?.departure_time ?? null);
 
   /** Other lines at the stop, linked straight to that stop on their own diagram. */
   function transfersAt(stopName: string) {
     return linesOf(stopName)
       .filter((number) => number !== line?.number)
-      .map((number) => LINES[number]);
+      .flatMap((number) => (LINES[number] ? [LINES[number]] : []));
   }
 </script>
 
@@ -167,6 +166,7 @@
 {:else if !line}
   <LoadingState label="Načítáme detail linky…" detail />
 {:else}
+  <BackLink href={resolve('/lines')} label="Všechny linky" />
   <article
     class="line"
     class:line-cased={isPale(line.color)}
@@ -182,7 +182,6 @@
       >
         {#snippet lead()}<span class="plate tabular" aria-hidden="true">{line?.number}</span
           >{/snippet}
-        {#snippet back()}<a class="back" href={resolve('/lines')}>← Všechny linky</a>{/snippet}
         {#snippet meta()}<span
             >{typeLabel(line?.type ?? '')} linka {line?.number} ·
             {(line?.routes.length ?? 0) > 1 ? 'dva směry' : 'jeden směr'}</span
@@ -193,116 +192,122 @@
     {#if !route || route.stops.length === 0}
       <PageState title="Trasa linky zatím není zadaná" />
     {:else}
-      {#if line.routes.length > 1}
-        <!-- Headsigns as tabs, like a stop timetable: pick where you are going. -->
-        <h2 class="section-title">Trasa</h2>
-        <p class="hint">Vyberte směr pro diagram trasy. Spoje obou směrů jsou níže.</p>
-        <nav class="directions" aria-label="Směr jízdy">
-          {#each line.routes as option (option.id)}
-            <a
-              href={option.bound === 'inbound'
-                ? resolve('/lines/[id]?smer=inbound', { id })
-                : resolve('/lines/[id]', { id })}
-              aria-current={option.id === route.id ? 'page' : undefined}
-              data-sveltekit-replacestate
-              data-sveltekit-noscroll
-            >
-              <span class="dir-name"
-                >{option.id === route.id ? '✓ ' : ''}Směr {option.direction}</span
-              >
-              {#if travelByRoute.get(option.id) != null}<span class="dir-label tabular"
-                  >jízda {travelByRoute.get(option.id)} min</span
-                >{/if}
-            </a>
-          {/each}
-        </nav>
-      {:else}
-        <p class="single-direction">směr <strong>{route.direction}</strong></p>
-      {/if}
-      <p class="sr-only" aria-live="polite">Směr {route.direction}</p>
-
-      <p class="summary">
-        {#if stopsList()}
-          <Isa size={20} />
-          <span class="tabular">
-            Bezbariérové zastávky: {accessible}
-            {zOrZe(route.stops.length)}
-            {route.stops.length}
-          </span>
-        {:else if stopsFailed()}
-          Bezbariérovost zastávek se nepodařilo zjistit.
-        {/if}
-      </p>
-
-      {#if line.routes.length <= 1}<h2 class="section-title">Trasa</h2>{/if}
-      {#if otherTravel !== null && travelByRoute.get(route.id) != null && otherTravel !== travelByRoute.get(route.id)}
-        <p class="hint">
-          Minuty jsou od výchozí zastávky ve směru {route.direction}. V opačném směru trvá jízda
-          {otherTravel} min a časy mezi zastávkami se liší.
-        </p>
-      {/if}
-      <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
-        {#each route.stops as stop, index (stop.id)}
-          {@const others = transfersAt(stop.name)}
-          {@const first = index === 0}
-          {@const last = index === route.stops.length - 1}
-          {@const leg = cumulative.get(stop.id)}
-          {@const wait = legs?.dwell.get(stop.id) ?? 0}
-          <li
-            id={`stop-${stop.id}`}
-            class:terminus={first || last}
-            class:interchange={others.length > 0}
-            class:waits={wait > 0 && !first && !last}
-          >
-            <span class="dot" aria-hidden="true"></span>
-            {#if bus && bus.index === index}
+      <!-- One direction switch drives the whole page: the route and the timetable below. -->
+      <div class="direction-bar">
+        <p class="eyebrow" id="direction-label">Směr jízdy</p>
+        {#if line.routes.length > 1}
+          <nav class="directions" aria-label="Směr jízdy">
+            {#each line.routes as option (option.id)}
               <a
-                class="bus"
-                href={resolve('/trips/[id]', { id: String(bus.tripId) })}
-                style:--share={bus.share}
-                aria-label="Spoj, který teď jede v tomto směru"
-                ><BusIllustration stripe={line.color} /></a
+                href={option.bound === 'inbound'
+                  ? resolve('/lines/[id]?smer=inbound', { id })
+                  : resolve('/lines/[id]', { id })}
+                aria-current={option.id === route.id ? 'page' : undefined}
+                data-sveltekit-replacestate
+                data-sveltekit-noscroll
               >
-            {/if}
-            <span class="leg tabular" title="minut od výchozí zastávky"
-              >{leg !== undefined ? `+${leg} min` : ''}</span
-            >
-            <div class="stop">
-              <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
-                >{stop.name}<span class="chev" aria-hidden="true">›</span></a
-              >
-              {#if stepFree.get(stop.id)}
-                <Isa size={20} label="bezbariérový nástup" />
-              {/if}
-              {#if others.length}
-                <span class="transfer">
-                  <span class="transfer-label">Přestup:</span>
-                  {#each others as other (other.number)}
-                    <a
-                      class="badge tabular"
-                      href={resolve(`/lines/[id]#stop-${stop.id}`, { id: String(other.apiId) })}
-                      style:background={other.color}
-                      style:color={other.ink}
-                      ><span aria-hidden="true">{other.number}</span><span class="sr-only"
-                        >linka {other.number}</span
-                      ></a
-                    >
-                  {/each}
+                <span class="dir-name">
+                  {#if option.id === route.id}<Check class="size-4" aria-hidden="true" />{/if}
+                  Směr {option.direction}
                 </span>
-              {/if}
-              {#if wait > 0 && !first && !last}<span class="note">stojí {wait} min</span>{/if}
-              {#if first}<span class="note">výchozí</span>{/if}
-              {#if last}<span class="note">konečná</span>{/if}
-            </div>
-          </li>
-        {/each}
-      </ol>
+                <span class="dir-label tabular">
+                  z {option.stops[0]?.name}{#if travelByRoute.get(option.id) != null}
+                    · jízda {travelByRoute.get(option.id)} min{/if}
+                </span>
+              </a>
+            {/each}
+          </nav>
+        {:else}
+          <p class="single-direction">Směr <strong>{route.direction}</strong></p>
+        {/if}
+        <p class="sr-only" aria-live="polite">Směr {route.direction}</p>
+      </div>
 
-      <h2 class="trips-title">Spoje</h2>
-      <div class="boards">
-        {#each line.routes as r (r.id)}
-          <LineTrips {timetable} route={r} lineNumber={line.number} />
-        {/each}
+      <div class="line-body">
+        <section class="route" aria-labelledby="route-heading">
+          <h2 id="route-heading" class="section-title">Trasa</h2>
+          <p class="caption">
+            {#if firstTrip}
+              <span class="tabular">Minuty od výchozí zastávky podle spoje v {firstTrip}.</span>
+            {/if}
+            {#if stopsList()}
+              <span class="isa-count tabular">
+                <Isa size={18} />
+                bezbariérově {accessible}
+                {zOrZe(route.stops.length)}
+                {route.stops.length}
+              </span>
+            {:else if stopsFailed()}
+              <span>Bezbariérovost zastávek se nepodařilo zjistit.</span>
+            {/if}
+          </p>
+          <p class="diagram-head" aria-hidden="true">
+            <span></span><span class="r">Od výchozí</span><span>Zastávka</span>
+          </p>
+          <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
+            {#each route.stops as stop, index (stop.id)}
+              {@const others = transfersAt(stop.name)}
+              {@const first = index === 0}
+              {@const last = index === route.stops.length - 1}
+              {@const leg = cumulative.get(stop.id)}
+              {@const wait = legs?.dwell.get(stop.id) ?? 0}
+              <li id={`stop-${stop.id}`} class:terminus={first || last}>
+                <span class="dot" aria-hidden="true"></span>
+                {#if bus && bus.index === index}
+                  <a
+                    class="bus"
+                    href={resolve('/trips/[id]', { id: String(bus.tripId) })}
+                    style:--share={bus.share}
+                    aria-label="Spoj, který teď jede v tomto směru"
+                    ><BusIllustration stripe={line.color} /></a
+                  >
+                {/if}
+                <span class="leg tabular">{leg !== undefined ? `+${leg} min` : ''}</span>
+                <div class="stop">
+                  <span class="stop-main">
+                    <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
+                      >{stop.name}</a
+                    >
+                    {#if first}<span class="end-tag">výchozí</span>{/if}
+                    {#if last}<span class="end-tag">konečná</span>{/if}
+                    {#if stepFree.get(stop.id)}<Isa size={18} label="bezbariérový nástup" />{/if}
+                  </span>
+                  {#if others.length || (wait > 0 && !first && !last)}
+                    <span class="stop-sub">
+                      {#if others.length}
+                        <span class="transfer">
+                          <span class="transfer-label">Přestup</span>
+                          {#each others as other (other.number)}
+                            <a
+                              class="badge tabular"
+                              href={resolve(`/lines/[id]#stop-${stop.id}`, {
+                                id: String(other.apiId)
+                              })}
+                              style:background={other.color}
+                              style:color={other.ink}
+                              ><span aria-hidden="true">{other.number}</span><span class="sr-only"
+                                >linka {other.number}</span
+                              ></a
+                            >
+                          {/each}
+                        </span>
+                      {/if}
+                      {#if wait > 0 && !first && !last}<span class="note">stojí {wait} min</span
+                        >{/if}
+                    </span>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ol>
+        </section>
+
+        <section class="schedule" aria-labelledby="schedule-heading">
+          <h2 id="schedule-heading" class="section-title">Jízdní řád</h2>
+          {#key route.id}
+            <LineTrips {timetable} {route} lineNumber={line.number} />
+          {/key}
+        </section>
       </div>
     {/if}
   </article>
@@ -311,27 +316,6 @@
 <style>
   .state {
     margin-top: 1rem;
-  }
-  /* Line-colour stripe ties the plain header to the line, like the stop and trip pages' tags. */
-  .head {
-    margin-bottom: 1rem;
-    padding-top: 1rem;
-    border-top: 6px solid var(--line);
-  }
-  .hint {
-    max-width: 44rem;
-    margin-top: -0.375rem;
-    color: var(--foreground);
-    opacity: 0.8;
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-regular);
-  }
-
-  .back {
-    color: var(--muted-foreground);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
   .plate {
     display: grid;
@@ -350,13 +334,17 @@
     line-height: 1;
   }
 
+  .direction-bar {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
   .directions {
     display: grid;
     grid-auto-columns: minmax(0, 1fr);
     grid-auto-flow: column;
-    max-width: 36rem;
-    margin-top: 1.75rem;
-    border: 1px solid var(--border);
+    max-width: 40rem;
+    border: 1.5px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
   }
@@ -364,12 +352,13 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-height: 3.5rem;
+    gap: 0.125rem;
+    min-height: 3.75rem;
     padding: 0.5rem 1rem;
     transition: background-color var(--motion-fast) var(--ease-out);
   }
   .directions a + a {
-    border-left: 1px solid var(--border);
+    border-left: 1.5px solid var(--border);
   }
   .directions a:hover {
     background: var(--accent);
@@ -379,18 +368,20 @@
     color: var(--line-ink);
     box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
   }
-  .dir-label {
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-regular);
-    opacity: 0.8;
-  }
   .dir-name {
-    font-size: var(--fs-base);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
     line-height: 1.2;
   }
+  .dir-label {
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
+    opacity: 0.85;
+  }
   .single-direction {
-    margin-top: 1.75rem;
     font-size: var(--fs-lg);
   }
   .directions a:focus-visible {
@@ -398,14 +389,46 @@
     outline-offset: -4px;
   }
 
-  .summary {
+  /* Route and timetable side by side on wide screens, stacked on phones. */
+  .line-body {
+    display: grid;
+    gap: 0 3rem;
+  }
+  @media (min-width: 64rem) {
+    .line-body {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      align-items: start;
+    }
+  }
+  .caption {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    min-height: 1.5rem;
-    margin-top: 1rem;
-    font-weight: var(--weight-regular);
+    gap: 0.25rem 1rem;
     color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+  }
+  .isa-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .diagram-head {
+    display: grid;
+    grid-template-columns: 2rem 4.25rem minmax(0, 1fr);
+    column-gap: 0.75rem;
+    margin-top: 1rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .diagram-head .r {
+    text-align: right;
+    white-space: nowrap;
   }
 
   /*
@@ -414,13 +437,13 @@
    */
   .diagram {
     max-width: 44rem;
-    margin-top: 1.25rem;
+    margin-top: 0.25rem;
   }
   .diagram li {
     position: relative;
     display: grid;
     grid-template-columns: 2rem 4.25rem minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
     column-gap: 0.75rem;
     min-height: 3.5rem;
     scroll-margin-top: calc(var(--header-h) + 2rem);
@@ -435,11 +458,13 @@
     background: var(--line);
     box-shadow: 0 0 0 1.5px var(--line-stroke, var(--line));
   }
+  /* The rail starts and ends at the centre of the terminus dots. */
   .diagram li:first-child::before {
-    top: 50%;
+    top: 1.625rem;
   }
   .diagram li:last-child::before {
-    bottom: 50%;
+    bottom: auto;
+    height: 1.625rem;
   }
   /* Arriving from a transfer link: show which stop was meant. */
   .diagram li:target {
@@ -449,26 +474,48 @@
     position: relative;
     z-index: 1;
     justify-self: center;
+    margin-top: 1.125rem;
     width: 1rem;
     height: 1rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
   }
   .terminus .dot {
     width: 1.375rem;
     height: 1.375rem;
+    margin-top: 0.9375rem;
     background: var(--line);
   }
   .stop {
+    display: grid;
+    gap: 0.125rem;
+    padding-block: 0.5rem;
+  }
+  .stop-main,
+  .stop-sub {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem 0.625rem;
-    padding-block: 0.375rem;
+    gap: 0.25rem 0.5rem;
+  }
+  .stop-sub {
+    padding-bottom: 0.25rem;
+  }
+  /* Termini say what they are in words, next to the name, as on a PID line diagram. */
+  .end-tag {
+    padding: 0.0625rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
   }
   .name {
-    padding-block: 0.5rem;
+    padding-block: 0.25rem;
     font-size: var(--fs-lg);
     font-weight: var(--weight-regular);
     text-underline-offset: 3px;
@@ -486,7 +533,7 @@
     gap: 0.25rem;
     padding: 0.1875rem 0.25rem 0.1875rem 0.625rem;
     border: 1.5px solid var(--foreground);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
   }
   .transfer-label {
     font-size: var(--fs-sm);
@@ -500,7 +547,7 @@
     min-width: 1.5rem;
     height: 1.5rem;
     padding-inline: 0.375rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: var(--fs-sm);
     font-weight: var(--font-display-weight);
     line-height: 1;
@@ -513,41 +560,18 @@
   }
   /* Minutes from the first stop, right-aligned like an IDOS / SBB stop list. */
   .leg {
+    padding-top: 0.75rem;
     color: var(--foreground);
     text-align: right;
     white-space: nowrap;
     font-size: var(--fs-base);
     font-weight: var(--weight-strong);
   }
-  .chev {
-    margin-left: 0.375rem;
-    color: var(--muted-foreground);
-  }
-  .diagram li:hover .chev {
-    color: var(--foreground);
-  }
-  /* Parent of the two direction boards: one size up from section titles so it reads as a level. */
-  .trips-title {
-    margin-top: 3rem;
-    font-size: var(--fs-h2);
-    font-weight: var(--font-display-weight);
-    letter-spacing: var(--tracking-display);
-  }
-  .boards {
-    display: grid;
-    gap: 1.5rem;
-    align-items: start;
-  }
-  @media (min-width: 64rem) {
-    .boards {
-      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    }
-  }
   .bus {
     position: absolute;
     z-index: 2;
     left: -0.25rem;
-    top: calc(50% + var(--share) * 100%);
+    top: calc(1.625rem + var(--share) * 100%);
     width: 2.5rem;
     transform: translateY(-50%);
     transition: top var(--motion-xslow) var(--ease-out);
@@ -572,6 +596,9 @@
     }
     .directions {
       max-width: none;
+    }
+    .directions a {
+      padding-inline: 0.75rem;
     }
   }
   @media (prefers-reduced-motion: reduce) {

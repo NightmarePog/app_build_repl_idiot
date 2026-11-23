@@ -86,7 +86,7 @@ test('reports a failed load and retries', async ({ page }) => {
   await page.goto('/lines');
   await expect(page.getByRole('alert')).toHaveText('Linky se nepodařilo načíst');
   await page.getByRole('button', { name: 'Zkusit znovu' }).click();
-  await expect(page.getByText('Campus Express')).toBeVisible();
+  await expect(page.getByRole('main').getByText('Campus Express').first()).toBeVisible();
 });
 
 test('line detail shows the route, transfers and switches direction', async ({ page }) => {

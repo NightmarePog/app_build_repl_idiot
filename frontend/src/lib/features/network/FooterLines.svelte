@@ -1,16 +1,13 @@
 <script lang="ts">
   import { withQuery } from '$lib/links';
   import { resolve } from '$app/paths';
-  import { ArrowRight } from '@lucide/svelte';
   import { LINES, LINE_IDS } from './lines.svelte';
   import LineBadge from './LineBadge.svelte';
 
-  /** List items for the footer's "Linky" column: badge plus first and last stop. */
+  /** List items for the footer's "Linky" column: badge plus the line's official name, the same
+   * name the line page shows, so the footer never differs from page to page. */
   const lines = $derived(
-    LINE_IDS.map((id) => {
-      const { stops, color, ink } = LINES[id];
-      return { id, color, ink, from: stops[0], to: stops[stops.length - 1] };
-    })
+    LINE_IDS.flatMap((id) => (LINES[id] ? [{ id, name: LINES[id].name }] : []))
   );
 </script>
 
@@ -18,12 +15,7 @@
   <li>
     <a href={withQuery(resolve('/stops'), { line: line.id })} class="line-link">
       <LineBadge id={line.id} />
-      <span class="route"
-        >{line.from}
-        <ArrowRight size={14} aria-hidden="true" />
-        <span class="sr-only">do</span>
-        {line.to}</span
-      >
+      <span class="route">{line.name}</span>
     </a>
   </li>
 {/each}

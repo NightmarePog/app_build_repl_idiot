@@ -2,7 +2,8 @@
   import { czechCount } from '$lib/plural';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowLeft, ArrowRight, ChevronDown, Ticket as TicketIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, Ticket as TicketIcon } from '@lucide/svelte';
+  import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { listLineTrips, type TripDetail } from '$lib/api/generated';
   import { createResource, ResourceError, unwrap } from '$lib/api/resource.svelte';
@@ -10,11 +11,9 @@
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { inkFor, isPale } from '$lib/features/lines/line-style';
   import { LINES, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
-  import { Button } from '$lib/ui/button';
-  import FlapTime from './FlapTime.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
-  import { duration, spokenTime } from './time';
+  import { countdown, duration, minutesUntil, spokenTime } from './time';
   import {
     boarding,
     nextTrip as nextTripOf,
@@ -83,6 +82,27 @@
     return t === undefined ? null : (t - board.dep) / Math.max(1, last.arr - board.dep);
   });
 
+  /**
+   * What the trip is doing right now, in words: the one thing the side card adds to the
+   * timetable (which already lists every time).
+   */
+  const status = $derived.by(() => {
+    if (!board || !last) return null;
+    if (vehicle?.kind === 'at')
+      return { tone: 'live', title: `Stojí v zastávce ${stops[vehicle.index].stop.name}` };
+    if (vehicle?.kind === 'between')
+      return {
+        tone: 'live',
+        title: `Jede z ${stops[vehicle.index].stop.name} do ${stops[vehicle.index + 1].stop.name}`
+      };
+    const until = minutesUntil(board.dep, now);
+    const soon = countdown(until);
+    if (soon)
+      return { tone: 'soon', title: soon === 'odjíždí' ? 'Právě odjíždí' : `Odjíždí ${soon}` };
+    if (board.dep > now) return { tone: 'later', title: `Odjíždí dnes v ${board.departure_time}` };
+    return { tone: 'later', title: `Dnes už jel, znovu jede zítra v ${board.departure_time}` };
+  });
+
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
   const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
 
@@ -144,9 +164,7 @@
     style:--line={trip.line.color}
     style:--line-ink={inkFor(trip.line.color)}
   >
-    <Button href={lineHref(trip)} variant="ghost" class="-ml-4">
-      <ArrowLeft aria-hidden="true" data-icon="inline-start" /> Linka {trip.line.number}
-    </Button>
+    <BackLink href={lineHref(trip)} label={`Linka ${trip.line.number}`} />
 
     {#if fromMissing}
       <p class="notice" role="status">
@@ -161,6 +179,9 @@
       title={`${trip.departure_time} → ${trip.destination.name}`}
       color={trip.line.color}
     >
+      {#snippet lead()}<span class="vt-plate" aria-hidden="true"
+          ><LinePlate number={trip.line.number} color={trip.line.color} size="lg" /></span
+        >{/snippet}
       {#snippet meta()}<span
           >Linka {trip.line.number} · z {trip.origin.name} · {czechCount(
             trip.stops.length,
@@ -176,83 +197,42 @@
         <section
           class="ticket board-surface"
           style:--stripe={trip.line.color}
-          aria-label="Shrnutí spoje"
+          aria-labelledby="status-heading"
         >
-          <div class="ticket-line">
-            <span class="vt-plate"
-              ><LinePlate number={trip.line.number} color={trip.line.color} size="lg" /></span
-            >
-            <div>
-              <p class="dest">
-                směr
-                <strong>{trip.destination.name}</strong>
-              </p>
-              {#if fromIndex > 0}<p class="sub">
-                  výchozí {trip.origin.name}
-                  {trip.departure_time}
-                </p>{/if}
-            </div>
-          </div>
-          <dl class="ticket-times">
-            <div class="leg">
-              <dt>{fromIndex > 0 ? 'Odjezd odsud' : 'Odjezd'}</dt>
-              <dd>
-                <FlapTime
-                  time={board.departure_time}
-                  dayOffset={board.departure_day_offset}
-                  size="md"
-                  showDay={false}
-                />
-                <span class="place">{board.stop.name}</span>
-              </dd>
-            </div>
-            <!-- One continuous ribbon from departure to arrival; a night band marks midnight. -->
-            <div class="ribbon">
-              <span class="ribbon-track" aria-hidden="true">
-                {#if ribbon.night !== null}
-                  <span class="ribbon-night" style:top={`${ribbon.night}%`}></span>
-                {/if}
-                {#if progress !== null}
-                  <span class="ribbon-dot" style:top={`${progress * 100}%`}></span>
-                {/if}
-              </span>
-              <span class="ribbon-time"
-                >jízda <strong class="tabular">{duration(ribbon.total)}</strong
-                >{#if ribbon.night !== null}
-                  · ☾ přes půlnoc{/if}</span
-              >
-            </div>
-            <div class="leg">
-              <dt>Příjezd</dt>
-              <dd>
-                <FlapTime
-                  time={last.arrival_time}
-                  dayOffset={last.arrival_day_offset}
-                  size="md"
-                  delay={200}
-                  showDay={false}
-                />
-                <span class="place">{last.stop.name}</span>
-              </dd>
-            </div>
-          </dl>
-          {#if ribbon.night !== null}
-            <p class="night-note">
-              Spoj jede přes půlnoc: odjezd {board.departure_time}, příjezd {last.arrival_time} následující
-              den.
+          <h2 id="status-heading" class="ticket-label">Stav spoje</h2>
+          {#if status}
+            <p class="status" data-tone={status.tone}>
+              {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
+              {status.title}
             </p>
           {/if}
-        </section>
-
-        {#if vehicle}
-          <p class="live">
-            <span class="live-dot" aria-hidden="true"></span>
-            {#if vehicle.kind === 'at'}Právě stojí v zastávce {stops[vehicle.index].stop
-                .name}{:else}Právě jede mezi {stops[vehicle.index].stop.name} a {stops[
-                vehicle.index + 1
-              ].stop.name}{/if}
+          <!-- Progress from boarding to the terminus; the dot is the bus while it runs. -->
+          <div class="progress" aria-hidden="true">
+            <span class="progress-track">
+              {#if ribbon.night !== null}<span
+                  class="progress-night"
+                  style:left={`${ribbon.night}%`}
+                ></span>{/if}
+              <span class="progress-fill" style:width={`${(progress ?? 0) * 100}%`}></span>
+              {#if progress !== null}<span class="progress-dot" style:left={`${progress * 100}%`}
+                ></span>{/if}
+            </span>
+          </div>
+          <dl class="ends">
+            <div>
+              <dt>{fromIndex > 0 ? 'Nástup' : 'Odjezd'}</dt>
+              <dd><strong class="tabular">{board.departure_time}</strong> {board.stop.name}</dd>
+            </div>
+            <div class="r">
+              <dt>Příjezd</dt>
+              <dd><strong class="tabular">{last.arrival_time}</strong> {last.stop.name}</dd>
+            </div>
+          </dl>
+          <p class="ride tabular">
+            jízda <strong>{duration(ribbon.total)}</strong>{#if ribbon.night !== null}
+              · ☾ přes půlnoc, příjezd další den{/if}
           </p>
-        {/if}
+        </section>
         <p class="sr-only" aria-live="polite">{vehicleStop}</p>
       </aside>
       <div class="main">
@@ -286,7 +266,7 @@
               class:terminus={first || end}
               class:no-wait={stop.dwell === 0 && !first && !end}
               style:--gap={`${index === 0 ? 0 : stop.gap * SCALE}rem`}
-              style:--dwell={`${stop.dwell * SCALE}rem`}
+              style:--dwell={`${stop.dwell > 0 ? Math.max(stop.dwell * SCALE, 1.75) : 0}rem`}
               style:--i={index}
             >
               {#if vehicle?.kind === 'at' && vehicle.index === i}
@@ -308,8 +288,8 @@
                 {:else if end || stop.dwell === 0}
                   <span class="t">{stop.arrival_time}</span>
                 {:else}
-                  <span class="t arr">{stop.arrival_time}</span>
-                  <span class="t dep">{stop.departure_time}</span>
+                  <span class="t arr"><span class="t-label">příj.</span>{stop.arrival_time}</span>
+                  <span class="t dep"><span class="t-label">odj.</span>{stop.departure_time}</span>
                 {/if}
               </div>
               <span class="node" aria-hidden="true"></span>
@@ -318,10 +298,7 @@
                   >{stop.stop.name}</a
                 >
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
-                {#if !first && !passed}<a
-                    class="from-here"
-                    href={resolve('/stops/[id]', { id: String(stop.stop.id) })}>odjezdy odsud ›</a
-                  >{/if}
+                {#if end}<span class="end-tag">konečná</span>{/if}
                 {#if stop.dwell > 0 && !first && !end}<span class="wait" aria-hidden="true"
                     >stojí {stop.dwell} min</span
                   >{/if}
@@ -344,56 +321,53 @@
         </ol>
 
         <!-- The end of the trip: where to go next. -->
-        <section class="onward" aria-labelledby="onward-heading">
-          <h2 id="onward-heading" class="section-title">Na konečné · {last.stop.name}</h2>
-          {#if transfers.length}
-            <div class="onward-block">
-              <h3>Změnit na</h3>
-              <ul class="change">
-                {#each transfers as other (other.number)}
-                  <li>
-                    <a
-                      href={resolve('/lines/[id]', { id: String(other.apiId) })}
-                      class="change-link"
-                    >
-                      <LinePlate number={other.number} color={other.color} />
-                      <span>{other.name}</span>
-                      <ArrowRight aria-hidden="true" class="size-4" />
-                    </a>
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-          {#if next}
-            <div class="onward-block">
-              <h3>Další spoj této trasy</h3>
-              <a
-                class="next-trip"
-                href={withQuery(resolve('/trips/[id]', { id: String(next.trip.id) }), {
-                  od: fromId
-                })}
-              >
-                <span class="next-trip-time tabular">{next.trip.departure_time}</span>
-                <span
-                  >{next.tomorrow ? 'zítra · ' : ''}z {next.trip.origin.name} do {next.trip
-                    .destination.name}</span
+        {#if transfers.length || next || lineTrips.error}
+          <section class="onward" aria-labelledby="onward-heading">
+            <h2 id="onward-heading" class="section-title">Dál z konečné {last.stop.name}</h2>
+            {#if transfers.length}
+              <div class="onward-block">
+                <h3>Změnit na</h3>
+                <ul class="change">
+                  {#each transfers as other (other.number)}
+                    <li>
+                      <a
+                        href={resolve('/lines/[id]', { id: String(other.apiId) })}
+                        class="change-link"
+                      >
+                        <LinePlate number={other.number} color={other.color} />
+                        <span>{other.name}</span>
+                        <ArrowRight aria-hidden="true" class="size-4" />
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+            {#if next}
+              <div class="onward-block">
+                <h3>Další spoj této trasy</h3>
+                <a
+                  class="next-trip"
+                  href={withQuery(resolve('/trips/[id]', { id: String(next.trip.id) }), {
+                    od: fromId
+                  })}
                 >
-                <ArrowRight aria-hidden="true" class="size-4" />
-              </a>
-            </div>
-          {:else if lineTrips.error}
-            <p class="muted-note">
-              Další spoj této trasy se nepodařilo načíst.
-              <button type="button" class="retry" onclick={lineTrips.retry}>Zkusit znovu</button>
-            </p>
-          {:else if !lineTrips.loading && !transfers.length}
-            <p class="empty-onward">
-              <span class="end-sign" aria-hidden="true">K</span>
-              Konečná. Na tento spoj tu žádné jiné linky ani další spoje nenavazují.
-            </p>
-          {/if}
-        </section>
+                  <span class="next-trip-time tabular">{next.trip.departure_time}</span>
+                  <span
+                    >{next.tomorrow ? 'zítra · ' : ''}z {next.trip.origin.name} do {next.trip
+                      .destination.name}</span
+                  >
+                  <ArrowRight aria-hidden="true" class="size-4" />
+                </a>
+              </div>
+            {:else if lineTrips.error}
+              <p class="muted-note">
+                Další spoj této trasy se nepodařilo načíst.
+                <button type="button" class="retry" onclick={lineTrips.retry}>Zkusit znovu</button>
+              </p>
+            {/if}
+          </section>
+        {/if}
       </div>
     </div>
   </article>
@@ -430,13 +404,6 @@
   .cols .r {
     text-align: right;
   }
-  .from-here {
-    color: var(--primary);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
   .trip {
     max-width: 80rem;
     /* Room for the fixed mobile tab bar so the end of the page is never hidden under it. */
@@ -450,118 +417,102 @@
     border-radius: var(--radius-2xl);
     color: var(--board-fg);
   }
-  .ticket-line {
+  .ticket-label {
+    color: var(--sign-marker);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .status {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    min-height: 4rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 2px dashed var(--board-line);
-  }
-  .dest {
-    font-size: var(--fs-h2);
-    font-weight: var(--weight-regular);
-    letter-spacing: var(--tracking-display);
+    gap: 0.625rem;
+    margin-top: 0.5rem;
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
     line-height: var(--lh-tight);
   }
-  .dest strong {
-    font-weight: var(--font-display-weight);
+  .status[data-tone='soon'] {
+    color: var(--board-led);
   }
-  .sub {
-    margin-top: 0.25rem;
-    color: var(--board-muted);
-    font-size: var(--fs-base);
-    font-weight: var(--weight-regular);
-  }
-  .ticket-times {
-    display: grid;
-    gap: 0.5rem;
+  .progress {
     margin-top: 1.25rem;
   }
-  .leg dd {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem 0.75rem;
-    min-width: 0;
+  .progress-track {
+    position: relative;
+    display: block;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--board-raised);
   }
-  dt {
-    color: var(--sign-marker);
+  .progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: var(--stripe, var(--sign-marker));
+    transition: width var(--motion-xslow) var(--ease-out);
+  }
+  .progress-night {
+    position: absolute;
+    top: -0.25rem;
+    bottom: -0.25rem;
+    width: 2px;
+    background: var(--board-muted);
+  }
+  .progress-dot {
+    position: absolute;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    border: 3px solid var(--board-bg);
+    border-radius: var(--radius-pill);
+    background: var(--status-ok);
+    transform: translate(-50%, -50%);
+    transition: left var(--motion-xslow) var(--ease-out);
+  }
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+  .ends .r {
+    text-align: right;
+  }
+  .ends dt {
+    color: var(--board-muted);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  dd {
-    margin-top: 0.375rem;
-  }
-  .place {
-    min-width: 0;
-    overflow-wrap: anywhere;
+  .ends dd {
     color: var(--board-place);
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
   }
-  /* A vertical ribbon between the two legs: line colour by day, a dark band past midnight. */
-  .ribbon {
-    display: flex;
-    align-items: stretch;
-    gap: 0.75rem;
-    min-height: 3rem;
-    padding-left: 0.875rem;
+  .ends strong {
+    display: block;
+    color: var(--board-led);
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
+    line-height: 1.2;
   }
-  .ribbon-track {
-    position: relative;
-    flex: none;
-    width: 0.5rem;
-    border-radius: var(--radius-md);
-    background: var(--line);
-    overflow: hidden;
-  }
-  .ribbon-night {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: oklch(0.2 0.05 270);
-    box-shadow: inset 0 2px 0 var(--sign-marker);
-  }
-  .ribbon-dot {
-    position: absolute;
-    left: 50%;
-    width: 0.5rem;
-    height: 0.5rem;
-    transform: translate(-50%, -50%);
-    border-radius: var(--radius-md);
-    background: var(--status-ok);
-    box-shadow: 0 0 0 2px var(--board-fg);
-  }
-  .ribbon-time {
-    align-self: center;
+  .ride {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 2px dashed var(--board-line);
     color: var(--board-muted);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
   }
-  .ribbon-time strong {
+  .ride strong {
     color: var(--board-fg);
   }
-  .night-note {
-    margin-top: 1rem;
-    color: var(--board-muted);
-    font-size: var(--fs-sm);
-  }
-  .live {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    font-weight: var(--weight-strong);
-  }
   .live-dot {
+    flex: none;
     width: 0.75rem;
     height: 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--status-ok);
+    animation: ping var(--loop-pulse) var(--ease-out) infinite;
   }
   .earlier {
     display: inline-flex;
@@ -604,7 +555,7 @@
     align-items: start;
     padding-top: max(0.75rem, var(--gap));
     animation: settle var(--motion-slow) var(--ease-spring-out) both;
-    animation-delay: calc(var(--i) * 55ms);
+    animation-delay: calc(var(--i) * var(--motion-stagger));
   }
   .vehicle {
     position: absolute;
@@ -614,10 +565,10 @@
     height: 1.25rem;
     margin-top: -0.625rem;
     border: 3px solid var(--background);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--status-ok);
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-ok) 60%, transparent);
-    animation: ping 1.6s var(--ease-out) infinite;
+    animation: ping var(--loop-pulse) var(--ease-out) infinite;
   }
   /* Dwell thickens the spine: the stop marker becomes a capsule as long as the wait. */
   .node {
@@ -628,7 +579,7 @@
     width: 1.125rem;
     height: max(1.125rem, calc(var(--dwell) + 1.125rem));
     margin-top: 0.1875rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
     transition: transform var(--motion-fast) var(--ease-out);
@@ -670,6 +621,25 @@
   .t.arr {
     color: var(--muted-foreground);
   }
+  .t-label {
+    margin-right: 0.3rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-2xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .end-tag {
+    padding: 0.0625rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
   .body {
     grid-area: body;
     display: flex;
@@ -701,7 +671,7 @@
   }
   .here {
     padding: 0.125rem 0.5rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--sign-marker);
     color: var(--sign-marker-foreground);
     box-shadow: inset 0 0 0 1.5px var(--foreground);
@@ -738,7 +708,7 @@
     justify-content: center;
     margin-top: 0.75rem;
     padding: 0.375rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: linear-gradient(
       90deg,
       transparent,
@@ -823,25 +793,6 @@
       box-shadow: 0 0 0 10px transparent;
     }
   }
-  .empty-onward {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 1rem;
-    color: var(--muted-foreground);
-    font-weight: var(--weight-strong);
-  }
-  .end-sign {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: var(--radius-md);
-    background: var(--line);
-    color: var(--line-ink);
-    font-weight: var(--font-display-weight);
-  }
   .muted-note {
     margin-top: 1rem;
     color: var(--muted-foreground);
@@ -859,18 +810,11 @@
     .ticket {
       padding: 1rem;
     }
-    .ticket-line {
-      min-height: 0;
-      padding-bottom: 0.75rem;
-    }
-    .dest {
+    .status {
       font-size: var(--fs-lg);
     }
-    .place {
-      font-size: var(--fs-base);
-    }
     .timeline {
-      --rail-x: 5rem;
+      --rail-x: 6.25rem;
     }
     .offset {
       min-width: 3.5rem;
@@ -879,7 +823,7 @@
   @media (prefers-reduced-motion: reduce) {
     .stop,
     .vehicle,
-    .ticket :global(.tile) {
+    .live-dot {
       animation: none;
     }
     .node {

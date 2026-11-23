@@ -162,12 +162,22 @@
           href={tripHref(next.row.trip.id)}
           aria-label={`Nejbližší spoj ze zastávky ${selected?.name}: ${label(next.row)}`}
         >
-          <span class="next-row">
-            <span class="next-tag">Další odjezd</span>
-            {#if next.tomorrow}<span class="next-gone">dnes už nejede ·</span>{/if}
-            <span class="next-time tabular">{next.tomorrow ? 'zítra ' : ''}{next.row.at.time}</span>
-            {#if cd && !next.tomorrow}<strong class="next-cd">{cd}</strong>{/if}
-          </span>
+          {#if next.tomorrow}
+            <span class="next-row">
+              <span class="next-tag">Další odjezd</span>
+              <strong class="next-cd">Dnes už nejede</strong>
+            </span>
+            <span class="next-row">
+              <span class="next-gone">Nejbližší</span>
+              <span class="next-time tabular">zítra {next.row.at.time}</span>
+            </span>
+          {:else}
+            <span class="next-row">
+              <span class="next-tag">Další odjezd</span>
+              <span class="next-time tabular">{next.row.at.time}</span>
+              {#if cd}<strong class="next-cd">{cd}</strong>{/if}
+            </span>
+          {/if}
           <span class="next-info tabular"
             >{#if next.row.end}příjezd {next.row.trip.destination.name}
               {next.row.end.time}{next.row.night ? ' (po půlnoci)' : ''} · jízda {duration(
@@ -185,7 +195,7 @@
           <thead class="grid-head">
             <tr>
               <th scope="col">Odjezd</th>
-              <th scope="col" class="r">Příjezd</th>
+              <th scope="col">Příjezd {route.direction}</th>
               <th scope="col"><span class="sr-only">Detail</span></th>
             </tr>
           </thead>
@@ -198,7 +208,7 @@
                   >{row.at.time}{#if row.dep >= 1440}<span class="moon" title="po půlnoci">☾</span
                     >{/if}</td
                 >
-                <td class="r tabular"
+                <td class="tabular"
                   >{row.end?.time ?? '…'}{#if row.night}<span class="moon" title="po půlnoci"
                       >☾</span
                     >{/if}</td
@@ -207,7 +217,7 @@
                   ><a
                     class="detail"
                     href={tripHref(row.trip.id)}
-                    aria-label={`Detail spoje: ${label(row)}`}>Detail spoje ›</a
+                    aria-label={`Detail spoje: ${label(row)}`}>Spoj ›</a
                   ></td
                 >
               </tr>
@@ -329,7 +339,23 @@
   .list tbody tr {
     border-top: 1px solid var(--border);
     animation: reflow var(--motion-slow) var(--ease-out) both;
-    animation-delay: calc(var(--row) * var(--stagger, 30ms));
+    animation-delay: calc(var(--row) * var(--motion-stagger));
+  }
+  /* The whole row opens the trip; the visible link is only the label. */
+  .list tbody tr {
+    position: relative;
+  }
+  .list tbody tr:hover {
+    background: var(--accent);
+  }
+  .detail::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .list th:first-child,
+  .list td:first-child {
+    width: 7rem;
   }
   .list .t {
     font-size: var(--fs-lg);
@@ -352,7 +378,6 @@
   .trips {
     min-width: 0;
     scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
-    margin-top: 1.5rem;
   }
   a:focus-visible {
     outline: 3px solid var(--ring);
@@ -408,7 +433,7 @@
     line-height: var(--lh-tight);
   }
   .next-gone {
-    color: var(--board-muted);
+    color: var(--board-fg);
     font-weight: var(--weight-strong);
   }
   .stop-name {
@@ -460,7 +485,7 @@
   }
   .next-tag {
     padding: 0.125rem 0.5rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--sign-marker);
     color: var(--sign-marker-foreground);
     font-size: var(--fs-xs);
@@ -570,7 +595,7 @@
   /* Picking a stop re-flows the minutes row by row. */
   .grid tr {
     animation: reflow var(--motion-slow) var(--ease-out) both;
-    animation-delay: calc(var(--row) * var(--stagger, 30ms));
+    animation-delay: calc(var(--row) * var(--motion-stagger));
   }
   @keyframes reflow {
     from {

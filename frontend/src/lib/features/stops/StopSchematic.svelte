@@ -133,7 +133,7 @@
   .end-badge {
     padding: 0 0.5rem;
     border: 1.5px solid currentColor;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--foreground);
     font-weight: var(--weight-strong);
   }

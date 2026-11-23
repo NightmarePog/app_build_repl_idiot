@@ -115,7 +115,7 @@
     border-radius: var(--radius-sm);
     background: var(--muted);
     color: var(--foreground);
-    font-size: 0.875em;
+    font-size: var(--fs-sm);
   }
   p a {
     color: var(--primary);

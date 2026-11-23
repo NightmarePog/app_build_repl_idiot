@@ -243,7 +243,7 @@
   .key-dot {
     width: 0.875rem;
     height: 0.875rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 3px solid var(--muted-foreground);
     background: var(--background);
   }
@@ -356,7 +356,7 @@
     right: calc(50% / var(--count));
     height: 0.375rem;
     translate: 0 -50%;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--line);
     box-shadow: 0 0 0 1.5px var(--line-stroke, var(--line));
   }
@@ -373,7 +373,7 @@
     width: 0.875rem;
     height: 0.875rem;
     margin-top: 0.125rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
   }
