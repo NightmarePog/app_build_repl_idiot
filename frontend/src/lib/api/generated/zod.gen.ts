@@ -87,7 +87,7 @@ export const zConnectionStopTime = z.object({
 export const zConnectionLeg = z.object({
     arrival_day_offset: z.int().gte(-1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     arrival_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
-    block_ref: z.string().regex(/^[A-Z][0-9]{2}$/).nullish(),
+    block_ref: z.string().regex(/^[A-Z][0-9]{2}$/).nullable(),
     departure_day_offset: z.int().gte(-1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
     destination: zStopSummary,
@@ -187,7 +187,7 @@ export const zLineWritable = z.object({
 export const zConnectionLegWritable = z.object({
     arrival_day_offset: z.int().gte(-1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     arrival_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
-    block_ref: z.string().regex(/^[A-Z][0-9]{2}$/).nullish(),
+    block_ref: z.string().regex(/^[A-Z][0-9]{2}$/).nullable(),
     departure_day_offset: z.int().gte(-1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
     destination: zStopSummary,

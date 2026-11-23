@@ -27,11 +27,20 @@ class PlannerTest {
             List.of(
                 trip(10, new long[] {1, 2}, 420, 430),
                 trip(20, new long[] {2, 3}, 440, 450),
-                trip(30, new long[] {3, 2, 4}, 900, 910, 920)));
+                trip(30, new long[] {3, 2, 4}, 500, 510, 520)));
     var found = planner.departing(1, 4, 420, 5);
     assertThat(found).hasSize(1);
     assertThat(trips(found.getFirst())).containsExactly(10L, 30L);
-    assertThat(found.getFirst().legs().getLast().departure()).isEqualTo(910);
+    assertThat(found.getFirst().legs().getLast().departure()).isEqualTo(510);
+  }
+
+  @Test
+  void dropsTransfersWithOvernightWait() {
+    var planner =
+        new Planner(
+            List.of(
+                trip(10, new long[] {1, 2}, 900, 910), trip(20, new long[] {2, 3}, 420, 440)));
+    assertThat(planner.departing(1, 3, 420, 5)).isEmpty();
   }
 
   @Test

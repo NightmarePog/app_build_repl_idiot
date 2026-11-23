@@ -31,7 +31,10 @@ final class Planner {
    * so a larger network stops collecting here instead of running away; the seeded network stays far
    * below it.
    */
-  static final int MAX_CANDIDATES = 1_000_000;
+  static final int MAX_CANDIDATES = 10_000;
+
+  /** Longest wait at a transfer stop; longer waits are not a usable connection (no overnight stays). */
+  static final int MAX_TRANSFER_WAIT_MINUTES = 180;
 
   private static final int DAY = 24 * 60;
 
@@ -153,7 +156,9 @@ final class Planner {
       var departure = calls.get(boarding.index()).departure();
       if (departure < ready) continue;
       if (legs.isEmpty() && departure >= until) break;
-      if (!legs.isEmpty() && departure >= until + DAY) break;
+      if (!legs.isEmpty()
+          && (departure >= until + DAY
+              || departure - (ready - TRANSFER_MINUTES) > MAX_TRANSFER_WAIT_MINUTES)) break;
       if (legs.stream().anyMatch(leg -> leg.run() == run)) continue;
       var passed = new ArrayList<Long>();
       for (var j = boarding.index() + 1; j < calls.size(); j++) {

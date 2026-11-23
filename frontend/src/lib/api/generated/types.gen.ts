@@ -41,7 +41,7 @@ export type ConnectionLeg = {
     /**
      * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
      */
-    block_ref?: string | null;
+    block_ref: string | null;
     /**
      * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
      */
@@ -348,7 +348,7 @@ export type ConnectionLegWritable = {
     /**
      * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
      */
-    block_ref?: string | null;
+    block_ref: string | null;
     /**
      * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
      */
