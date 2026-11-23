@@ -104,31 +104,26 @@
     <header class="sheet-head">
       <div class="sheet-title">
         <h3 id={`trips-heading-${route.id}`} class="dir-title">
-          <span class="dir-lead">Odjezdy ze zastávky</span>
-          {#if boardable.length > 1}
-            <!-- The stop is the title itself: picking it here or on the route changes it. -->
-            <label class="board-pick">
-              <MapPin size={18} aria-hidden="true" />
-              <span class="sr-only">Nástupní zastávka</span>
-              <select
-                value={selected?.id}
-                onchange={(e) => (stopId = Number(e.currentTarget.value))}
-              >
-                {#each boardable as stop (stop.id)}
-                  <option value={stop.id}>{stop.name}</option>
-                {/each}
-              </select>
-              <ChevronDown size={18} aria-hidden="true" />
-            </label>
-          {:else}
-            <span class="dir-stop">{selected?.name}</span>
-          {/if}
+          <span class="dir-lead">Odjezdy</span>
+          <span class="dir-to"><ArrowRight size={18} aria-hidden="true" />{route.direction}</span>
         </h3>
-        <p class="toward tabular">
-          <span class="dir-to"
-            ><ArrowRight size={18} aria-hidden="true" /> směr {route.direction}</span
+        {#if boardable.length > 1}
+          <!-- The stop is part of the title: picking it here or on the route changes it. -->
+          <label class="board-pick">
+            <MapPin size={18} aria-hidden="true" />
+            <span class="sr-only">Nástupní zastávka</span>
+            <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
+              {#each boardable as stop (stop.id)}
+                <option value={stop.id}>{stop.name}</option>
+              {/each}
+            </select>
+            <ChevronDown size={18} aria-hidden="true" />
+          </label>
+        {:else}
+          <span class="board-pick static"
+            ><MapPin size={18} aria-hidden="true" />{selected?.name}</span
           >
-        </p>
+        {/if}
       </div>
       {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
         >{/if}
@@ -165,25 +160,16 @@
           href={tripHref(next.row.trip.id)}
           aria-label={`Nejbližší spoj ze zastávky ${selected?.name}: ${label(next.row)}`}
         >
-          {#if next.tomorrow}
-            <span class="next-row">
-              <span class="next-gone">Dnes už nejede ·</span>
-              <span class="next-tag">další odjezd</span>
-              <span class="next-time tabular">zítra {next.row.at.time}</span>
-            </span>
-          {:else}
-            <span class="next-row">
-              <span class="next-tag">Další odjezd</span>
-              <span class="next-time tabular">{next.row.at.time}</span>
-              {#if cd}<strong class="next-cd">{cd}</strong>{/if}
-            </span>
-          {/if}
-          <span class="next-info tabular"
-            >{#if next.row.end}příjezd {next.row.trip.destination.name}
-              {next.row.end.time}{next.row.night ? ' po půlnoci' : ''} · jízda {duration(
+          <span class="next-tag">{next.tomorrow ? 'Zítra' : 'Další'}</span>
+          <span class="next-time tabular">{next.row.at.time}</span>
+          {#if cd && !next.tomorrow}<span class="chip">{cd}</span>{/if}
+          {#if next.row.end}
+            <span class="chip tabular"
+              ><ArrowRight size={14} aria-hidden="true" />{next.row.end.time} · {duration(
                 next.row.end.minutes - next.row.dep
-              )}{/if}</span
-          >
+              )}</span
+            >
+          {/if}
         </a>
       {/if}
 
@@ -193,23 +179,33 @@
             Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
             hodinách. Odkaz minuty otevře detail spoje.
           </caption>
+          <thead>
+            <tr>
+              <th scope="col" class="hour-col">hod</th>
+              <th scope="col" class="min-col">min</th>
+            </tr>
+          </thead>
           <tbody>
             {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
               {#if h.kind === 'gap'}
                 <tr class="gap" style:--row={index}>
                   <th scope="row" class="hour tabular">{h.label}</th>
-                  <td><span class="gap-text">nic nejede</span></td>
+                  <td
+                    ><span class="gap-bar" aria-hidden="true"></span><span class="sr-only"
+                      >nic nejede</span
+                    ></td
+                  >
                 </tr>
               {:else}
                 {@const isNow = h.hour === currentHour}
                 <tr
-                  class:now={isNow}
                   class:late={h.hour >= 24}
                   aria-current={isNow ? 'time' : undefined}
                   style:--row={index}
                 >
                   <th scope="row" class="hour tabular">{h.label}</th>
                   <td>
+                    {#if h.trips.length === 0}<span class="gap-bar" aria-hidden="true"></span>{/if}
                     <ul class="mins">
                       {#each h.trips as row (row.trip.id)}
                         <li>
@@ -311,7 +307,8 @@
 
   .sheet-title {
     display: grid;
-    gap: 0.25rem;
+    justify-items: start;
+    gap: 0.5rem;
     min-width: 0;
   }
   .dir-title {
@@ -321,10 +318,6 @@
     font-size: var(--fs-xl);
     font-weight: var(--font-display-weight);
     line-height: var(--lh-tight);
-  }
-  .next-gone {
-    color: var(--foreground);
-    font-weight: var(--weight-strong);
   }
   .dir-lead {
     font-weight: var(--weight-regular);
@@ -336,14 +329,39 @@
     color: var(--muted-foreground);
     background: transparent;
   }
-  .gap-text {
+  .gap-bar {
+    display: block;
+    height: 0.5rem;
+    margin-block: 0.5rem;
+    border-radius: var(--radius);
+    background: repeating-linear-gradient(135deg, var(--border) 0 6px, transparent 6px 12px);
+  }
+  thead th {
+    padding: 0.375rem 0.5rem;
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  thead .hour-col {
+    text-align: center;
+    border-right: 2px solid var(--foreground);
+  }
+  .static {
+    cursor: default;
+    font-weight: var(--weight-strong);
+  }
+  .chip {
     display: inline-flex;
     align-items: center;
-    min-height: 2rem;
-    padding-inline: 0.5rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-sm);
-    font-style: italic;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    font-weight: var(--weight-strong);
   }
   .note {
     padding: 1rem 1.25rem;
@@ -374,24 +392,6 @@
     font-weight: var(--font-display-weight);
     line-height: 1;
     color: var(--foreground);
-  }
-  .next {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .next-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-  }
-  .next-cd {
-    color: var(--foreground);
-  }
-  .next-info {
-    display: block;
-    max-width: 100%;
-    font-weight: var(--weight-strong);
   }
   .next:hover .next-time {
     text-decoration: underline;
@@ -424,13 +424,6 @@
   }
   tr.late .hour {
     background: color-mix(in oklch, var(--foreground) 12%, var(--muted));
-  }
-  tr.now .hour {
-    background: var(--line, var(--primary));
-    color: var(--line-ink, var(--primary-foreground));
-  }
-  tr.now td {
-    background: color-mix(in oklch, var(--line, var(--primary)) 8%, transparent);
   }
   .mins {
     display: grid;
@@ -503,5 +496,8 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
+    .grid tr {
+      animation: none;
+    }
   }
 </style>
