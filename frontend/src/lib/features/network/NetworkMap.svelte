@@ -665,7 +665,7 @@
     min-height: 2.25rem;
     padding-inline: 0.625rem;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
   }
   .unplaced button[aria-pressed='true'] {
     background: var(--sign-marker);

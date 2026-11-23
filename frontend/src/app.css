@@ -92,6 +92,16 @@
   --page-pad-y: 2rem;
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --loop-fast: 0.7s;
+  /* Looping motion: a slow breathing glow and a quicker live pulse. */
+  --loop-slow: 2.4s;
+  --loop-pulse: 1.4s;
+  /* Delay between rows when a list enters, the same for every list. */
+  --motion-stagger: 35ms;
+  --radius-pill: 999px;
+  /* Elevation: a raised card (board, ticket) and a ring around a highlighted marker. */
+  --shadow-raised: 0 20px 40px -24px oklch(0.21 0.008 70 / 0.45);
+  --ring-halo: 0 0 0 4px color-mix(in oklch, var(--line, var(--primary)) 22%, transparent);
+  --weight-semibold: 600;
   --lamp: oklch(0.9 0.11 88);
   --header-h: 3.5rem;
   /* Mobile bottom tab bar, not counting the home-indicator safe area. */

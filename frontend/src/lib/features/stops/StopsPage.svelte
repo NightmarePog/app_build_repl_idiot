@@ -808,7 +808,7 @@
       content: '';
       width: 2.5rem;
       height: 0.3125rem;
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
       transition: width var(--motion-fast) var(--ease-out);
     }

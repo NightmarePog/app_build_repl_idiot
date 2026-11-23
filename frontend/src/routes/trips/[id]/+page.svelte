@@ -3,4 +3,4 @@
   import TripDetailPage from '$lib/features/timetable/TripDetailPage.svelte';
 </script>
 
-<TripDetailPage id={page.params.id ?? ''} />
+<TripDetailPage id={page.params.id!} />

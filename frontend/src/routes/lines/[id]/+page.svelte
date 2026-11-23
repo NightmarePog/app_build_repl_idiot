@@ -3,4 +3,4 @@
   import LineDetailPage from '$lib/features/lines/LineDetailPage.svelte';
 </script>
 
-<LineDetailPage id={page.params.id ?? ''} />
+<LineDetailPage id={page.params.id!} />

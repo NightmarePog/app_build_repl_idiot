@@ -280,7 +280,7 @@
       rgb(255 255 255 / 0.65) 0 14px,
       transparent 14px 26px
     );
-    animation: lane 0.39s linear infinite;
+    animation: lane var(--loop-fast) linear infinite;
   }
   @keyframes lane {
     to {

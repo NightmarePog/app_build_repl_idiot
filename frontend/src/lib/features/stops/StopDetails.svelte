@@ -52,9 +52,8 @@
                 {#if has}
                   <Check aria-hidden="true" size={16} strokeWidth={2.5} /> ano
                 {:else}
-                  <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne{#if amenity.value === 'tickets'}<span
-                      class="hint">, jízdenku kupte u řidiče</span
-                    >{/if}
+                  <X aria-hidden="true" size={16} strokeWidth={2.5} /> ne
+                  {#if amenity.value === 'tickets'}<span class="hint">kupte u řidiče</span>{/if}
                 {/if}
               </dd>
             </div>
@@ -96,8 +95,15 @@
     gap: clamp(2rem, 4vw, 4rem);
   }
   .hint {
+    margin-left: 0.25rem;
+    padding-left: 0.625rem;
+    border-left: 1px solid var(--border);
     color: var(--muted-foreground);
-    font-weight: normal;
+    font-weight: var(--weight-regular);
+  }
+  /* Room for the fixed mobile tab bar, so the last section never hides under it. */
+  .stop-detail {
+    padding-bottom: calc(var(--tabbar-h, 0px) + env(safe-area-inset-bottom) + 1rem);
   }
   .amenity-row {
     display: flex;

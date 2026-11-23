@@ -2,12 +2,11 @@
   import { untrack } from 'svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowLeft } from '@lucide/svelte';
   import { getStop, type Stop } from '$lib/api/generated';
   import StopDetails from './StopDetails.svelte';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
-  import { Button } from '$lib/ui/button';
+  import BackLink from '$lib/components/BackLink.svelte';
   import { forgetStop, rememberStop, selectedStop } from './selected-stop';
 
   let { id }: { id: string } = $props();
@@ -59,11 +58,7 @@
   <title>{stop?.name ?? 'Detail zastávky'} · TdA</title>
 </svelte:head>
 
-<div class="back-link">
-  <Button href={`${resolve('/stops')}${page.url.search}`} variant="ghost" class="-ml-4">
-    <ArrowLeft aria-hidden="true" data-icon="inline-start" /> Všechny zastávky
-  </Button>
-</div>
+<BackLink href={`${resolve('/stops')}${page.url.search}`} label="Všechny zastávky" />
 
 {#if failure}
   <PageState

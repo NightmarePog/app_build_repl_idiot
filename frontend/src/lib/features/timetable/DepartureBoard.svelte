@@ -190,13 +190,14 @@
   <div class="board board-surface" style:--stripe={stripe}>
     <header class="board-head">
       <div>
+        <!-- The page title already names the stop; the board only says what it lists. -->
         <h2 id="board-heading" class="board-title">
-          <span class="board-tag">Odjezdy</span>
-          <span class="board-stop">{stopName}</span>
+          Odjezdy<span class="sr-only"> ze zastávky {stopName}</span>
         </h2>
+        <p class="board-sub">Všechny linky, živě podle pražského času</p>
       </div>
       <p class="clock" aria-label={`Teď je ${clock(now)} pražského času`}>
-        <span class="clock-label" aria-hidden="true">Teď</span>
+        <span class="clock-label" aria-hidden="true">Nyní</span>
         <FlapTime time={clock(now)} size="md" />
       </p>
     </header>
@@ -301,8 +302,12 @@
         ><span class="r">Za</span>
       </div>
       {#if rows.length > 0 && rows.every((r) => r.tomorrow)}
-        <p class="target-note">
-          Dnes už odsud nic nejede, první spoj zítra v {rows[0].departure_time}.
+        <!-- Drawn as a dimmed board row, so the board keeps one visual language. -->
+        <p class="row today-done">
+          <span class="done-plate" aria-hidden="true">–</span>
+          <span class="dest"><strong>Dnes už odsud nic nejede</strong></span>
+          <span class="dep"><span class="time tabular">--:--</span></span>
+          <span class="in"></span>
         </p>
       {/if}
       {#if target !== null}
@@ -357,6 +362,7 @@
                     >odjezd {row.departure_time} · {row.reach.minutes - row.dep} min</span
                   >
                 {:else}
+                  {#if waits > 0}<span class="dep-label">odjezd</span>{/if}
                   <span class="time tabular"
                     >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
                   >
@@ -394,7 +400,7 @@
     padding: 1.25rem;
     border-radius: var(--radius-2xl);
     color: var(--board-fg);
-    box-shadow: 0 20px 40px -24px var(--board-shadow);
+    box-shadow: var(--shadow-raised);
   }
   .board-head {
     display: flex;
@@ -409,22 +415,24 @@
     color: var(--board-fg);
   }
   .board-title {
-    display: grid;
-    gap: 0.125rem;
+    font-weight: var(--font-display-weight);
   }
-  .board-stop {
-    font-size: var(--fs-h2);
+  .board-sub {
+    margin-top: 0.125rem;
+    color: var(--board-muted);
+    font-size: var(--fs-sm);
   }
   .clock-label {
-    color: var(--board-muted);
-    font-size: var(--fs-xs);
+    color: var(--board-fg);
+    font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  .board-tag {
-    color: var(--sign-marker);
-    font-size: var(--fs-sm);
+  .dep-label {
+    display: block;
+    color: var(--board-muted);
+    font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
@@ -448,13 +456,13 @@
   .segmented {
     display: inline-flex;
     padding: 3px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--board-raised);
   }
   .segmented button {
     min-height: 2.5rem;
     padding-inline: 1rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--board-muted);
     font-weight: var(--weight-strong);
     transition:
@@ -490,7 +498,7 @@
     place-items: center;
     width: 1.125rem;
     height: 1.125rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: var(--fs-2xs);
     font-weight: var(--font-display-weight);
   }
@@ -598,7 +606,7 @@
   /* Rows flap in, staggered, when the filter changes: the board re-sorting itself. */
   .rows .row {
     animation: flap-in var(--motion-slow) var(--ease-out) both;
-    animation-delay: calc(min(var(--i), 10) * 40ms);
+    animation-delay: calc(min(var(--i), 10) * var(--motion-stagger));
     transform-origin: top;
   }
   @keyframes flap-in {
@@ -658,7 +666,7 @@
   }
   .tag {
     padding: 0.125rem 0.5rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
@@ -678,7 +686,7 @@
   }
   .arr-m {
     display: block;
-    color: var(--board-muted);
+    color: var(--board-fg);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
   }
@@ -691,7 +699,7 @@
   .countdown.first {
     color: var(--sign-marker);
     font-size: var(--fs-base);
-    animation: pulse 2.4s ease-in-out infinite;
+    animation: pulse var(--loop-slow) var(--ease-in-out) infinite;
   }
   .dests {
     display: flex;
@@ -710,7 +718,7 @@
     max-width: 14rem;
     padding: 0 2rem 0 0.75rem;
     border: 1.5px solid color-mix(in oklch, var(--board-fg) 55%, transparent);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--board-raised)
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E")
       no-repeat right 0.75rem center;
@@ -724,7 +732,7 @@
   }
   .time .day {
     margin-right: 0.35em;
-    font-size: 0.75em;
+    font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
@@ -778,7 +786,7 @@
   }
   /* The one ambient loop on this screen: the bus is leaving. */
   .hero.leaving .hero-time {
-    animation: pulse 1.2s ease-in-out infinite;
+    animation: pulse var(--loop-pulse) var(--ease-in-out) infinite;
   }
   .row.banded {
     margin-top: 2.25rem;
@@ -815,7 +823,20 @@
         var(--board-skeleton) 100%
       )
       0 0 / 200% 100%;
-    animation: shimmer 1.2s linear infinite;
+    animation: shimmer var(--loop-pulse) linear infinite;
+  }
+  .today-done {
+    opacity: 0.7;
+    border-bottom: 1px dashed var(--board-line);
+  }
+  .done-plate {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1.5px dashed var(--board-muted);
+    border-radius: var(--radius-md);
+    color: var(--board-muted);
   }
   .empty {
     padding: 2rem 0.75rem 0.75rem;
