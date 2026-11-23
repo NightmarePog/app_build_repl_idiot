@@ -193,7 +193,7 @@
     display: block;
     width: 10px;
     height: 10px;
-    border-radius: 50%;
+    border-radius: 9999px;
     background: var(--card);
     border: 3px solid var(--lc);
   }

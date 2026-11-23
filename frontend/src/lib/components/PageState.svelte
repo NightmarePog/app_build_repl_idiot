@@ -2,6 +2,7 @@
   import { Button } from '$lib/ui/button';
 
   let {
+    kind,
     title,
     description,
     headingLevel = 2,
@@ -10,6 +11,8 @@
     href,
     linkLabel
   }: {
+    /** Type label above the heading (Spoj, Linka, Zastávka), so a 404 still says what was asked for. */
+    kind?: string;
     title: string;
     description?: string;
     headingLevel?: 1 | 2;
@@ -25,7 +28,8 @@
   );
 </script>
 
-<div class="page-state" role={error ? undefined : 'status'}>
+<div class="page-state" class:labelled={kind} role={error ? undefined : 'status'}>
+  {#if kind}<span class="kind">{kind}</span>{/if}
   <svelte:element this={headingLevel === 1 ? 'h1' : 'h2'} role={error ? 'alert' : undefined}
     >{title}</svelte:element
   >
@@ -46,6 +50,17 @@
     gap: 0.5rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border);
+  }
+  .page-state.labelled {
+    border-top: none;
+    padding-top: 0;
+  }
+  .kind {
+    font-size: 0.75rem;
+    font-weight: var(--weight-strong);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brand);
   }
   .page-state :global(h1),
   .page-state :global(h2) {
