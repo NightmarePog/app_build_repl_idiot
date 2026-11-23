@@ -47,6 +47,18 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: ci-disposable-password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
