@@ -3,7 +3,9 @@
   import { page } from '$app/state';
   import {
     ArrowRight,
+    CalendarDays,
     ChevronRight,
+    Clock,
     LogIn,
     LogOut,
     Moon,
@@ -192,14 +194,15 @@
               {#if status.detail}{status.tone === 'done' ? 'zítra · ' : ''}odjezd {status.detail}{:else}{status.title}{/if}
             </span>
           {/if}
-          <span class="chip"
-            ><ArrowRight aria-hidden="true" class="size-4" />směr {trip.destination.name}</span
+          <span class="chip tabular" aria-label={`Vaše jízda trvá ${duration(ribbon.total)}`}
+            ><Clock aria-hidden="true" class="size-4" />{duration(ribbon.total)}</span
           >
-          <span class="chip tabular">{duration(ribbon.total)}</span>
-          {#if rank?.last}<span class="chip night"
+          {#if rank?.last}<span class="chip"
               ><Moon aria-hidden="true" class="size-4" />poslední spoj dne</span
-            >{:else if rank?.first}<span class="chip">první spoj dne</span>{/if}
-          <span class="chip tabular">{runDate}</span>
+            >{/if}
+          <span class="chip tabular"
+            ><CalendarDays aria-hidden="true" class="size-4" />{runDate}</span
+          >
           {#if progress !== null}
             <span class="progress" aria-label={`Ujeto ${Math.round(progress * 100)} % vaší jízdy`}>
               <span class="progress-track">
@@ -258,9 +261,14 @@
               {/if}
               <!-- One time per stop: arrival where the ride or route ends, departure elsewhere. -->
               <div class="times" aria-hidden="true">
-                <span class="t"
-                  >{end || (isTo && !isFrom) ? stop.arrival_time : stop.departure_time}</span
-                >
+                {#if waits && !(isTo && !isFrom)}
+                  <span class="t arr"><LogIn class="size-3" />{stop.arrival_time}</span>
+                  <span class="t"><LogOut class="size-3" />{stop.departure_time}</span>
+                {:else}
+                  <span class="t"
+                    >{end || (isTo && !isFrom) ? stop.arrival_time : stop.departure_time}</span
+                  >
+                {/if}
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
@@ -276,15 +284,12 @@
                     aria-label={`Přestup na linku ${other.number}`}
                     ><LinePlate number={other.number} color={other.color} size="sm" /></a
                   >{/each}
-                {#if (partial && (isFrom || isTo)) || waits}
+                {#if partial && (isFrom || isTo)}
                   <span class="tags" aria-hidden="true">
                     {#if isFrom && partial}<span class="flag"><LogIn class="size-4" />Nástup</span
                       >{/if}
                     {#if isTo && partial}<span class="flag out"
                         ><LogOut class="size-4" />Výstup</span
-                      >{/if}
-                    {#if waits}<span class="dwell tabular"
-                        >příjezd {stop.arrival_time} · stojí {stop.dwell} min</span
                       >{/if}
                   </span>
                 {/if}
@@ -300,35 +305,12 @@
         </ol>
       </div>
 
-      <aside class="infobox" aria-labelledby="info-heading">
-        <h2 id="info-heading" class="heading">O spoji</h2>
-        <dl class="facts">
-          <div>
-            <dt>Linka</dt>
-            <dd>
-              <a class="fact-link" href={lineHref(trip)}
-                ><LinePlate number={trip.line.number} color={trip.line.color} />{trip.line.name}</a
-              >
-            </dd>
-          </div>
-          {#if vehicleName}<div>
-              <dt>Vůz</dt>
-              <dd>{vehicleName}</dd>
-            </div>{/if}
-          <div>
-            <dt>Trasa</dt>
-            <dd class="tabular">
-              {trip.origin.name}
-              {stops[0].departure_time} → {trip.destination.name}
-              {stops[stops.length - 1].arrival_time}
-            </dd>
-          </div>
-          <div>
-            <dt>Zastávek</dt>
-            <dd>{stops.length}</dd>
-          </div>
-        </dl>
-
+      <aside class="infobox" aria-label="Další cesta">
+        <a class="change-link" href={lineHref(trip)}>
+          <LinePlate number={trip.line.number} color={trip.line.color} />
+          <span>Jízdní řád linky</span>
+          <ArrowRight aria-hidden="true" class="size-4" />
+        </a>
         {#if transfers.length}
           <section class="onward" aria-labelledby="onward-heading">
             <h3 id="onward-heading" class="heading">Přestup v {alight.stop.name}</h3>
@@ -387,7 +369,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    font-size: var(--fs-base, 1rem);
+    font-size: var(--fs-base);
   }
   .meta-row .chip {
     display: inline-flex;
@@ -446,39 +428,9 @@
     box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
     font-size: var(--fs-lg);
   }
-  .meta-row .night {
-    background: var(--foreground);
-    color: var(--background);
-  }
   .infobox {
     display: grid;
     gap: 1rem;
-    padding: 1rem;
-    border-radius: var(--radius);
-    background: var(--secondary);
-  }
-  .facts {
-    display: grid;
-    gap: 0.75rem;
-  }
-  .facts dt {
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-  }
-  .facts dd {
-    font-size: var(--fs-base, 1rem);
-    font-weight: var(--weight-strong);
-  }
-  .fact-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .fact-link:hover {
-    text-decoration: underline;
-  }
-  .infobox .change-link {
-    background: var(--background);
   }
   /* Boarding, alighting and a wait sit on their own line under the name, in the same spot. */
   .tags {
@@ -486,16 +438,6 @@
     flex-wrap: wrap;
     gap: 0.375rem;
     flex-basis: 100%;
-  }
-  .dwell {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.0625rem 0.5rem;
-    border-radius: var(--radius);
-    background: var(--secondary);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    line-height: 1.5rem;
   }
   .heading {
     font-size: var(--fs-xl);
@@ -606,8 +548,15 @@
     line-height: 1.5rem;
   }
   .t {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
+  }
+  /* A wait at the stop: arrival above departure, both full size, so the gap is plain. */
+  .t.arr {
+    font-weight: var(--weight-strong);
   }
   .stop-line {
     display: inline-flex;
