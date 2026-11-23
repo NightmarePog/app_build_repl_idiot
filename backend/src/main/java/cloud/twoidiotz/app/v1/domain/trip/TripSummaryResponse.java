@@ -42,4 +42,13 @@ public record TripSummaryResponse(
             minimum = "0",
             example = "0",
             description = "Day offset of the trip start, counted from its operating day.")
-        int departureDayOffset) {}
+        int departureDayOffset,
+    @Schema(
+            types = {"string", "null"},
+            pattern = "^[A-Z][0-9]{2}$",
+            example = "B03",
+            description =
+                "Vehicle working the trip (seed `block_ref`), shown to passengers as"
+                    + " \"Bus B03\". Extra field beyond the contract; null when no vehicle is"
+                    + " assigned.")
+        String blockRef) {}

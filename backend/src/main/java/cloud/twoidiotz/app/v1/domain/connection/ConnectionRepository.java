@@ -21,7 +21,8 @@ class ConnectionRepository {
 
   record Stop(long id, String name, String imageUrl) {}
 
-  record TripInfo(long id, Line line, RouteDirection direction, Stop destination) {}
+  record TripInfo(
+      long id, Line line, RouteDirection direction, Stop destination, String blockRef) {}
 
   record Timetable(Map<Long, TripInfo> trips, Map<Long, Stop> stops, List<Planner.Trip> calls) {}
 
@@ -54,7 +55,8 @@ class ConnectionRepository {
                     new Stop(
                         row.getLong("dest_id"),
                         row.getString("dest_name"),
-                        row.getString("dest_image"))));
+                        row.getString("dest_image")),
+                    row.getString("block_ref")));
           var stop =
               new Stop(
                   row.getLong("stop_id"), row.getString("stop_name"), row.getString("stop_image"));

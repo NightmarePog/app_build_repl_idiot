@@ -46,4 +46,13 @@ public record TripDetailResponse(
                             + " least two stops (the contract only requires one)."),
             minItems = 1,
             schema = @Schema(implementation = TripStopTimeResponse.class))
-        List<TripStopTimeResponse> stops) {}
+        List<TripStopTimeResponse> stops,
+    @Schema(
+            types = {"string", "null"},
+            pattern = "^[A-Z][0-9]{2}$",
+            example = "B03",
+            description =
+                "Vehicle working the trip (seed `block_ref`), shown to passengers as"
+                    + " \"Bus B03\". Extra field beyond the contract; null when no vehicle is"
+                    + " assigned.")
+        String blockRef) {}

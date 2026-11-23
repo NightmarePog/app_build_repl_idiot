@@ -19,7 +19,8 @@ final class TripRow {
       RouteDirection direction,
       Stop origin,
       Stop destination,
-      int startMinute) {}
+      int startMinute,
+      String blockRef) {}
 
   /** One call of a trip as read from stops.sql. */
   record StopTime(int stopOrder, Stop stop, int arrival, int departure) {}
@@ -31,5 +32,6 @@ final class TripRow {
       RouteDirection direction,
       Stop destination,
       int arrival,
-      int departure) {}
+      int departure,
+      String blockRef) {}
 }

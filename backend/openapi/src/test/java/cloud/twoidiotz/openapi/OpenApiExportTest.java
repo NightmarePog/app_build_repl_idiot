@@ -204,8 +204,12 @@ class OpenApiExportTest {
           expected.get("required"),
           actual.get("required").valueStream().map(n -> n.asString()).collect(Collectors.toSet()),
           name);
-      assertEquals(
-          expected.get("properties"), Set.copyOf(actual.get("properties").propertyNames()), name);
+      // Every contract property is kept; the only extra is the optional vehicle (block_ref).
+      var extra = new java.util.HashSet<>(actual.get("properties").propertyNames());
+      extra.removeAll(expected.get("properties"));
+      assertTrue(
+          actual.get("properties").propertyNames().containsAll(expected.get("properties")), name);
+      assertTrue(Set.of("block_ref").containsAll(extra), name + " extras " + extra);
     }
   }
 

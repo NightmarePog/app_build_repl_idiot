@@ -984,6 +984,12 @@
             "example": "07:11",
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
           },
+          "block_ref": {
+            "type": ["string", "null"],
+            "description": "Vehicle working the trip (seed `block_ref`), shown to passengers as \"Bus B03\". Extra field beyond the contract; null when no vehicle is assigned.",
+            "example": "B03",
+            "pattern": "^[A-Z][0-9]{2}$"
+          },
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
@@ -1151,6 +1157,12 @@
             "description": "Arrival at this stop.",
             "example": "07:24",
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "block_ref": {
+            "type": ["string", "null"],
+            "description": "Vehicle working the trip (seed `block_ref`), shown to passengers as \"Bus B03\". Extra field beyond the contract; null when no vehicle is assigned.",
+            "example": "B03",
+            "pattern": "^[A-Z][0-9]{2}$"
           },
           "departure_day_offset": {
             "type": "integer",
@@ -1475,6 +1487,12 @@
       "TripDetail": {
         "type": "object",
         "properties": {
+          "block_ref": {
+            "type": ["string", "null"],
+            "description": "Vehicle working the trip (seed `block_ref`), shown to passengers as \"Bus B03\". Extra field beyond the contract; null when no vehicle is assigned.",
+            "example": "B03",
+            "pattern": "^[A-Z][0-9]{2}$"
+          },
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
@@ -1584,6 +1602,12 @@
       "TripSummary": {
         "type": "object",
         "properties": {
+          "block_ref": {
+            "type": ["string", "null"],
+            "description": "Vehicle working the trip (seed `block_ref`), shown to passengers as \"Bus B03\". Extra field beyond the contract; null when no vehicle is assigned.",
+            "example": "B03",
+            "pattern": "^[A-Z][0-9]{2}$"
+          },
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",

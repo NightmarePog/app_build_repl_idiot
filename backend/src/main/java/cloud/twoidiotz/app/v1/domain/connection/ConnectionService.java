@@ -74,7 +74,8 @@ public class ConnectionService {
               Clock.dayOffset(leg.arrival()),
               leg.arrival() - leg.departure(),
               previousArrival == null ? null : leg.departure() - previousArrival,
-              stops));
+              stops,
+              info.blockRef()));
       previousArrival = leg.arrival();
     }
     return new ConnectionResponse(

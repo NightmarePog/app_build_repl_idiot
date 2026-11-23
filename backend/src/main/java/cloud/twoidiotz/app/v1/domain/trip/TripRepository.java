@@ -67,7 +67,8 @@ class TripRepository {
                 RouteDirection.valueOf(row.getString("direction")),
                 stop(row, "dest_id", "dest_name", "dest_image"),
                 row.getInt("arrival_minute"),
-                row.getInt("departure_minute")));
+                row.getInt("departure_minute"),
+                row.getString("block_ref")));
   }
 
   private static Trip trip(ResultSet row) throws SQLException {
@@ -78,7 +79,8 @@ class TripRepository {
         RouteDirection.valueOf(row.getString("direction")),
         stop(row, "origin_id", "origin_name", "origin_image"),
         stop(row, "dest_id", "dest_name", "dest_image"),
-        row.getInt("start_minute"));
+        row.getInt("start_minute"),
+        row.getString("block_ref"));
   }
 
   private static Line line(ResultSet row) throws SQLException {

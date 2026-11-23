@@ -39,6 +39,10 @@ export type ConnectionLeg = {
      */
     arrival_time: string;
     /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
+    /**
      * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
      */
     departure_day_offset: number;
@@ -119,6 +123,10 @@ export type Departure = {
      * Arrival at this stop.
      */
     arrival_time: string;
+    /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
     /**
      * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
@@ -229,6 +237,10 @@ export type TeamResponse = {
 
 export type TripDetail = {
     /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
+    /**
      * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
@@ -267,6 +279,10 @@ export type TripStopTime = {
 };
 
 export type TripSummary = {
+    /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
     /**
      * Day offset of the trip start, counted from its operating day.
      */
@@ -329,6 +345,10 @@ export type ConnectionLegWritable = {
      * Arrival at `to`.
      */
     arrival_time: string;
+    /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
     /**
      * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
      */
@@ -394,6 +414,10 @@ export type DepartureWritable = {
      */
     arrival_time: string;
     /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
+    /**
      * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     departure_day_offset: number;
@@ -438,6 +462,10 @@ export type StopWritable = {
 
 export type TripDetailWritable = {
     /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
+    /**
      * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
@@ -458,6 +486,10 @@ export type TripDetailWritable = {
 };
 
 export type TripSummaryWritable = {
+    /**
+     * Vehicle working the trip (seed `block_ref`), shown to passengers as "Bus B03". Extra field beyond the contract; null when no vehicle is assigned.
+     */
+    block_ref?: string | null;
     /**
      * Day offset of the trip start, counted from its operating day.
      */

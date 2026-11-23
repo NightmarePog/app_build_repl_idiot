@@ -14,16 +14,18 @@ import java.util.Set;
  * 24:14 is caught both late in the evening and just after midnight, and a search can look a full
  * day ahead or back from any time.
  *
- * <p>The network is small, so every journey (capped at {@link #MAX_CANDIDATES}) with up to {@link #MAX_LEGS} legs is enumerated instead
- * of approximated. A journey never visits a stop twice (no riding to the terminus and back), never
- * rides past its destination and changes buses only with {@link #TRANSFER_MINUTES} to spare;
- * staying on the same bus needs nothing, so zero-minute dwells and buses overtaking each other are
- * handled by time alone. The result is the Pareto set: a journey is dropped when another one leaves
- * no earlier, arrives no later and needs no more transfers.
+ * <p>The network is small, so every journey (capped at {@link #MAX_CANDIDATES}) with up to {@link
+ * #MAX_LEGS} legs is enumerated instead of approximated. A journey never visits a stop twice (no
+ * riding to the terminus and back), never rides past its destination and changes buses only with
+ * {@link #TRANSFER_MINUTES} to spare; staying on the same bus needs nothing, so zero-minute dwells
+ * and buses overtaking each other are handled by time alone. The result is the Pareto set: a
+ * journey is dropped when another one leaves no earlier, arrives no later and needs no more
+ * transfers.
  */
 final class Planner {
   static final int TRANSFER_MINUTES = 2;
   static final int MAX_LEGS = 4;
+
   /**
    * Upper bound on candidate journeys per search. The enumeration is exponential in network size,
    * so a larger network stops collecting here instead of running away; the seeded network stays far

@@ -53,7 +53,8 @@ public class TripService {
         stop(trip.destination()),
         Clock.time(start),
         Clock.dayOffset(start),
-        stops);
+        stops,
+        trip.blockRef());
   }
 
   public List<DepartureResponse> departures(long stopId) {
@@ -69,7 +70,8 @@ public class TripService {
                     Clock.time(row.arrival()),
                     Clock.dayOffset(row.arrival()),
                     Clock.time(row.departure()),
-                    Clock.dayOffset(row.departure())))
+                    Clock.dayOffset(row.departure()),
+                    row.blockRef()))
         .toList();
   }
 
@@ -82,7 +84,8 @@ public class TripService {
         stop(trip.origin()),
         stop(trip.destination()),
         Clock.time(trip.startMinute()),
-        Clock.dayOffset(trip.startMinute()));
+        Clock.dayOffset(trip.startMinute()),
+        trip.blockRef());
   }
 
   private static LineResponse line(TripRow.Line line) {

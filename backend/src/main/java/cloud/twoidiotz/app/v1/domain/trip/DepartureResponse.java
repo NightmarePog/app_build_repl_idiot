@@ -46,4 +46,13 @@ public record DepartureResponse(
                 "Calendar days after the day the trip starts. Times past midnight are"
                     + " shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with"
                     + " offset 1.")
-        int departureDayOffset) {}
+        int departureDayOffset,
+    @Schema(
+            types = {"string", "null"},
+            pattern = "^[A-Z][0-9]{2}$",
+            example = "B03",
+            description =
+                "Vehicle working the trip (seed `block_ref`), shown to passengers as"
+                    + " \"Bus B03\". Extra field beyond the contract; null when no vehicle is"
+                    + " assigned.")
+        String blockRef) {}

@@ -57,4 +57,13 @@ public record ConnectionLegResponse(
                 "Minutes waited at `from` after the previous leg arrived; null on the first leg.")
         Integer transferMinutes,
     @Schema(description = "Every call from `from` to `to`, both included, in travel order.")
-        List<ConnectionStopTimeResponse> stops) {}
+        List<ConnectionStopTimeResponse> stops,
+    @Schema(
+            types = {"string", "null"},
+            pattern = "^[A-Z][0-9]{2}$",
+            example = "B03",
+            description =
+                "Vehicle working the trip (seed `block_ref`), shown to passengers as"
+                    + " \"Bus B03\". Extra field beyond the contract; null when no vehicle is"
+                    + " assigned.")
+        String blockRef) {}

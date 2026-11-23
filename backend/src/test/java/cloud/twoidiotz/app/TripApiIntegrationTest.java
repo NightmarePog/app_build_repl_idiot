@@ -47,7 +47,8 @@ class TripApiIntegrationTest {
             "origin",
             "destination",
             "departure_time",
-            "departure_day_offset"),
+            "departure_day_offset",
+            "block_ref"),
         keys(first));
     assertEquals(Set.of("id", "number", "name", "type", "color"), keys(first.get("line")));
     assertEquals(Set.of("id", "name", "image_url"), keys(first.get("origin")));
@@ -76,6 +77,7 @@ class TripApiIntegrationTest {
     assertEquals("C", trip.get("line").get("number").asString());
     assertEquals("outbound", trip.get("direction").asString());
     assertEquals("23:52", trip.get("departure_time").asString());
+    assertEquals("C08", trip.get("block_ref").asString());
     assertEquals(0, trip.get("departure_day_offset").asInt());
     var stops = trip.get("stops");
     assertEquals(6, stops.size());
@@ -115,7 +117,8 @@ class TripApiIntegrationTest {
             "arrival_time",
             "arrival_day_offset",
             "departure_time",
-            "departure_day_offset"),
+            "departure_day_offset",
+            "block_ref"),
         keys(departures.get(0)));
     var lines = new HashSet<String>();
     var previous = -1;
@@ -359,6 +362,7 @@ class TripApiIntegrationTest {
     assertEquals("00:09", last.get("departure_time").asString());
     assertEquals(1, last.get("departure_day_offset").asInt());
     assertEquals(301007, last.get("trip_id").asLong());
+    assertEquals("C08", last.get("block_ref").asString());
 
     // Diary #8: at Syntax Square a later arrival can leave first.
     var syntax = get("/stops/" + stopId("Syntax Square") + "/departures");
