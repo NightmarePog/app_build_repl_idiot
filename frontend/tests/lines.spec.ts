@@ -33,43 +33,17 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('lists lines from the API with route strips, transfers and interchanges', async ({
-  page,
-  isMobile
-}) => {
+test('lists lines as cards with a combined network diagram', async ({ page }) => {
   await page.route('**/api/v1/lines', (r) => r.fulfill({ json: lines }));
   await page.goto('/lines');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Linky' })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { level: 2, name: 'Linka 7: Campus Express' })
-  ).toBeVisible();
-  const express = page.getByRole('listitem').filter({ hasText: 'Campus Express' }).first();
-  await expect(express.getByText('autobus', { exact: true })).toBeVisible();
-  await expect(express.getByRole('link', { name: 'Víc informací o lince 7' })).toHaveAttribute(
+  await expect(page.getByRole('heading', { level: 1, name: /Všechny linky/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Linka 7: Campus Express' })).toHaveAttribute(
     'href',
     '/lines/1'
   );
-  if (isMobile) {
-    // Phones get the interchanges in words instead of the strip diagram.
-    await expect(express.getByText(/přes\s+Kernel Hub/)).toBeVisible();
-  } else {
-    const strip = express.getByRole('list', { name: 'Trasa linky 7' });
-    await expect(strip.getByRole('link', { name: 'Kernel Hub' })).toHaveAttribute(
-      'href',
-      '/stops/8'
-    );
-    await expect(strip.getByText('přestup na linky X')).toBeAttached();
-  }
-  await expect(
-    page.getByRole('listitem').filter({ hasText: 'Náhrada za tramvaj' }).first()
-  ).toContainText('náhradní doprava');
-
-  const interchanges = page.getByRole('region', { name: 'Přestupní zastávky' });
-  await expect(interchanges.getByRole('link', { name: /Kernel Hub/ })).toHaveAttribute(
-    'href',
-    '/stops/8'
-  );
+  const diagram = page.getByRole('group', { name: 'Schéma sítě linek' });
+  await expect(diagram.locator('a[href="/stops/8"]')).toBeAttached();
 });
 
 test('explains an empty network', async ({ page }) => {
