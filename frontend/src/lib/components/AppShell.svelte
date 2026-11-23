@@ -336,13 +336,13 @@
     class:active={activeTab === 'map'}
     aria-current={activeTab === 'map' ? 'page' : undefined}
   >
-    <MapIcon aria-hidden="true" /><span>Mapa</span>
+    <MapIcon aria-hidden="true" /><span>Zastávky</span>
   </a>
   <a
     href={resolve('/lines')}
     class="tab"
     class:active={activeTab === 'lines'}
-    aria-current={page.url.pathname === '/lines' ? 'page' : undefined}
+    aria-current={activeTab === 'lines' ? 'page' : undefined}
   >
     <Route aria-hidden="true" /><span>Linky</span>
   </a>
