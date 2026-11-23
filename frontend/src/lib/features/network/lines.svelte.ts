@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { getLine, getLines, type LineDetail, type Route, type Stop } from '$lib/api/generated';
 import { inkFor } from '$lib/features/lines/line-style';
 import { ROUTE_COORDS, STOP_COORDS, type LngLat } from './routes.geo';
+import { pathThrough, pointAlong } from './map-geometry';
 
 /**
  * The transport network as served by the lines API: every line with its routes, loaded once
@@ -161,4 +162,24 @@ export function routesFrom(stops: Stop[]) {
   const known = new Set(LINE_IDS.flatMap((id) => LINES[id].stops));
   const other = stops.filter((stop) => !known.has(stop.name));
   return { routes, other };
+}
+
+/** Street path of a line through the named stops, in their order (so direction arrows point right). */
+export function linePath(id: LineId, names: string[]): LngLat[] {
+  return pathThrough(routeCoordinates(id), names.map((name) => POSITIONS[name]).filter(Boolean));
+}
+
+/**
+ * Where a bus is on the map: at stop `index` of `names`, or `share` of the way to the next one
+ * (the shape `tripPosition` returns).
+ */
+export function busAt(
+  id: LineId,
+  names: string[],
+  position: { kind: 'at' | 'between'; index: number; share: number } | null
+): LngLat | null {
+  if (!position) return null;
+  const here = POSITIONS[names[position.index]];
+  if (position.kind === 'at' || !names[position.index + 1]) return here ?? null;
+  return pointAlong(linePath(id, names.slice(position.index, position.index + 2)), position.share);
 }

@@ -6,6 +6,12 @@
   import { duration } from '$lib/features/timetable/time';
   import { inkFor } from '$lib/features/lines/line-style';
   import { lineDirectionHref, withQuery } from '$lib/links';
+  import { goto } from '$app/navigation';
+  import { busAt, linePath } from '$lib/features/network/lines.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { stopsList } from '$lib/features/network/stops-store.svelte';
+  import { clock } from '$lib/features/timetable/clock.svelte';
+  import { tripPosition } from '$lib/features/timetable/trip-position';
   import {
     absolute,
     dayNote,
@@ -64,6 +70,35 @@
     absolute(call.arrival_time, call.arrival_day_offset);
   /** The one vehicle name used on every page: "Bus B03". */
   const vehicle = (leg: ConnectionLeg) => vehicleLabel(leg.block_ref) ?? '';
+
+  const legNames = (leg: ConnectionLeg) => leg.stops.map((call) => call.stop.name);
+  const mapPaths = $derived(
+    connection.legs.map((leg) => ({
+      coords: linePath(leg.line.number, legNames(leg)),
+      color: leg.line.color
+    }))
+  );
+  const mapMarks = $derived(
+    Object.fromEntries(
+      connection.legs.flatMap((leg) => [
+        [leg.to.id, 'alight' as const],
+        [leg.from.id, 'board' as const]
+      ])
+    )
+  );
+  /** The bus of the leg under way now; only for a search from now, where times are today's. */
+  const mapBus = $derived.by(() => {
+    if (countdown === null) return null;
+    for (const leg of connection.legs) {
+      const calls = leg.stops.map((call) => ({
+        arr: absolute(call.arrival_time, call.arrival_day_offset),
+        dep: absolute(call.departure_time, call.departure_day_offset)
+      }));
+      const at = busAt(leg.line.number, legNames(leg), tripPosition(calls, clock.now));
+      if (at) return { at, color: leg.line.color, label: `Spoj linky ${leg.line.number}` };
+    }
+    return null;
+  });
 
   const spoken = $derived(
     `Odjezd ${dayNote(connection.departure_day_offset)} ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
@@ -156,6 +191,21 @@
 
   {#if open}
     <div class="detail" id={`${id}-detail`}>
+      <div class="conn-map">
+        <TransitMap
+          compact
+          label="Mapa spojení"
+          stops={stopsList() ?? []}
+          focusLines={connection.legs.map((leg) => leg.line.number)}
+          focusStops={connection.legs.flatMap((leg) => leg.stops.map((call) => call.stop.id))}
+          paths={mapPaths}
+          marks={mapMarks}
+          bus={mapBus}
+          fit={mapPaths.flatMap((path) => path.coords)}
+          legend={false}
+          onselect={(stop) => goto(stopHref(stop.id))}
+        />
+      </div>
       {#each connection.legs as leg, index (index)}
         {#if index > 0}
           <p class="transfer" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
@@ -439,6 +489,10 @@
     gap: 0.75rem;
     padding: 0.25rem 1.25rem 1.25rem;
     border-top: 1px solid var(--border);
+  }
+  .conn-map {
+    --map-ratio: 16 / 9;
+    margin-top: 0.75rem;
   }
   .leg {
     display: grid;

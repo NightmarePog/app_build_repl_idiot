@@ -19,7 +19,10 @@
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { inkFor, isPale } from '$lib/features/lines/line-style';
-  import { LINES, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
+  import { goto } from '$app/navigation';
+  import { LINES, busAt, linePath, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
   import { duration } from './time';
@@ -93,6 +96,23 @@
         : `Spoj právě odjel ze zastávky ${stops[vehicle.index].stop.name}.`
       : ''
   );
+
+  $effect(() => void loadStops());
+  const names = $derived(stops.map((s) => s.stop.name));
+  const mine = $derived(
+    trip ? linePath(trip.line.number, names.slice(part.from, part.to + 1)) : []
+  );
+  const mapPaths = $derived(
+    trip
+      ? [
+          ...(partial
+            ? [{ coords: linePath(trip.line.number, names), color: trip.line.color, opacity: 0.35 }]
+            : []),
+          { coords: mine, color: trip.line.color }
+        ]
+      : []
+  );
+  const busPoint = $derived(trip ? busAt(trip.line.number, names, vehicle) : null);
 
   /** Share 0..1 of my ride done; null (and no bar) while I am not on the road. */
   const progress = $derived(board && alight ? rideProgress(board, alight, now) : null);
@@ -305,6 +325,23 @@
         </ol>
       </div>
 
+      <div class="trip-map">
+        <TransitMap
+          compact
+          label="Mapa spoje"
+          stops={stopsList() ?? []}
+          focusLines={[trip.line.number]}
+          focusStops={stops.slice(part.from, part.to + 1).map((s) => s.stop.id)}
+          paths={mapPaths}
+          marks={{ [board.stop.id]: 'board', [alight.stop.id]: 'alight' }}
+          bus={busPoint
+            ? { at: busPoint, color: trip.line.color, label: vehicleStop || 'Poloha spoje' }
+            : null}
+          fit={mine}
+          legend={false}
+          onselect={(stop) => goto(resolve('/stops/[id]', { id: String(stop.id) }))}
+        />
+      </div>
       <aside class="infobox" aria-label="Další cesta">
         <a class="change-link" href={lineHref(trip)}>
           <LinePlate number={trip.line.number} color={trip.line.color} />
@@ -412,11 +449,27 @@
   @media (min-width: 960px) {
     .trip-grid {
       grid-template-columns: minmax(0, 1fr) 22rem;
+      grid-template-rows: auto 1fr;
       align-items: start;
     }
+    .main {
+      grid-row: 1 / 3;
+    }
+    .trip-map {
+      grid-column: 2;
+      grid-row: 1;
+    }
     .infobox {
+      grid-column: 2;
+      grid-row: 2;
       position: sticky;
       top: calc(var(--header-h, 4rem) + 1rem);
+    }
+  }
+  @media (max-width: 959px) {
+    .trip-map {
+      order: -1;
+      --map-ratio: 16 / 10;
     }
   }
   /* Countdown is the one thing to read first: filled in the line colour, larger. */

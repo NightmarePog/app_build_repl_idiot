@@ -14,10 +14,18 @@
     networkReady
   } from '$lib/features/network/lines.svelte';
   import NetworkDiagram from './NetworkDiagram.svelte';
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
+  import type { LineId } from '$lib/features/network/lines.svelte';
 
   onMount(() => {
     void loadNetwork();
+    void loadStops();
   });
+
+  let hovered = $state<LineId | null>(null);
 
   const lines = $derived(LINE_IDS.map((id) => LINES[id]!));
 </script>
@@ -43,7 +51,23 @@
 {:else}
   <section class="cards" aria-labelledby="cards-heading">
     <h2 id="cards-heading">Seznam linek</h2>
-    <LineCards />
+    <div class="overview">
+      <LineCards onhover={(id) => (hovered = id)} />
+      <div class="map">
+        <TransitMap
+          compact
+          label="Mapa linek"
+          stops={stopsList() ?? []}
+          focusLines={hovered ? [hovered] : null}
+          focusStops={hovered
+            ? (stopsList() ?? [])
+                .filter((stop) => LINES[hovered!]?.stops.includes(stop.name))
+                .map((stop) => stop.id)
+            : null}
+          onselect={(stop) => goto(resolve('/stops/[id]', { id: String(stop.id) }))}
+        />
+      </div>
+    </div>
   </section>
 
   <section class="network" aria-labelledby="network-heading">
@@ -59,6 +83,23 @@
   }
   .network {
     margin-top: 3rem;
+  }
+  .overview {
+    display: grid;
+    gap: 1.25rem;
+  }
+  @media (min-width: 64rem) {
+    .overview {
+      grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+      align-items: start;
+    }
+    .overview :global(.line-cards) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .map {
+      position: sticky;
+      top: calc(var(--header-h, 4rem) + 1rem);
+    }
   }
   .cards h2,
   .search h2 {

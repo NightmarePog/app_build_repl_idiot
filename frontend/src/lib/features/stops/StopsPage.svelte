@@ -22,7 +22,7 @@
     type LineId
   } from '$lib/features/network/lines.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
-  import NetworkView from '$lib/features/network/NetworkView.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
   import { loadStops, stopsFailed, stopsList } from '$lib/features/network/stops-store.svelte';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -403,6 +403,7 @@
             {@const lines = linesOf(stop.name)}
             <li
               class:active={selected?.id === stop.id}
+              class:hot={highlighted === stop.id}
               animate:flip={{ duration: motionMs(240) }}
               in:fade={{ duration: motionMs(180), delay: motionMs(60) }}
               out:fade={{ duration: motionMs(120) }}
@@ -448,12 +449,13 @@
 
   <div class="map">
     <div class="map-canvas">
-      <NetworkView
+      <TransitMap
         {stops}
         selected={selected?.id ?? null}
         {highlighted}
         {dimmed}
         onselect={select}
+        onhover={(stop) => (highlighted = stop?.id ?? null)}
         {line}
         inset={mapInset}
         focus
@@ -601,12 +603,12 @@
     border-bottom: 1px solid var(--border);
     transition: background-color var(--motion-fast) var(--ease-out);
   }
-  .stop-list li:hover {
+  .stop-list li:hover,
+  .stop-list li.hot {
     background: var(--muted);
   }
   .stop-list li.active {
     background: var(--accent);
-    box-shadow: inset 2px 0 0 var(--primary);
   }
   .row {
     display: grid;

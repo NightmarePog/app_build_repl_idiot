@@ -21,7 +21,8 @@
     routeCoordinates,
     type LineId
   } from './lines.svelte';
-  import { BOUNDS, MAX_BOUNDS, STYLE_URL } from './campus';
+  import { BOUNDS, MAX_BOUNDS, STYLE_URL, type LngLat } from './campus';
+  import { boundsOf, type MapPath } from './map-geometry';
   import LineBadge from './LineBadge.svelte';
   import { streetLabels } from './streets';
 
@@ -34,7 +35,16 @@
     focus = false,
     interactive = true,
     line = null,
-    inset = 0
+    inset = 0,
+    focusLines = null,
+    focusStops = null,
+    paths = [],
+    marks = {},
+    bus = null,
+    fit = null,
+    onhover,
+    cooperative = false,
+    legend = true
   }: {
     stops: Stop[];
     selected?: number | null;
@@ -50,6 +60,22 @@
     line?: LineId | null;
     /** Pixels at the bottom covered by an overlay (a mobile sheet); the camera centres above it. */
     inset?: number;
+    /** Lines drawn at full strength; the others fade into the background. */
+    focusLines?: LineId[] | null;
+    /** Stop ids drawn at full strength; the other pins fade but stay clickable. */
+    focusStops?: number[] | null;
+    /** Coloured paths with direction arrows (a direction, a trip, planner legs). */
+    paths?: MapPath[];
+    /** Boarding and alighting stops, by stop id. */
+    marks?: Record<number, 'board' | 'alight'>;
+    /** A bus under way, drawn at its current position. */
+    bus?: { at: LngLat; color: string; label: string } | null;
+    /** The camera frames these points (and refits when they change). */
+    fit?: LngLat[] | null;
+    onhover?: (stop: Stop | null) => void;
+    /** Small embedded map: scroll and one-finger drag scroll the page, not the map. */
+    cooperative?: boolean;
+    legend?: boolean;
   } = $props();
 
   const padding = () => ({ ...PADDING, bottom: PADDING.bottom + inset });
@@ -67,6 +93,12 @@
   const BEARING = -18;
   const PADDING = { top: 56, bottom: 48, left: 40, right: 40 };
   const DRIFT_DEG_PER_S = 2;
+  const FIT_PADDING = { top: 64, bottom: 36, left: 72, right: 72 };
+  const COOPERATIVE_TEXT = {
+    'CooperativeGesturesHandler.WindowsHelpText': 'Mapu přiblížíte kolečkem se stisknutým Ctrl',
+    'CooperativeGesturesHandler.MacHelpText': 'Mapu přiblížíte kolečkem se stisknutým ⌘',
+    'CooperativeGesturesHandler.MobileHelpText': 'Mapou posunete dvěma prsty'
+  };
 
   /** Base-map layers that only add clutter around a transit map. */
   const HIDDEN =
@@ -162,13 +194,50 @@
           opacity:
             line !== null && id !== line
               ? 0
-              : current && !LINES[id].stops.includes(current.name)
-                ? 0.25
-                : 1
+              : paths.length
+                ? 0.14
+                : focusLines
+                  ? focusLines.includes(id)
+                    ? 1
+                    : 0.14
+                  : current && !LINES[id].stops.includes(current.name)
+                    ? 0.25
+                    : 1
         },
         geometry: { type: 'LineString' as const, coordinates: routeCoordinates(id) }
       }))
     };
+  }
+
+  function pathsData() {
+    return {
+      type: 'FeatureCollection' as const,
+      features: paths
+        .filter((path) => path.coords.length > 1)
+        .map((path) => ({
+          type: 'Feature' as const,
+          properties: { color: resolveColor(path.color), opacity: path.opacity ?? 1 },
+          geometry: { type: 'LineString' as const, coordinates: path.coords }
+        }))
+    };
+  }
+
+  /** White chevron pointing along the line, tinted per theme (SDF). */
+  function arrowImage() {
+    const size = 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(11, 8);
+    ctx.lineTo(21, 16);
+    ctx.lineTo(11, 24);
+    ctx.stroke();
+    return ctx.getImageData(0, 0, size, size);
   }
 
   const zoomRamp = (values: [number, number, number]): ExpressionSpecification => [
@@ -253,6 +322,51 @@
       },
       before
     );
+    m.addSource('paths', { type: 'geojson', data: pathsData() });
+    m.addLayer(
+      {
+        id: 'path-casing',
+        type: 'line',
+        source: 'paths',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': zoomRamp([7, 11, 17]),
+          'line-opacity': ['get', 'opacity']
+        }
+      },
+      before
+    );
+    m.addLayer(
+      {
+        id: 'path',
+        type: 'line',
+        source: 'paths',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': zoomRamp([4.5, 7.5, 12.5]),
+          'line-opacity': ['get', 'opacity']
+        }
+      },
+      before
+    );
+    m.addImage('path-arrow', arrowImage(), { sdf: true, pixelRatio: 2 });
+    m.addLayer({
+      id: 'path-arrows',
+      type: 'symbol',
+      source: 'paths',
+      filter: ['>=', ['get', 'opacity'], 1],
+      layout: {
+        'symbol-placement': 'line',
+        'symbol-spacing': 110,
+        'icon-image': 'path-arrow',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 1, 18, 1.8],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true
+      },
+      paint: { 'icon-color': '#ffffff' }
+    });
     m.addSource('street-names', { type: 'geojson', data: streetLabels() });
     m.addLayer({
       id: 'street-names',
@@ -285,10 +399,12 @@
     const dark = isDark();
     for (const layer of m.getStyle().layers ?? []) {
       const values = dark ? darkPaint(layer) : original[layer.id];
-      if (!values || layer.id.startsWith('route')) continue;
+      if (!values || /^(route|path)/.test(layer.id)) continue;
       for (const [name, value] of Object.entries(values)) m.setPaintProperty(layer.id, name, value);
     }
     m.setPaintProperty('route-casing', 'line-color', dark ? DARK.background : '#ffffff');
+    m.setPaintProperty('path-casing', 'line-color', dark ? DARK.background : '#ffffff');
+    m.setPaintProperty('path-arrows', 'icon-color', dark ? DARK.background : '#ffffff');
     for (const [name, value] of Object.entries(streetNamePaint(dark)))
       m.setPaintProperty('street-names', name, value);
     refreshRoutes();
@@ -296,6 +412,7 @@
 
   function refreshRoutes() {
     (map?.getSource('routes') as GeoJSONSource | undefined)?.setData(routesData());
+    (map?.getSource('paths') as GeoJSONSource | undefined)?.setData(pathsData());
   }
 
   function refreshStreetNames() {
@@ -340,6 +457,8 @@
       onselect?.(stop);
     });
     el.addEventListener('focus', () => (cursor = stop.id));
+    el.addEventListener('pointerenter', () => onhover?.(stop));
+    el.addEventListener('pointerleave', () => onhover?.(null));
     el.addEventListener('keydown', (event) => onkey(event, stop));
 
     const marker = new lib!.Marker({ element: el, anchor: 'bottom', subpixelPositioning: true })
@@ -363,7 +482,10 @@
       el.classList.toggle('active', active);
       el.classList.toggle('hot', stop.id === highlighted);
       el.classList.toggle('off-line', hidden);
-      el.style.zIndex = active ? '3' : stop.id === highlighted ? '2' : '';
+      el.classList.toggle('faint', !!focusStops && !focusStops.includes(stop.id) && !active);
+      el.classList.toggle('board', marks[stop.id] === 'board');
+      el.classList.toggle('alight', marks[stop.id] === 'alight');
+      el.style.zIndex = active || marks[stop.id] ? '3' : stop.id === highlighted ? '2' : '';
     }
   }
 
@@ -411,12 +533,16 @@
         if (disposed) return;
         lib = ('default' in module ? (module as { default: MapLib }).default : module) as MapLib;
         let m: MapLibreMap;
+        const framed = untrack(() => (fit ? boundsOf(fit) : null));
+        lastFit = untrack(() => JSON.stringify(fit));
         try {
           m = new lib.Map({
             container,
             style: STYLE_URL,
-            bounds: BOUNDS,
-            fitBoundsOptions: { padding: 24 },
+            bounds: framed ?? BOUNDS,
+            fitBoundsOptions: { padding: framed ? FIT_PADDING : 24, maxZoom: 16.5 },
+            cooperativeGestures: untrack(() => cooperative),
+            locale: COOPERATIVE_TEXT,
             maxBounds: MAX_BOUNDS,
             pitch: PITCH,
             bearing: BEARING,
@@ -430,13 +556,13 @@
             // 3x screens would render 2.25x the pixels of 2x for no visible gain, and camera
             // flights then stall slower phones.
             pixelRatio: Math.min(window.devicePixelRatio, 2),
-            attributionControl: { compact: false }
+            attributionControl: { compact: untrack(() => cooperative) }
           });
         } catch {
           failed = true;
           return;
         }
-        if (live) {
+        if (live && !untrack(() => cooperative)) {
           m.addControl(new lib.NavigationControl({ visualizePitch: true }), 'bottom-right');
         }
 
@@ -446,7 +572,14 @@
           applyTheme();
         });
 
-        m.once('load', () => (painted = true));
+        m.once('load', () => {
+          painted = true;
+          reframe();
+          // Small maps keep the attribution behind its (i) button; the footer credits OSM too.
+          container
+            .querySelector('.maplibregl-compact-show')
+            ?.classList.remove('maplibregl-compact-show');
+        });
 
         // Resize and repaint synchronously: a resize clears the canvas, and waiting a frame for
         // the next render shows it blank while the window is being resized.
@@ -596,6 +729,75 @@
     });
   });
 
+  // Paths, focus and marks.
+  $effect(() => {
+    void [paths, focusLines, focusStops, marks];
+    updateMarkers();
+    untrack(() => {
+      if (ready) refreshRoutes();
+    });
+  });
+
+  // Embedded maps let the page scroll; the expanded map takes every gesture.
+  $effect(() => {
+    const m = map;
+    const on = cooperative;
+    if (!m) return;
+    if (on) m.cooperativeGestures.enable();
+    else m.cooperativeGestures.disable();
+  });
+
+  // Camera framing for detail pages: refit when the framed points change.
+  let lastFit: string | undefined;
+  $effect(() => {
+    const m = map;
+    const key = JSON.stringify(fit);
+    if (!m || !fit) return;
+    untrack(() => {
+      if (key === lastFit) return;
+      lastFit = key;
+      const bounds = boundsOf(fit!);
+      if (bounds)
+        m.fitBounds(bounds, {
+          padding: FIT_PADDING,
+          maxZoom: 16.5,
+          pitch: PITCH,
+          bearing: BEARING,
+          duration: prefersReducedMotion() ? 0 : 800
+        });
+    });
+  });
+
+  // Size changes (expand / collapse) keep the framed points in view.
+  export function reframe() {
+    const bounds = fit ? boundsOf(fit) : null;
+    if (map && bounds)
+      map.fitBounds(bounds, {
+        padding: FIT_PADDING,
+        maxZoom: 16.5,
+        pitch: PITCH,
+        bearing: BEARING,
+        duration: 0
+      });
+  }
+
+  // The running bus.
+  $effect(() => {
+    const m = map;
+    const value = bus;
+    if (!m || !lib || !value) return;
+    const el = document.createElement('span');
+    el.className = 'bus-pin';
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', value.label);
+    el.style.setProperty('--pin', value.color);
+    el.innerHTML = BUS_GLYPH;
+    const marker = new lib.Marker({ element: el, subpixelPositioning: true })
+      .setLngLat(value.at)
+      .addTo(m);
+    return () => marker.remove();
+  });
+
   const current = $derived(stops.find((stop) => stop.id === selected));
   const unplaced = $derived(stops.filter((stop) => !POSITIONS[stop.name]));
 </script>
@@ -636,11 +838,13 @@
       {/each}
     </div>
   {/if}
-  <figcaption class="legend">
-    {#each LINE_IDS as id (id)}
-      <LineBadge {id} />
-    {/each}
-  </figcaption>
+  {#if legend}
+    <figcaption class="legend">
+      {#each focusLines ?? LINE_IDS as id (id)}
+        <LineBadge {id} />
+      {/each}
+    </figcaption>
+  {/if}
 </figure>
 
 <style>
@@ -678,7 +882,7 @@
     border-radius: var(--radius);
     background: #f4f2ee;
     overflow: hidden;
-    aspect-ratio: 600 / 440;
+    aspect-ratio: var(--map-ratio, 600 / 440);
     isolation: isolate;
   }
   :global(.dark) .network-map {
@@ -843,6 +1047,52 @@
   .network-map :global(.stop-pin.active .plate) {
     transform: scale(1.3);
   }
+  .network-map :global(.stop-pin.faint) {
+    opacity: 0.45;
+  }
+  .network-map :global(.stop-pin.faint:hover),
+  .network-map :global(.stop-pin.faint:focus-visible) {
+    opacity: 1;
+  }
+  .network-map :global(.stop-pin.board .plate),
+  .network-map :global(.stop-pin.alight .plate) {
+    background: var(--foreground);
+    color: var(--background);
+    transform: scale(1.25);
+  }
+  .network-map :global(.stop-pin.board .plate rect + rect),
+  .network-map :global(.stop-pin.alight .plate rect + rect) {
+    fill: var(--foreground);
+  }
+  .network-map :global(.stop-pin.board .callout),
+  .network-map :global(.stop-pin.alight .callout) {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  .network-map :global(.bus-pin) {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2px solid var(--background);
+    border-radius: 50%;
+    background: var(--pin);
+    color: var(--background);
+    box-shadow:
+      var(--shadow-pop),
+      0 0 0 0 color-mix(in oklch, var(--pin) 60%, transparent);
+    animation: bus-pulse 2s var(--ease-out) infinite;
+  }
+  .network-map :global(.bus-pin svg rect + rect) {
+    fill: var(--pin);
+  }
+  @keyframes bus-pulse {
+    70% {
+      box-shadow:
+        var(--shadow-pop),
+        0 0 0 10px color-mix(in oklch, var(--pin) 0%, transparent);
+    }
+  }
   .network-map :global(.stop-pin.off-line) {
     opacity: 0;
     visibility: hidden;
@@ -913,6 +1163,9 @@
     .network-map :global(.stop-pin .plate),
     .network-map :global(.stop-pin .callout) {
       transition: none;
+    }
+    .network-map :global(.bus-pin) {
+      animation: none;
     }
   }
 </style>

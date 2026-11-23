@@ -7,7 +7,9 @@
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
-  import { LINES, linesOf } from '$lib/features/network/lines.svelte';
+  import { goto } from '$app/navigation';
+  import { LINES, busAt, linePath, linesOf } from '$lib/features/network/lines.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import Isa from './Isa.svelte';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
@@ -137,6 +139,24 @@
     return null;
   });
 
+  const routeNames = $derived(route?.stops.map((s) => s.name) ?? []);
+  const mapPaths = $derived(
+    line && route ? [{ coords: linePath(line.number, routeNames), color: line.color }] : []
+  );
+  const mapBus = $derived(
+    line && bus
+      ? {
+          at: busAt(line.number, routeNames, {
+            kind: bus.share ? 'between' : 'at',
+            index: bus.index,
+            share: bus.share
+          }),
+          color: line.color,
+          label: `Spoj linky ${line.number} na trase`
+        }
+      : null
+  );
+
   /** Boarding stop picked in the timetable, highlighted on the route so the panels read as one. */
   let boardStop = $state<number | null>(null);
 
@@ -262,6 +282,21 @@
               </div>
             {/if}
           </dl>
+          <div class="route-map">
+            <TransitMap
+              compact
+              label={`Mapa linky ${line.number}`}
+              stops={stopsList() ?? []}
+              focusLines={[line.number]}
+              focusStops={route.stops.map((s) => s.id)}
+              paths={mapPaths}
+              bus={mapBus?.at ? { ...mapBus, at: mapBus.at } : null}
+              fit={mapPaths[0]?.coords ?? null}
+              selected={boardStop}
+              legend={false}
+              onselect={(stop) => goto(resolve('/stops/[id]', { id: String(stop.id) }))}
+            />
+          </div>
           <div class="route-head">
             <h2 id="route-heading" class="heading">Trasa linky</h2>
             <span class="leg-head"><Clock size={16} aria-hidden="true" />Jízdní doba</span>
@@ -424,6 +459,10 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);
+  }
+  .route-map {
+    max-width: 44rem;
+    margin-top: 1rem;
   }
   .infobox div {
     display: grid;

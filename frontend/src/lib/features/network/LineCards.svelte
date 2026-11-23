@@ -10,9 +10,12 @@
 
   let {
     compact = false,
-    highlight = 0
+    highlight = 0,
+    onhover
   }: {
     compact?: boolean;
+    /** Pointer or focus on a card (null when it leaves), e.g. to light the line up on a map. */
+    onhover?: (id: LineId | null) => void;
     /** Bump to make the cards pulse one after another, e.g. after jumping to the list. */
     highlight?: number;
   } = $props();
@@ -142,6 +145,10 @@
         style:--bus-delay={line.delay}
         style:--index={index}
         onclick={(event) => drive(event, line.id, href)}
+        onpointerenter={() => onhover?.(line.id)}
+        onpointerleave={() => onhover?.(null)}
+        onfocus={() => onhover?.(line.id)}
+        onblur={() => onhover?.(null)}
         {@attach speedOnHover}
       >
         <StreetScenery seed={line.seed} scale={compact ? 0.5 : 1} road={compact ? 16 : 30} />

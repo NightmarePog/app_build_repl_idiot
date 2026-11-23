@@ -172,19 +172,26 @@
         href={tripHref(next.row.trip.id)}
         aria-label={`Nejbližší odjezd ze zastávky ${selected?.name}: ${label(next.row)}`}
       >
-        <span class="next-time tabular">{next.row.at.time}</span>
+        <span class="next-time tabular"
+          ><span class="cap">{next.tomorrow ? 'Nejbližší odjezd zítra' : 'Nejbližší odjezd'}</span
+          >{next.row.at.time}</span
+        >
         <span class="next-what">
           <span class="next-vehicle"
             ><LinePlate number={lineNumber} color={lineColor} size="sm" />{vehicle(next.row)}</span
           >
           {#if next.row.end}
             <span class="next-end tabular"
-              ><ArrowRight size={18} aria-hidden="true" />{next.row.trip.destination.name}
+              ><ArrowRight size={18} aria-hidden="true" />příjezd {next.row.trip.destination.name}
               {next.row.end.time}</span
             >
           {/if}
         </span>
-        <span class="next-when tabular">{next.tomorrow ? 'zítra' : (cd ?? 'teď')}</span>
+        <span class="next-when tabular"
+          >{next.tomorrow
+            ? 'zítra'
+            : (cd ?? `za ${Math.floor(next.until / 60)} h ${next.until % 60} min`)}</span
+        >
       </a>
     {/if}
 
@@ -194,6 +201,12 @@
           Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
           hodinách. Každá minuta otevře detail spoje.
         </caption>
+        <thead>
+          <tr>
+            <th scope="col" class="col-head">Hodina</th>
+            <th scope="col" class="col-head">Minuta odjezdu · bus</th>
+          </tr>
+        </thead>
         <tbody>
           {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
             {@const isNow = holdsNow(h)}
@@ -260,6 +273,21 @@
 </section>
 
 <style>
+  .cap {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm, 0.875rem);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  .col-head {
+    padding: 0.5rem 0.75rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm, 0.875rem);
+    font-weight: 600;
+    text-align: left;
+  }
   /* A posted stop timetable: hours down the left, every departure of the hour in one dense row. */
   .trips {
     min-width: 0;

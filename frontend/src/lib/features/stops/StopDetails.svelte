@@ -5,13 +5,20 @@
   import { plannerHref } from '$lib/features/planner/planner';
   import type { Stop } from '$lib/api/generated';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
-  import { LINES, linesOf } from '$lib/features/network/lines.svelte';
+  import { goto } from '$app/navigation';
+  import { LINES, POSITIONS, linesOf, neighboursOf } from '$lib/features/network/lines.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import StopImage from './StopImage.svelte';
   import DepartureBoard from '$lib/features/timetable/DepartureBoard.svelte';
   import { AMENITIES } from './amenities';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { stop }: { stop: Stop } = $props();
+
+  $effect(() => void loadStops());
+  const near = $derived([stop.name, ...neighboursOf(stop.name)]);
+  const mapStops = $derived(stopsList() ?? [stop]);
 </script>
 
 <!-- Wikipedia-style: the board is the article, the stop facts sit in a sticky infobox. -->
@@ -64,6 +71,20 @@
           </li>
         {/each}
       </ul>
+      <div class="map">
+        <TransitMap
+          compact
+          label={`Mapa okolí zastávky ${stop.name}`}
+          stops={mapStops}
+          selected={stop.id}
+          focusLines={linesOf(stop.name)}
+          focusStops={mapStops.filter((s) => near.includes(s.name)).map((s) => s.id)}
+          fit={near.map((name) => POSITIONS[name]).filter(Boolean)}
+          legend={false}
+          onselect={(other) =>
+            other.id !== stop.id && goto(resolve('/stops/[id]', { id: String(other.id) }))}
+        />
+      </div>
       <Button href={plannerHref({ to: stop.id })} size="lg" class="w-full">
         <Route aria-hidden="true" /> Trasa
       </Button>
@@ -109,6 +130,9 @@
   }
   .photo {
     position: relative;
+  }
+  .map {
+    --map-ratio: 1 / 1;
   }
   .info-heading {
     font-size: var(--fs-base);
@@ -218,6 +242,9 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem 0.75rem;
+    }
+    .map {
+      --map-ratio: 16 / 10;
     }
     .amenities .icon {
       width: 1.75rem;

@@ -7,7 +7,7 @@
   import { ArrowRight } from '@lucide/svelte';
   import PlannerForm from '$lib/features/planner/PlannerForm.svelte';
   import { Button } from '$lib/ui/button';
-  import NetworkView from '$lib/features/network/NetworkView.svelte';
+  import TransitMap from '$lib/features/network/TransitMap.svelte';
   import LineCards from '$lib/features/network/LineCards.svelte';
   import {
     isTransfer,
@@ -82,7 +82,7 @@
 
     <div class="preview">
       <div class="preview-map" inert aria-hidden="true">
-        <NetworkView interactive={false} stops={stopsList() ?? []} />
+        <TransitMap interactive={false} stops={stopsList() ?? []} />
       </div>
       <a href={resolve('/stops')} class="preview-link" aria-label="Otevřít mapu zastávek"></a>
     </div>
