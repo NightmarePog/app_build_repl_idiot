@@ -1,6 +1,7 @@
 /**
  * One fetch pattern for every page: abort on change, 10 s timeout, retry, and a typed failure.
- * `load` throws a `ResourceError` ('missing' for a 404, anything else 'unavailable'); `unwrap`
+ * `load` throws a `ResourceError` ('missing' for a 404 or a 400 bad id, anything else
+ * 'unavailable'); `unwrap`
  * does that mapping for a generated SDK call. While a retry loads, the previous data stays on
  * screen (`loading` is true). When `key` changes (another trip, another line) the old data is
  * dropped at once, so a page never shows the previous record under the new id.
@@ -14,7 +15,8 @@ export class ResourceError extends Error {
 /** The SDK result without throwOnError: data, or a ResourceError for 404 and other failures. */
 export async function unwrap<T>(call: Promise<{ data?: T; response?: Response }>): Promise<T> {
   const { data, response } = await call;
-  if (response?.status === 404) throw new ResourceError('missing');
+  // A malformed id (400) is as much "no such record" as an unknown one (404).
+  if (response?.status === 404 || response?.status === 400) throw new ResourceError('missing');
   if (data === undefined || !response?.ok) throw new ResourceError('unavailable');
   return data;
 }

@@ -34,15 +34,15 @@
   --input: oklch(0.68 0.01 75);
   --ring: var(--primary);
   --brand: var(--primary);
-  --sign-marker: #91f5ad;
+  --sign-marker: var(--board-led);
   /* Platform display: always dark in both themes (brand black #1A1A1A), times in the brand
      green #91F5AD (docs/brand); the palette has no amber or yellow. */
-  --board-bg: #1a1a1a;
-  --board-fg: #f5f3ee;
+  --board-bg: oklch(0.218 0 0);
+  --board-fg: oklch(0.964 0.007 88.6);
   --board-muted: oklch(0.74 0.012 80);
   --board-raised: oklch(0.27 0.004 70);
   --board-line: oklch(0.32 0.004 70);
-  --board-led: #91f5ad;
+  --board-led: oklch(0.89 0.138 151.8);
   --sign-marker-foreground: oklch(0.21 0.008 70);
   /* Board details: secondary text, flap tiles, skeleton shimmer and the light sweep. Warnings
      on the board are a tint of the same brand green with an outline, never a new colour. */
@@ -82,8 +82,8 @@
   --weight-regular: 500;
   --weight-strong: 700;
   --tracking-eyebrow: 0.1em;
-  --ink-on-line-dark: #1a1a1a;
-  --ink-on-line-light: #ffffff;
+  --ink-on-line-dark: var(--board-bg);
+  --ink-on-line-light: oklch(1 0 0);
   --motion-xslow: 900ms;
   --ease-in: cubic-bezier(0.55, 0, 0.9, 0.4);
   --shadow-sm: 0 1px 2px oklch(0.21 0.008 70 / 0.1);
