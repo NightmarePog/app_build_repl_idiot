@@ -33,8 +33,12 @@ final class Planner {
    */
   static final int MAX_CANDIDATES = 10_000;
 
-  /** Longest wait at a transfer stop; longer waits are not a usable connection (no overnight stays). */
-  static final int MAX_TRANSFER_WAIT_MINUTES = 180;
+  /**
+   * Longest wait at a transfer stop. Six hours keeps long same-day waits (e.g. 15:46 to 20:17 at
+   * Kernel Hub, the only way from Quantum Commons to Hopper Hall) but rules out overnight stays.
+   * Pareto pruning already drops a long wait whenever a better journey exists.
+   */
+  static final int MAX_TRANSFER_WAIT_MINUTES = 360;
 
   private static final int DAY = 24 * 60;
 

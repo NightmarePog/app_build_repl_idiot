@@ -86,7 +86,8 @@ public class V11__seed_timetable extends BaseJavaMigration {
   private static JsonNode number(JsonNode row, String field) {
     var value = present(row, field);
     if (!value.isIntegralNumber()) {
-      throw new IllegalStateException("Timetable seed row needs " + field + " as an integer: " + row);
+      throw new IllegalStateException(
+          "Timetable seed row needs " + field + " as an integer: " + row);
     }
     return value;
   }

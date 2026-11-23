@@ -35,8 +35,7 @@ class TripApiIntegrationTest {
 
   @Test
   void seedsTheBlockRefOfEveryTripFromTripsJson() throws Exception {
-    var json =
-        mapper.readTree(getClass().getResourceAsStream("/seed/v11/trips.json")).get("trips");
+    var json = mapper.readTree(getClass().getResourceAsStream("/seed/v11/trips.json")).get("trips");
     assertEquals(16, json.size());
     assertEquals(16, count("SELECT count(DISTINCT block_ref) FROM trip WHERE source_ref ~ '^T'"));
     try (var c = dataSource.getConnection();

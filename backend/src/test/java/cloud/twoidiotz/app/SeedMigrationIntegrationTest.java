@@ -169,7 +169,8 @@ class SeedMigrationIntegrationTest {
         var rows =
             connection
                 .createStatement()
-                .executeQuery("SELECT source_ref, block_ref FROM trip WHERE source_ref IS NOT NULL")) {
+                .executeQuery(
+                    "SELECT source_ref, block_ref FROM trip WHERE source_ref IS NOT NULL")) {
       while (rows.next()) {
         actual.put(rows.getString(1), rows.getString(2));
       }
