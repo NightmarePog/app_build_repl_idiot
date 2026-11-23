@@ -47,6 +47,7 @@ export function withSearch(path: ResolvedPathname, search: string): ResolvedPath
 /** One label per destination, shared by the header, tab bar, footer and command palette. */
 export const NAV_LABELS = {
   home: 'Úvod',
+  connections: 'Spojení',
   stops: 'Zastávky',
   lines: 'Linky'
 } as const;

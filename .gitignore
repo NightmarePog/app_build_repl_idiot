@@ -11,3 +11,4 @@ backend/build/
 *.log
 frontend/playwright-report/
 frontend/test-results/
+.claude/

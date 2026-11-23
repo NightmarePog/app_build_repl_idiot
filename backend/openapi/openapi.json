@@ -29,6 +29,106 @@
     }
   ],
   "paths": {
+    "/connections": {
+      "get": {
+        "description": "Plans journeys from `from` to `to` over the daily timetable with the Connection Scan Algorithm, including changes between buses at the same stop (at least `min_transfer_minutes`, staying on the same bus needs no time). With `mode=departure` it returns the first `limit` connections leaving at or after `time`; with `mode=arrival` the last `limit` connections arriving at or before `time`. Only Pareto-optimal connections are returned: none leaves earlier, arrives later and changes more often than another. The search looks up to 24 hours ahead (or back) and wraps past midnight; day offsets count from the search day. Connections are ordered by departure. No connection gives an empty array.",
+        "operationId": "searchConnections",
+        "parameters": [
+          {
+            "description": "Origin stop id.",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 2,
+              "minimum": 1
+            }
+          },
+          {
+            "description": "Destination stop id; must differ from `from`.",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 11,
+              "minimum": 1
+            }
+          },
+          {
+            "description": "Time of day `HH:MM`; defaults to the current time in Europe/Prague.",
+            "in": "query",
+            "name": "time",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "07:00",
+              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            }
+          },
+          {
+            "description": "`departure` (leave at or after `time`, default) or `arrival`.",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "departure",
+              "enum": ["departure", "arrival"]
+            }
+          },
+          {
+            "description": "Maximum number of connections, 1 to 20.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "maximum": 20,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionSearch"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid query: `Missing from stop ID`, `Invalid from stop ID`, `Missing to stop ID`, `Invalid to stop ID`, `From and to must differ`, `Invalid time`, `Invalid mode` or `Invalid limit`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The origin or destination stop does not exist (`Stop not found`)."
+          }
+        },
+        "summary": "Search connections between two stops",
+        "tags": ["Connections"]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -809,6 +909,233 @@
   },
   "components": {
     "schemas": {
+      "Connection": {
+        "type": "object",
+        "description": "One journey from the origin to the destination, possibly with transfers.",
+        "properties": {
+          "arrival_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "arrival_time": {
+            "type": "string",
+            "example": "07:34",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "departure_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "departure_time": {
+            "type": "string",
+            "example": "07:05",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "example": 29,
+            "minimum": 0
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionLeg"
+            }
+          },
+          "transfers": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of changes between buses.",
+            "example": 1,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "arrival_day_offset",
+          "arrival_time",
+          "departure_day_offset",
+          "departure_time",
+          "duration_minutes",
+          "legs",
+          "transfers"
+        ]
+      },
+      "ConnectionLeg": {
+        "type": "object",
+        "description": "One ride on one trip, from boarding to alighting.",
+        "properties": {
+          "arrival_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "arrival_time": {
+            "type": "string",
+            "description": "Arrival at `to`.",
+            "example": "07:11",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "departure_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "departure_time": {
+            "type": "string",
+            "description": "Departure from `from`.",
+            "example": "07:05",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/StopSummary",
+            "description": "Final stop of the trip (its headsign)."
+          },
+          "direction": {
+            "type": "string",
+            "description": "`outbound` travels away from the line's starting stop; `inbound` travels back towards it.",
+            "enum": ["outbound", "inbound"]
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "example": 6,
+            "minimum": 0
+          },
+          "from": {
+            "$ref": "#/components/schemas/StopSummary",
+            "description": "Boarding stop."
+          },
+          "line": {
+            "$ref": "#/components/schemas/Line"
+          },
+          "stops": {
+            "type": "array",
+            "description": "Every call from `from` to `to`, both included, in travel order.",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionStopTime"
+            }
+          },
+          "to": {
+            "$ref": "#/components/schemas/StopSummary",
+            "description": "Alighting stop."
+          },
+          "transfer_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Minutes waited at `from` after the previous leg arrived; null on the first leg.",
+            "example": 9,
+            "minimum": 0
+          },
+          "trip_id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 201001,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "arrival_day_offset",
+          "arrival_time",
+          "departure_day_offset",
+          "departure_time",
+          "destination",
+          "direction",
+          "duration_minutes",
+          "from",
+          "line",
+          "stops",
+          "to",
+          "transfer_minutes",
+          "trip_id"
+        ]
+      },
+      "ConnectionSearch": {
+        "type": "object",
+        "properties": {
+          "connections": {
+            "type": "array",
+            "description": "Connections in ascending order of departure; may be empty.",
+            "items": {
+              "$ref": "#/components/schemas/Connection"
+            }
+          },
+          "from": {
+            "$ref": "#/components/schemas/StopSummary"
+          },
+          "min_transfer_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minimum time for changing buses.",
+            "example": 2,
+            "minimum": 0
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["departure", "arrival"]
+          },
+          "time": {
+            "type": "string",
+            "description": "The searched time (the request's, or the current Prague time).",
+            "example": "07:00",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "to": {
+            "$ref": "#/components/schemas/StopSummary"
+          }
+        },
+        "required": ["connections", "from", "min_transfer_minutes", "mode", "time", "to"]
+      },
+      "ConnectionStopTime": {
+        "type": "object",
+        "description": "One call of the bus during a leg, from the boarding stop to the alighting stop.",
+        "properties": {
+          "arrival_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "arrival_time": {
+            "type": "string",
+            "example": "07:04",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "departure_day_offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.",
+            "example": 0,
+            "minimum": -1
+          },
+          "departure_time": {
+            "type": "string",
+            "example": "07:05",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "stop": {
+            "$ref": "#/components/schemas/StopSummary"
+          }
+        },
+        "required": [
+          "arrival_day_offset",
+          "arrival_time",
+          "departure_day_offset",
+          "departure_time",
+          "stop"
+        ]
+      },
       "Departure": {
         "type": "object",
         "properties": {

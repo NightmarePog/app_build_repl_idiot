@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateLineData, CreateLineErrors, CreateLineResponses, CreateStopData, CreateStopErrors, CreateStopResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetLineData, GetLineErrors, GetLineResponses, GetLinesData, GetLinesResponses, GetStopData, GetStopErrors, GetStopLinesData, GetStopLinesErrors, GetStopLinesResponses, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, GetTripData, GetTripErrors, GetTripResponses, ListLineTripsData, ListLineTripsErrors, ListLineTripsResponses, ListStopDeparturesData, ListStopDeparturesErrors, ListStopDeparturesResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
-import { zCreateLineBody, zCreateLineResponse, zCreateStopBody, zCreateStopResponse, zDeleteLinePath, zDeleteLineResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetLinePath, zGetLineResponse, zGetLinesResponse, zGetStopLinesPath, zGetStopLinesResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zGetTripPath, zGetTripResponse, zListLineTripsPath, zListLineTripsResponse, zListStopDeparturesPath, zListStopDeparturesResponse, zUpdateLineBody, zUpdateLinePath, zUpdateLineResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
+import type { CreateLineData, CreateLineErrors, CreateLineResponses, CreateStopData, CreateStopErrors, CreateStopResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetLineData, GetLineErrors, GetLineResponses, GetLinesData, GetLinesResponses, GetStopData, GetStopErrors, GetStopLinesData, GetStopLinesErrors, GetStopLinesResponses, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, GetTripData, GetTripErrors, GetTripResponses, ListLineTripsData, ListLineTripsErrors, ListLineTripsResponses, ListStopDeparturesData, ListStopDeparturesErrors, ListStopDeparturesResponses, SearchConnectionsData, SearchConnectionsErrors, SearchConnectionsResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
+import { zCreateLineBody, zCreateLineResponse, zCreateStopBody, zCreateStopResponse, zDeleteLinePath, zDeleteLineResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetLinePath, zGetLineResponse, zGetLinesResponse, zGetStopLinesPath, zGetStopLinesResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zGetTripPath, zGetTripResponse, zListLineTripsPath, zListLineTripsResponse, zListStopDeparturesPath, zListStopDeparturesResponse, zSearchConnectionsQuery, zSearchConnectionsResponse, zUpdateLineBody, zUpdateLinePath, zUpdateLineResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -20,6 +20,22 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Search connections between two stops
+ *
+ * Plans journeys from `from` to `to` over the daily timetable with the Connection Scan Algorithm, including changes between buses at the same stop (at least `min_transfer_minutes`, staying on the same bus needs no time). With `mode=departure` it returns the first `limit` connections leaving at or after `time`; with `mode=arrival` the last `limit` connections arriving at or before `time`. Only Pareto-optimal connections are returned: none leaves earlier, arrives later and changes more often than another. The search looks up to 24 hours ahead (or back) and wraps past midnight; day offsets count from the search day. Connections are ordered by departure. No connection gives an empty array.
+ */
+export const searchConnections = <ThrowOnError extends boolean = false>(options: Options<SearchConnectionsData, ThrowOnError>): RequestResult<SearchConnectionsResponses, SearchConnectionsErrors, ThrowOnError> => (options.client ?? client).get<SearchConnectionsResponses, SearchConnectionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: zSearchConnectionsQuery
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSearchConnectionsResponse.parseAsync(data),
+    url: '/connections',
+    ...options
+});
 
 /**
  * Get health detail

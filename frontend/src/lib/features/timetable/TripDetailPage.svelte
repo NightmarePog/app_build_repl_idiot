@@ -18,9 +18,10 @@
   import { inkFor, isPale } from '$lib/features/lines/line-style';
   import { LINES, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
   import LinePlate from './LinePlate.svelte';
+  import TripSooner from './TripSooner.svelte';
   import { clock } from './clock.svelte';
   import { Button } from '$lib/ui/button';
-  import { duration } from './time';
+  import { duration, minutesUntil } from './time';
   import {
     boarding,
     nextTrip as nextTripOf,
@@ -87,6 +88,13 @@
 
   /** What the trip is doing right now, in one sentence: the one thing the timetable lacks. */
   const status = $derived(board ? tripStatus(stops, fromIndex, board.departure_time, now) : null);
+
+  /** Minutes until this trip next leaves the boarding stop (tomorrow's run once today's is gone). */
+  const wait = $derived(
+    board ? (minutesUntil(board.dep, now) ?? (board.dep + 1440 - (now % 1440)) % 1440) : 0
+  );
+  /** Far off or gone: worth suggesting rides that reach the terminus sooner. */
+  const suggestSooner = $derived(!vehicle && wait > 30);
 
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
   const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
@@ -223,6 +231,15 @@
           </p>
         </section>
         <p class="sr-only" aria-live="polite">{vehicleStop}</p>
+        {#if suggestSooner && board.stop.id !== last.stop.id}
+          <TripSooner
+            from={board.stop.id}
+            to={last.stop.id}
+            toName={last.stop.name}
+            arrival={now + wait + (last.arr - board.dep)}
+            {now}
+          />
+        {/if}
       </aside>
       <div class="main">
         <h2 class="section-title" id="timetable-heading">Jízdní řád spoje</h2>

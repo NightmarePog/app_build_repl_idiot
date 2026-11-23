@@ -4,6 +4,112 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}/api/v1` | (string & {});
 };
 
+/**
+ * One journey from the origin to the destination, possibly with transfers.
+ */
+export type Connection = {
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    arrival_day_offset: number;
+    arrival_time: string;
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    departure_day_offset: number;
+    departure_time: string;
+    duration_minutes: number;
+    legs: Array<ConnectionLeg>;
+    /**
+     * Number of changes between buses.
+     */
+    transfers: number;
+};
+
+/**
+ * One ride on one trip, from boarding to alighting.
+ */
+export type ConnectionLeg = {
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    arrival_day_offset: number;
+    /**
+     * Arrival at `to`.
+     */
+    arrival_time: string;
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    departure_day_offset: number;
+    /**
+     * Departure from `from`.
+     */
+    departure_time: string;
+    /**
+     * Final stop of the trip (its headsign).
+     */
+    destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
+    direction: 'outbound' | 'inbound';
+    duration_minutes: number;
+    /**
+     * Boarding stop.
+     */
+    from: StopSummary;
+    line: Line;
+    /**
+     * Every call from `from` to `to`, both included, in travel order.
+     */
+    stops: Array<ConnectionStopTime>;
+    /**
+     * Alighting stop.
+     */
+    to: StopSummary;
+    /**
+     * Minutes waited at `from` after the previous leg arrived; null on the first leg.
+     */
+    transfer_minutes: number | null;
+    trip_id: number;
+};
+
+export type ConnectionSearch = {
+    /**
+     * Connections in ascending order of departure; may be empty.
+     */
+    connections: Array<Connection>;
+    from: StopSummary;
+    /**
+     * Minimum time for changing buses.
+     */
+    min_transfer_minutes: number;
+    mode: 'departure' | 'arrival';
+    /**
+     * The searched time (the request's, or the current Prague time).
+     */
+    time: string;
+    to: StopSummary;
+};
+
+/**
+ * One call of the bus during a leg, from the boarding stop to the alighting stop.
+ */
+export type ConnectionStopTime = {
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    arrival_day_offset: number;
+    arrival_time: string;
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    departure_day_offset: number;
+    departure_time: string;
+    stop: StopSummary;
+};
+
 export type Departure = {
     /**
      * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
@@ -189,6 +295,95 @@ export type TripSummary = {
     route_id: number;
 };
 
+/**
+ * One journey from the origin to the destination, possibly with transfers.
+ */
+export type ConnectionWritable = {
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    arrival_day_offset: number;
+    arrival_time: string;
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    departure_day_offset: number;
+    departure_time: string;
+    duration_minutes: number;
+    legs: Array<ConnectionLegWritable>;
+    /**
+     * Number of changes between buses.
+     */
+    transfers: number;
+};
+
+/**
+ * One ride on one trip, from boarding to alighting.
+ */
+export type ConnectionLegWritable = {
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    arrival_day_offset: number;
+    /**
+     * Arrival at `to`.
+     */
+    arrival_time: string;
+    /**
+     * Calendar days after the search day (-1, 0, 1 or 2). A connection found for 23:50 that arrives at 00:14 has arrival offset 1; an arrival search for 00:20 may start the evening before, offset -1.
+     */
+    departure_day_offset: number;
+    /**
+     * Departure from `from`.
+     */
+    departure_time: string;
+    /**
+     * Final stop of the trip (its headsign).
+     */
+    destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
+    direction: 'outbound' | 'inbound';
+    duration_minutes: number;
+    /**
+     * Boarding stop.
+     */
+    from: StopSummary;
+    line: LineWritable;
+    /**
+     * Every call from `from` to `to`, both included, in travel order.
+     */
+    stops: Array<ConnectionStopTime>;
+    /**
+     * Alighting stop.
+     */
+    to: StopSummary;
+    /**
+     * Minutes waited at `from` after the previous leg arrived; null on the first leg.
+     */
+    transfer_minutes: number | null;
+    trip_id: number;
+};
+
+export type ConnectionSearchWritable = {
+    /**
+     * Connections in ascending order of departure; may be empty.
+     */
+    connections: Array<ConnectionWritable>;
+    from: StopSummary;
+    /**
+     * Minimum time for changing buses.
+     */
+    min_transfer_minutes: number;
+    mode: 'departure' | 'arrival';
+    /**
+     * The searched time (the request's, or the current Prague time).
+     */
+    time: string;
+    to: StopSummary;
+};
+
 export type DepartureWritable = {
     /**
      * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
@@ -290,6 +485,56 @@ export type TripSummaryWritable = {
      */
     route_id: number;
 };
+
+export type SearchConnectionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Origin stop id.
+         */
+        from: number;
+        /**
+         * Destination stop id; must differ from `from`.
+         */
+        to: number;
+        /**
+         * Time of day `HH:MM`; defaults to the current time in Europe/Prague.
+         */
+        time?: string;
+        /**
+         * `departure` (leave at or after `time`, default) or `arrival`.
+         */
+        mode?: 'departure' | 'arrival';
+        /**
+         * Maximum number of connections, 1 to 20.
+         */
+        limit?: number;
+    };
+    url: '/connections';
+};
+
+export type SearchConnectionsErrors = {
+    /**
+     * Invalid query: `Missing from stop ID`, `Invalid from stop ID`, `Missing to stop ID`, `Invalid to stop ID`, `From and to must differ`, `Invalid time`, `Invalid mode` or `Invalid limit`.
+     */
+    400: Error;
+    /**
+     * The origin or destination stop does not exist (`Stop not found`).
+     */
+    404: Error;
+};
+
+export type SearchConnectionsError = SearchConnectionsErrors[keyof SearchConnectionsErrors];
+
+export type SearchConnectionsResponses = {
+    /**
+     * OK
+     */
+    200: ConnectionSearch;
+};
+
+export type SearchConnectionsResponse = SearchConnectionsResponses[keyof SearchConnectionsResponses];
 
 export type GetHealthData = {
     body?: never;

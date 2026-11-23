@@ -5,18 +5,18 @@ package cloud.twoidiotz.app.v1.domain.trip;
  * counted from the day on which the trip starts. The schema keeps every trip start before 24:00, so
  * the offset is the number of whole days after the operating day's midnight.
  */
-final class Clock {
-  static final String PATTERN = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
-  static final int DAY = 24 * 60;
+public final class Clock {
+  public static final String PATTERN = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
+  public static final int DAY = 24 * 60;
 
   private Clock() {}
 
-  static String time(int minutes) {
+  public static String time(int minutes) {
     var clock = Math.floorMod(minutes, DAY);
     return "%02d:%02d".formatted(clock / 60, clock % 60);
   }
 
-  static int dayOffset(int minutes) {
+  public static int dayOffset(int minutes) {
     return Math.floorDiv(minutes, DAY);
   }
 }

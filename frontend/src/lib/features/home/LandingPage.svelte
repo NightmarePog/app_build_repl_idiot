@@ -4,7 +4,8 @@
   import { reveal } from '$lib/motion';
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
-  import { ArrowRight, Search } from '@lucide/svelte';
+  import { ArrowRight } from '@lucide/svelte';
+  import PlannerForm from '$lib/features/planner/PlannerForm.svelte';
   import { Button } from '$lib/ui/button';
   import NetworkView from '$lib/features/network/NetworkView.svelte';
   import LineCards from '$lib/features/network/LineCards.svelte';
@@ -64,23 +65,19 @@
           {transferWord}{/if}. U každé zastávky uvidíte, jestli má nástup bez schodů, střechu a
         automat na jízdenky.
       </p>
+      <section class="hero-planner" aria-labelledby="hero-plan-title">
+        <h2 id="hero-plan-title" class="hero-plan-title">Vyhledat spojení</h2>
+        <PlannerForm compact headingId="hero-plan-title" />
+      </section>
+
       <div class="actions">
-        <Button href={resolve('/stops')} size="lg">
+        <Button href={resolve('/stops')} size="lg" variant="outline">
           Otevřít mapu <ArrowRight data-icon="inline-end" aria-hidden="true" />
         </Button>
         <a href={withHash(resolve('/'), 'lines')} class="text-link" onclick={() => highlightLines++}
           >Seznam linek</a
         >
       </div>
-
-      <form class="quick-search" role="search" method="GET" action={resolve('/stops')}>
-        <label class="search">
-          <Search aria-hidden="true" size={20} />
-          <span class="sr-only">Hledat zastávku podle názvu</span>
-          <input name="q" type="search" placeholder="Název zastávky" autocomplete="off" />
-        </label>
-        <Button type="submit" variant="outline">Hledat</Button>
-      </form>
     </div>
 
     <div class="preview">
@@ -139,6 +136,16 @@
     align-items: center;
     gap: 0.75rem 1.5rem;
   }
+  .hero-planner {
+    display: grid;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 34rem;
+  }
+  .hero-plan-title {
+    font-size: var(--fs-lg);
+    font-weight: var(--font-display-weight);
+  }
   .text-link {
     display: inline-flex;
     align-items: center;
@@ -150,44 +157,6 @@
   }
   .text-link:hover {
     text-decoration-color: currentColor;
-  }
-  .quick-search {
-    display: flex;
-    gap: 0.5rem;
-    width: 100%;
-    max-width: 26rem;
-    margin-top: 0.75rem;
-  }
-  .search {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 0.625rem;
-    min-width: 0;
-    min-height: 2.75rem;
-    padding: 0 0.75rem;
-    border: 1px solid var(--input);
-    border-radius: var(--radius-md);
-    background: var(--card);
-    color: var(--muted-foreground);
-    cursor: text;
-    transition: border-color var(--motion-fast) var(--ease-out);
-  }
-  .search:focus-within {
-    border-color: var(--ring);
-    outline: 2px solid color-mix(in oklch, var(--ring) 35%, transparent);
-  }
-  .search input {
-    flex: 1;
-    min-width: 0;
-    background: transparent;
-    border: 0;
-    outline: 0;
-    color: var(--foreground);
-    font: inherit;
-  }
-  .quick-search :global(button) {
-    min-height: 2.75rem;
   }
   .preview {
     position: relative;
@@ -239,11 +208,6 @@
     }
     .intro {
       grid-template-columns: minmax(0, 1fr);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .search {
-      transition: none;
     }
   }
   .kind-label {

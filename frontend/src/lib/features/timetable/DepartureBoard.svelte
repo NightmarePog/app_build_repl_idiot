@@ -30,6 +30,13 @@
   let lineFilter = $state<string[]>([]);
   /** "Kam jedete": only trips that later reach this stop, with the arrival time there. */
   let target = $state<number | null>(null);
+  let destQuery = $state('');
+  const fold = (text: string) =>
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
 
   $effect(() => {
     void loadNetwork();
@@ -254,22 +261,38 @@
           </div>
         {/if}
         {#if reachable.length > 0}
-          <label class="dests">
-            <span class="dests-label">Kam jedete</span>
-            <select
-              value={target ?? ''}
-              onchange={(event) => {
-                const value = event.currentTarget.value;
-                target = value ? Number(value) : null;
-                limit = PAGE;
-              }}
-            >
-              <option value="">Kamkoli</option>
-              {#each reachable as [id, name] (id)}
-                <option value={id}>{name}</option>
-              {/each}
-            </select>
-          </label>
+          <div class="dests">
+            <label class="dests-label" for="board-dest">Kam jedete</label>
+            <div class="dests-field">
+              <input
+                id="board-dest"
+                type="search"
+                list="board-dest-options"
+                placeholder="Hledat cílovou zastávku"
+                autocomplete="off"
+                value={destQuery}
+                oninput={(event) => {
+                  destQuery = event.currentTarget.value;
+                  const key = fold(destQuery);
+                  const hit = reachable.find(([, name]) => fold(name) === key);
+                  target = hit ? hit[0] : null;
+                  limit = PAGE;
+                }}
+              />
+              <datalist id="board-dest-options">
+                {#each reachable as [id, name] (id)}
+                  <option value={name}></option>
+                {/each}
+              </datalist>
+            </div>
+            <span class="dests-hint" aria-live="polite">
+              {target === null
+                ? destQuery.trim()
+                  ? 'Vyberte zastávku ze seznamu'
+                  : 'Zobrazujeme spoje do všech zastávek'
+                : 'Jen spoje, které tam jedou, s časem příjezdu'}
+            </span>
+          </div>
         {/if}
       </div>
     {/if}
@@ -472,9 +495,9 @@
   }
   .controls {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
     margin-top: 1rem;
   }
   .segmented {
@@ -731,8 +754,10 @@
   }
   .dests {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: 24rem;
   }
   .dests-label {
     color: var(--board-muted);
@@ -741,22 +766,33 @@
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  .dests select {
-    min-height: 2.5rem;
-    max-width: 14rem;
-    padding: 0 2rem 0 0.75rem;
+  .dests-field input {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 1rem 0 2.5rem;
     border: 1.5px solid color-mix(in oklch, var(--board-fg) 55%, transparent);
     border-radius: var(--radius-pill);
     background: var(--board-raised)
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E")
-      no-repeat right 0.75rem center;
-    appearance: none;
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
+      no-repeat 0.9rem center;
     color: var(--board-fg);
     font: inherit;
     font-weight: var(--weight-strong);
   }
-  .dests select:hover {
+  .dests-field input::placeholder {
+    color: var(--board-muted);
+    font-weight: normal;
+  }
+  .dests-field input:hover {
     border-color: var(--board-fg);
+  }
+  .dests-field input:focus-visible {
+    outline: 2px solid var(--sign-marker);
+    outline-offset: 2px;
+  }
+  .dests-hint {
+    color: var(--board-muted);
+    font-size: var(--fs-xs);
   }
   .time .day {
     margin-right: 0.35em;
@@ -772,10 +808,6 @@
       margin: 0;
       line-height: 1;
     }
-  }
-  .dests select:focus-visible {
-    outline: 2px solid var(--sign-marker);
-    outline-offset: 2px;
   }
   .hero {
     display: grid;

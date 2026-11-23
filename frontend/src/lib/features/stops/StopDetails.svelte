@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Check, MapPin, X } from '@lucide/svelte';
+  import { Check, MapPin, Navigation, X } from '@lucide/svelte';
+  import { Button } from '$lib/ui/button';
+  import { plannerHref } from '$lib/features/planner/planner';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import type { Stop } from '$lib/api/generated';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
@@ -14,12 +16,24 @@
 
 <article class="stop-detail">
   <div class="detail-head">
-    <PageHeader kind="Zastávka" icon={MapPin} title={stop.name}>
-      {#snippet meta()}
-        <span>Obsluhují linky</span>
-        {#each linesOf(stop.name) as id (id)}<LineBadge {id} size="md" />{/each}
-      {/snippet}
-    </PageHeader>
+    <div class="head-text">
+      <PageHeader kind="Zastávka" icon={MapPin} title={stop.name}>
+        {#snippet meta()}
+          <span class="serves">
+            <span>Obsluhují linky</span>
+            {#each linesOf(stop.name) as id (id)}<LineBadge {id} size="lg" />{/each}
+          </span>
+        {/snippet}
+      </PageHeader>
+      <nav class="plan-links" aria-label="Vyhledat spojení">
+        <Button href={plannerHref({ from: stop.id })} variant="outline">
+          <Navigation aria-hidden="true" /> Spojení odtud
+        </Button>
+        <Button href={plannerHref({ to: stop.id })} variant="outline">
+          <Navigation aria-hidden="true" class="rotate-180" /> Spojení sem
+        </Button>
+      </nav>
+    </div>
     <figure class="detail-image">
       <StopImage
         src={stop.image_url}
@@ -69,6 +83,24 @@
 </article>
 
 <style>
+  .head-text {
+    min-width: 0;
+  }
+  .plan-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .serves {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-block: 0.25rem;
+    color: var(--foreground);
+    font-weight: var(--weight-strong);
+  }
   .detail-head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);

@@ -42,8 +42,8 @@
           />
         </a>
         <p class="tagline">
-          Autobusové zastávky a linky kampusu na jedné mapě. Bezbariérový nástup, střecha i jízdenky
-          u každé zastávky.
+          Vyhledejte spojení mezi zastávkami kampusu, i s přestupy. Odjezdy, linky a jízdní řády na
+          jednom místě.
         </p>
         {@render credits?.()}
       </section>
@@ -52,6 +52,7 @@
         <h2 id="footer-explore">Procházet</h2>
         <ul>
           <li><a href={resolve('/')}>{NAV_LABELS.home}</a></li>
+          <li><a href={resolve('/spojeni')}>{NAV_LABELS.connections}</a></li>
           <li><a href={resolve('/stops')}>{NAV_LABELS.stops}</a></li>
           <li><a href={resolve('/lines')}>{NAV_LABELS.lines}</a></li>
         </ul>

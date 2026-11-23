@@ -4,7 +4,16 @@
   import { afterNavigate, onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ChevronDown, House, Map as MapIcon, Moon, Route, Search, Sun } from '@lucide/svelte';
+  import {
+    ChevronDown,
+    House,
+    Map as MapIcon,
+    Moon,
+    Navigation,
+    Route,
+    Search,
+    Sun
+  } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import { prefersReducedMotion } from '$lib/motion';
   import { cn } from '$lib/utils';
@@ -204,17 +213,23 @@
   const activeTab = $derived(
     paletteOpen
       ? 'search'
-      : page.url.pathname.startsWith('/stops')
-        ? 'map'
-        : page.url.pathname.startsWith('/lines')
-          ? 'lines'
-          : onHome
-            ? atLines
-              ? 'lines'
-              : 'home'
-            : null
+      : page.url.pathname.startsWith('/spojeni')
+        ? 'planner'
+        : page.url.pathname.startsWith('/stops')
+          ? 'map'
+          : page.url.pathname.startsWith('/lines')
+            ? 'lines'
+            : onHome
+              ? atLines
+                ? 'lines'
+                : 'home'
+              : null
   );
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
+  const onLines = $derived(
+    page.url.pathname.startsWith('/lines') || page.url.pathname.startsWith('/trips')
+  );
+  const onPlanner = $derived(page.url.pathname.startsWith('/spojeni'));
   /** The landing and the map page manage their own width; everything else gets the column. */
   const fullBleed = $derived(onHome || page.url.pathname === '/stops');
 </script>
@@ -250,6 +265,11 @@
           aria-current={onHome ? 'page' : undefined}
           class={cn('nav-link', onHome && 'is-active')}>{NAV_LABELS.home}</a
         >
+        <a
+          href={resolve('/spojeni')}
+          aria-current={onPlanner ? 'page' : undefined}
+          class={cn('nav-link', onPlanner && 'is-active')}>{NAV_LABELS.connections}</a
+        >
         <div class="nav-item">
           <a
             href={resolve('/stops')}
@@ -284,7 +304,11 @@
           {/if}
         </div>
         <div class="nav-item">
-          <a href={resolve('/lines')} class="nav-link only-small">{NAV_LABELS.lines}</a>
+          <a
+            href={resolve('/lines')}
+            aria-current={onLines ? 'page' : undefined}
+            class={cn('nav-link only-small', onLines && 'is-active')}>{NAV_LABELS.lines}</a
+          >
           <span
             class="nav-split only-large"
             role="presentation"
@@ -293,12 +317,13 @@
           >
             <a
               href={resolve('/lines')}
-              class={cn('nav-link split-label', false)}
+              aria-current={onLines ? 'page' : undefined}
+              class={cn('nav-link split-label', onLines && 'is-active')}
               onclick={closeMenu}>{NAV_LABELS.lines}</a
             >
             <button
               type="button"
-              class={cn('nav-link split-toggle', false)}
+              class={cn('nav-link split-toggle', onLines && 'is-active')}
               aria-label="Další: Linky"
               aria-expanded={menu === 'lines'}
               aria-controls="menu-lines"
@@ -356,6 +381,14 @@
     aria-current={activeTab === 'home' ? 'page' : undefined}
   >
     <House aria-hidden="true" /><span>{NAV_LABELS.home}</span>
+  </a>
+  <a
+    href={resolve('/spojeni')}
+    class="tab"
+    class:active={activeTab === 'planner'}
+    aria-current={activeTab === 'planner' ? 'page' : undefined}
+  >
+    <Navigation aria-hidden="true" /><span>{NAV_LABELS.connections}</span>
   </a>
   <a
     href={resolve('/stops')}
@@ -569,7 +602,7 @@
       inset: auto 0 0;
       z-index: 40;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
       padding: 0.375rem 0.5rem env(safe-area-inset-bottom);
       border-top: 1px solid var(--border);
