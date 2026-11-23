@@ -829,6 +829,9 @@
     opacity: 0.7;
     border-bottom: 1px dashed var(--board-line);
   }
+  .today-done .dest strong {
+    white-space: normal;
+  }
   .done-plate {
     display: grid;
     place-items: center;
