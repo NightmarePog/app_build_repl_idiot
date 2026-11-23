@@ -1,6 +1,8 @@
 <script lang="ts">
   import { czechCount } from '$lib/plural';
   import { Button } from '$lib/ui/button';
+  import { ChevronRight, Moon } from '@lucide/svelte';
+  import LoadingState from '$lib/components/LoadingState.svelte';
   import { resolve } from '$app/paths';
   import type { Route } from '$lib/api/generated';
   import { clock } from './clock.svelte';
@@ -88,8 +90,6 @@
   const next = $derived(nextDeparture(rows, nowOp));
   const hours = $derived(hourGroups(rows));
   const currentHour = $derived(Math.floor(nowOp / 60));
-  const hasNight = $derived(rows.some((r) => r.night));
-  const hasAfterMidnight = $derived(rows.some((r) => r.dep >= 1440));
 
   function tripHref(tripId: number) {
     return withQuery(resolve('/trips/[id]', { id: String(tripId) }), { od: selected?.id });
@@ -115,7 +115,10 @@
       <div class="sheet-title">
         <h3 id={`trips-heading-${route.id}`} class="dir-title">
           <span class="plate" aria-hidden="true">{lineNumber}</span>
-          <span>Odjezdy z {selected?.name} · směr {route.direction}</span>
+          <span class="dir-text">
+            <span class="dir-stop">Odjezdy z {selected?.name}</span>
+            <span class="dir-to">směr {route.direction}</span>
+          </span>
         </h3>
         <p class="toward tabular">
           {#if timetable.trips}{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
@@ -144,9 +147,13 @@
         <Button variant="outline" size="sm" onclick={timetable.retry}>Zkusit znovu</Button>
       </p>
     {:else if !timetable.trips}
-      <p class="note" role="status">Načítáme spoje…</p>
+      <div class="note"><LoadingState label="Načítáme spoje…" /></div>
     {:else if ofRoute.length === 0}
-      <p class="note">V tomto směru zatím žádný spoj nejede.</p>
+      <p class="note">
+        V tomto směru podle jízdního řádu žádný spoj nejede.
+        {#if (timetable.trips?.length ?? 0) > 0}Spoje linky jedou jen opačným směrem, přepněte směr
+          výše.{/if}
+      </p>
     {:else if rows.length === 0 && waiting > failedHere}
       <p class="note" role="status">Načítáme časy pro zastávku {selected?.name}…</p>
     {:else if rows.length === 0}
@@ -177,7 +184,7 @@
           {/if}
           <span class="next-info tabular"
             >{#if next.row.end}příjezd {next.row.trip.destination.name}
-              {next.row.end.time}{next.row.night ? ' (+1 den)' : ''} · jízda {duration(
+              {next.row.end.time}{next.row.night ? ' po půlnoci' : ''} · jízda {duration(
                 next.row.end.minutes - next.row.dep
               )}{/if}</span
           >
@@ -195,8 +202,8 @@
           <thead class="grid-head">
             <tr>
               <th scope="col">Odjezd</th>
-              <th scope="col">Příjezd</th>
-              <th scope="col"><span class="sr-only">Detail</span></th>
+              <th scope="col">Příjezd do {route.stops.at(-1)?.name}</th>
+              <th scope="col"><span class="sr-only">Detail spoje</span></th>
             </tr>
           </thead>
           <tbody>
@@ -206,18 +213,20 @@
               <tr class:next-row-l={isNext} class:gone style:--row={index}>
                 <td class="t tabular"
                   >{row.at.time}{#if row.dep >= 1440}
-                    <span class="moon">(+1 den)</span>{/if}</td
+                    <span class="moon"><Moon size={12} aria-hidden="true" />po půlnoci</span
+                    >{/if}</td
                 >
                 <td class="tabular"
                   >{row.end?.time ?? '…'}{#if row.night}
-                    <span class="moon">(+1 den)</span>{/if}
-                  <span class="toward-tag">do {row.trip.destination.name}</span></td
+                    <span class="moon"><Moon size={12} aria-hidden="true" />po půlnoci</span
+                    >{/if}</td
                 >
                 <td class="r"
                   ><a
                     class="detail"
                     href={tripHref(row.trip.id)}
-                    aria-label={`Detail spoje: ${label(row)}`}>Detail spoje ›</a
+                    aria-label={`Detail spoje: ${label(row)}`}
+                    ><ChevronRight size={18} aria-hidden="true" /></a
                   ></td
                 >
               </tr>
@@ -272,10 +281,6 @@
             </tbody>
           </table>
         {/key}
-      {/if}
-
-      {#if hasAfterMidnight || hasNight}
-        <p class="inline-note">(+1 den) = po půlnoci, spoj patří k večernímu provozu.</p>
       {/if}
 
       {#if waiting > 0}
@@ -369,11 +374,11 @@
     background: color-mix(in oklch, var(--sign-marker) 35%, transparent);
   }
   .detail {
-    font-weight: var(--weight-strong);
+    display: inline-flex;
+    color: var(--muted-foreground);
+  }
+  tr:hover .detail {
     color: var(--primary);
-    white-space: nowrap;
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
   .trips {
     min-width: 0;
@@ -578,16 +583,28 @@
     box-shadow: inset 0 0 0 2px var(--foreground);
   }
   .moon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1875rem;
     margin-left: 0.25rem;
     color: var(--muted-foreground);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     white-space: nowrap;
   }
-  .toward-tag {
-    display: block;
+  .dir-text {
+    display: grid;
+    min-width: 0;
+  }
+  .dir-to {
     color: var(--muted-foreground);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base, 1rem);
+    font-weight: var(--weight-strong);
+  }
+  @media (max-width: 639px) {
+    .dir-title {
+      font-size: var(--fs-lg);
+    }
   }
   /* Picking a stop re-flows the minutes row by row. */
   .grid tr {

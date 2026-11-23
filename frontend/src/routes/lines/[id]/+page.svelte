@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/state';
+  import type { PageProps } from './$types';
   import LineDetailPage from '$lib/features/lines/LineDetailPage.svelte';
+
+  let { params }: PageProps = $props();
 </script>
 
-<LineDetailPage id={page.params.id!} />
+<LineDetailPage id={params.id} />
