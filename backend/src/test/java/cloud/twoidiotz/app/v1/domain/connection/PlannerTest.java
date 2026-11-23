@@ -38,9 +38,19 @@ class PlannerTest {
   void dropsTransfersWithOvernightWait() {
     var planner =
         new Planner(
-            List.of(
-                trip(10, new long[] {1, 2}, 900, 910), trip(20, new long[] {2, 3}, 420, 440)));
+            List.of(trip(10, new long[] {1, 2}, 900, 910), trip(20, new long[] {2, 3}, 420, 440)));
     assertThat(planner.departing(1, 3, 420, 5)).isEmpty();
+  }
+
+  @Test
+  void keepsLongSameDayTransferWhenItIsTheOnlyJourney() {
+    var planner =
+        new Planner(
+            List.of(
+                trip(10, new long[] {1, 2}, 930, 946), trip(20, new long[] {2, 3}, 1217, 1227)));
+    var found = planner.departing(1, 3, 420, 5);
+    assertThat(found).hasSize(1);
+    assertThat(trips(found.getFirst())).containsExactly(10L, 20L);
   }
 
   @Test
