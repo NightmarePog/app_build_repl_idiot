@@ -29,7 +29,7 @@
 <PageHeader kind="Linky" icon={RouteIcon} title="Všechny linky" />
 
 <section class="search" aria-labelledby="search-heading">
-  <h2 id="search-heading">Vyhledat spojení</h2>
+  <h2 id="search-heading" class="sr-only">Vyhledat spojení</h2>
   <!-- Same form, same layout as on /spojeni, where its results open. -->
   <PlannerForm headingId="search-heading" />
 </section>
