@@ -93,7 +93,11 @@ class LineApiIntegrationTest {
   @Test
   void generatesDistinctIdsAndIgnoresClientIds() throws Exception {
     var first = mapper.readTree(request("POST", "/lines", INPUT, true).body()).get("id").asLong();
-    var second = mapper.readTree(request("POST", "/lines", INPUT, true).body()).get("id").asLong();
+    var second =
+        mapper
+            .readTree(request("POST", "/lines", INPUT.replace("\"42\"", "\"43\""), true).body())
+            .get("id")
+            .asLong();
     try {
       assertNotEquals(first, second);
       assertError(

@@ -228,7 +228,14 @@ class TripApiIntegrationTest {
                 + route
                 + ")",
             // Reordering a timetabled route stop.
-            "UPDATE route_stop SET position = 99 WHERE id = " + stop.formatted(2))) {
+            "UPDATE route_stop SET position = 99 WHERE id = " + stop.formatted(2),
+            // Moving a route with trips to another line.
+            "WITH other AS (INSERT INTO line (number, name, color) VALUES ('Z9', 'Z', '#000000')"
+                + " RETURNING id) UPDATE route SET line_id = (SELECT id FROM other) WHERE id = "
+                + route,
+            // A second line with an existing number.
+            "INSERT INTO line (number, name, color) SELECT ' a ', name, color FROM line WHERE"
+                + " number = 'A'")) {
       try (var connection = dataSource.getConnection()) {
         connection.setAutoCommit(false);
         try (var sql = connection.createStatement()) {

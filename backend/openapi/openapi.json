@@ -1178,7 +1178,8 @@
           "route_id": {
             "type": "integer",
             "format": "int64",
-            "example": 3
+            "example": 3,
+            "minimum": 1
           },
           "stops": {
             "type": "array",

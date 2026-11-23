@@ -23,7 +23,7 @@ import java.util.List;
     })
 public record TripDetailResponse(
     @Schema(minimum = "1", example = "201001") long id,
-    @Schema(example = "3") long routeId,
+    @Schema(example = "3", minimum = "1") long routeId,
     LineResponse line,
     RouteDirection direction,
     StopSummaryResponse origin,
