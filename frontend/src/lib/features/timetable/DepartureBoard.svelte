@@ -34,6 +34,8 @@
   let mode = $state<'upcoming' | 'day' | 'arrivals'>('upcoming');
   /** Rows that get a countdown: the next two, like a platform display. */
   const COUNTDOWNS = 2;
+  /** Minutes a bus must wait here before the board shows its arrival too. */
+  const DWELL_SHOWN = 2;
   let limit = $state(PAGE);
   let lineFilter = $state<string[]>([]);
   /** "Kam jedete": only trips that later reach this stop, with the arrival time there. */
@@ -489,10 +491,10 @@
                   >
                 {:else}
                   <span class="time tabular"
-                    >{#if row.tomorrow}<span class="day">zítra</span>{/if}{row.departure_time}</span
+                    >{row.departure_time}</span
                   >
-                  {#if waits > 0}
-                    <!-- The bus waits here: arrival and departure read at the same size. -->
+                  {#if waits >= DWELL_SHOWN}
+                    <!-- Only a real wait here is worth a second time. -->
                     <span class="time sub tabular"
                       ><span class="day">příj.</span>{row.arrival_time}</span
                     >
@@ -517,7 +519,7 @@
 
 <style>
   .board-wrap {
-    margin-top: 2.5rem;
+    margin-top: 0;
   }
   /* Signage in both themes: a dark platform display in dark mode, an enamel sign in light. */
   :global(:root:not(.dark)) .board {
@@ -675,14 +677,16 @@
     background: var(--board-raised);
   }
   .row.next {
-    background: linear-gradient(90deg, var(--board-marker-glow), transparent 70%);
+    background: var(--board-raised);
   }
-  /* Tomorrow: text steps back, plates keep their colour. */
-  .row.later .dest strong,
-  .row.later .dep,
   /* Full day: buses that already left step back. */
-  .row.gone .dest strong,
-  .row.gone .dep,
+  .row.gone .dest,
+  .row.gone .dep {
+    color: var(--board-muted);
+  }
+  .row.gone .time {
+    color: var(--board-muted);
+  }
   .time {
     color: var(--board-led);
     font-size: var(--fs-lg);
@@ -901,9 +905,6 @@
     font-weight: var(--font-display-weight);
     line-height: 1;
     white-space: nowrap;
-  }
-  .row.later {
-    opacity: 0.7;
   }
   .empty {
     padding: 2rem 0.75rem 0.75rem;

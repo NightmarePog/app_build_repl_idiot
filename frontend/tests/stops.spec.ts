@@ -70,7 +70,7 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
   });
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
   await expect(page).toHaveURL(/\/stops\/12\?stop=12$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await expect(page.getByText('Nástup bez schodů')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('html')).not.toHaveAttribute('data-route-transition', 'true');
@@ -126,7 +126,7 @@ test('map finder selects stops from the list, keyboard and map', async ({ page }
   await expect(page).toHaveURL(/stop=13/);
   await page.getByRole('link', { name: 'Podrobnosti zastávky' }).click();
   await expect(page).toHaveURL(/\/stops\/13$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ada Exchange');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Ada Exchange');
 });
 
 test('shows an understandable empty state', async ({ page }) => {
@@ -251,7 +251,7 @@ test('search ignores accents and filter combinations work from the keyboard', as
   const detailLink = page.getByRole('link', { name: 'Detail zastávky Cejl' });
   await expect(detailLink).toHaveAttribute('href', /q=cejl/);
   await detailLink.click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
   await expect(search).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
@@ -259,7 +259,7 @@ test('search ignores accents and filter combinations work from the keyboard', as
   await expect(list.getByRole('listitem')).toHaveCount(1);
 
   await detailLink.click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.goBack();
   await expect(search).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
@@ -289,7 +289,7 @@ test('deep-linked filters survive reload and detail navigation', async ({ page }
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
   await expect(search).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
@@ -298,7 +298,7 @@ test('deep-linked filters survive reload and detail navigation', async ({ page }
   ).toHaveCount(1);
 
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.goBack();
   await expect(search).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
@@ -319,7 +319,7 @@ test('detail keeps the selected image while validating the stop and removes a st
 
   try {
     await card.click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cejl');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
     await expect(page.getByRole('img', { name: 'Zastávka Cejl' })).toBeVisible();
     await expect(page.locator('main .stop-image-frame')).not.toHaveCSS(
       'view-transition-name',
