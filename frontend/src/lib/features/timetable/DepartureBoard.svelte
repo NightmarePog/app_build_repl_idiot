@@ -658,9 +658,6 @@
     align-items: center;
     gap: 0.875rem;
   }
-  .r {
-    text-align: right;
-  }
   .rows {
     margin-top: 0.5rem;
   }

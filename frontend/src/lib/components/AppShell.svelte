@@ -395,8 +395,7 @@
       border-color var(--motion-fast) var(--ease-out),
       color var(--motion-fast) var(--ease-out);
   }
-  .nav-link:hover,
-  .nav-link[aria-expanded='true'] {
+  .nav-link:hover {
     color: var(--foreground);
   }
   .nav-link.is-active {
@@ -405,9 +404,6 @@
   }
   .nav-link :global(svg) {
     transition: transform var(--motion-fast) var(--ease-out);
-  }
-  .nav-link[aria-expanded='true'] :global(svg) {
-    transform: rotate(180deg);
   }
   .search-trigger {
     display: inline-flex;
@@ -432,17 +428,6 @@
   .search-label {
     min-width: 7rem;
     text-align: left;
-  }
-  .nav-split {
-    display: inline-flex;
-    align-items: center;
-  }
-  .nav-split .split-label {
-    padding-right: 0.15rem;
-  }
-  .nav-split .split-toggle {
-    padding-left: 0.25rem;
-    padding-right: 0.4rem;
   }
   .only-small {
     display: none;
