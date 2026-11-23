@@ -49,8 +49,8 @@ class ConnectionApiIntegrationTest {
 
   @Test
   void showsArrivalAndDepartureWhereTheBusWaits() throws Exception {
-    var connections = search("Syntax Square", "Campus Gate", "20:00", "departure", 1)
-        .get("connections");
+    var connections =
+        search("Syntax Square", "Campus Gate", "20:00", "departure", 1).get("connections");
     var leg = connections.get(0).get("legs").get(0);
     assertEquals(201002, leg.get("trip_id").asLong());
     assertEquals("20:15", leg.get("departure_time").asString());
@@ -75,22 +75,24 @@ class ConnectionApiIntegrationTest {
 
   @Test
   void lastEveningTripArrivesAfterMidnight() throws Exception {
-    var connection = search("Edison East", "Quantum Commons", "23:00", "departure", 1)
-        .get("connections").get(0);
+    var connection =
+        search("Edison East", "Quantum Commons", "23:00", "departure", 1).get("connections").get(0);
     assertEquals("23:52", connection.get("departure_time").asString());
     assertEquals(0, connection.get("departure_day_offset").asInt());
     assertEquals("00:14", connection.get("arrival_time").asString());
     assertEquals(1, connection.get("arrival_day_offset").asInt());
     assertEquals(22, connection.get("duration_minutes").asInt());
 
-    var justAfterMidnight = search("Library Loop", "Quantum Commons", "00:03", "departure", 1)
-        .get("connections").get(0);
+    var justAfterMidnight =
+        search("Library Loop", "Quantum Commons", "00:03", "departure", 1)
+            .get("connections")
+            .get(0);
     assertEquals(301007, justAfterMidnight.get("legs").get(0).get("trip_id").asLong());
     assertEquals("00:05", justAfterMidnight.get("departure_time").asString());
     assertEquals(0, justAfterMidnight.get("departure_day_offset").asInt());
 
-    var arriving = search("Edison East", "Quantum Commons", "00:20", "arrival", 1)
-        .get("connections").get(0);
+    var arriving =
+        search("Edison East", "Quantum Commons", "00:20", "arrival", 1).get("connections").get(0);
     assertEquals("23:52", arriving.get("departure_time").asString());
     assertEquals(-1, arriving.get("departure_day_offset").asInt());
     assertEquals(0, arriving.get("arrival_day_offset").asInt());
@@ -104,10 +106,10 @@ class ConnectionApiIntegrationTest {
 
   @Test
   void directionsHaveTheirOwnTimes() throws Exception {
-    var there = search("Edison East", "Quantum Commons", "15:00", "departure", 1)
-        .get("connections").get(0);
-    var back = search("Quantum Commons", "Edison East", "15:00", "departure", 1)
-        .get("connections").get(0);
+    var there =
+        search("Edison East", "Quantum Commons", "15:00", "departure", 1).get("connections").get(0);
+    var back =
+        search("Quantum Commons", "Edison East", "15:00", "departure", 1).get("connections").get(0);
     assertEquals(21, there.get("duration_minutes").asInt());
     assertEquals(27, back.get("duration_minutes").asInt());
   }
@@ -150,7 +152,9 @@ class ConnectionApiIntegrationTest {
 
   private long stopId(String name) throws Exception {
     var response = get("/stops");
-    return mapper.readTree(response.body()).valueStream()
+    return mapper
+        .readTree(response.body())
+        .valueStream()
         .filter(stop -> stop.get("name").asString().equals(name))
         .findFirst()
         .orElseThrow()

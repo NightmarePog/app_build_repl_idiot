@@ -32,8 +32,7 @@ public class ConnectionService {
           case departure -> planner.departing(fromId, toId, minute, limit);
           case arrival -> planner.arriving(fromId, toId, minute, limit);
         };
-    var connections =
-        journeys.stream().map(journey -> connection(journey, timetable)).toList();
+    var connections = journeys.stream().map(journey -> connection(journey, timetable)).toList();
     return new ConnectionSearchResponse(
         new StopSummaryResponse(from.getId(), from.getName(), imageUrl(from.getImageUrl())),
         new StopSummaryResponse(to.getId(), to.getName(), imageUrl(to.getImageUrl())),

@@ -8,14 +8,7 @@ import java.util.List;
 @SnakeCase
 @Schema(
     name = "ConnectionSearch",
-    requiredProperties = {
-      "from",
-      "to",
-      "time",
-      "mode",
-      "min_transfer_minutes",
-      "connections"
-    })
+    requiredProperties = {"from", "to", "time", "mode", "min_transfer_minutes", "connections"})
 public record ConnectionSearchResponse(
     StopSummaryResponse from,
     StopSummaryResponse to,

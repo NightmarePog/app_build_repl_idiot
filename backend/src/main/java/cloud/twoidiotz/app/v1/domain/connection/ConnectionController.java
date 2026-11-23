@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Journey planner (vyhledání spojení). Parameters are read as text so every malformed value gets
- * a specific `{error}` message instead of a generic binding failure.
+ * Journey planner (vyhledání spojení). Parameters are read as text so every malformed value gets a
+ * specific `{error}` message instead of a generic binding failure.
  */
 @RestController
 @RequiredArgsConstructor
@@ -90,19 +90,13 @@ public class ConnectionController {
       @Parameter(
               in = ParameterIn.QUERY,
               description = "Maximum number of connections, 1 to 20.",
-              schema =
-                  @Schema(
-                      type = "integer",
-                      minimum = "1",
-                      maximum = "20",
-                      defaultValue = "5"))
+              schema = @Schema(type = "integer", minimum = "1", maximum = "20", defaultValue = "5"))
           @RequestParam(required = false)
           String limit) {
     var fromId = id(from, "from");
     var toId = id(to, "to");
     if (fromId == toId) throw new InvalidConnectionQueryException("From and to must differ");
-    var body =
-        connections.search(fromId, toId, minute(time), mode(mode), limit(limit));
+    var body = connections.search(fromId, toId, minute(time), mode(mode), limit(limit));
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
   }
 

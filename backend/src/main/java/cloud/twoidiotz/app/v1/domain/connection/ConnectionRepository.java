@@ -39,27 +39,22 @@ class ConnectionRepository {
         CALLS,
         row -> {
           var tripId = row.getLong("trip_id");
-          trips.computeIfAbsent(
-              tripId,
-              id -> {
-                try {
-                  return new TripInfo(
-                      id,
-                      new Line(
-                          row.getLong("line_id"),
-                          row.getString("number"),
-                          row.getString("line_name"),
-                          row.getString("type"),
-                          row.getString("color")),
-                      RouteDirection.valueOf(row.getString("direction")),
-                      new Stop(
-                          row.getLong("dest_id"),
-                          row.getString("dest_name"),
-                          row.getString("dest_image")));
-                } catch (java.sql.SQLException exception) {
-                  throw new IllegalStateException(exception);
-                }
-              });
+          if (!trips.containsKey(tripId))
+            trips.put(
+                tripId,
+                new TripInfo(
+                    tripId,
+                    new Line(
+                        row.getLong("line_id"),
+                        row.getString("number"),
+                        row.getString("line_name"),
+                        row.getString("type"),
+                        row.getString("color")),
+                    RouteDirection.valueOf(row.getString("direction")),
+                    new Stop(
+                        row.getLong("dest_id"),
+                        row.getString("dest_name"),
+                        row.getString("dest_image"))));
           var stop =
               new Stop(
                   row.getLong("stop_id"), row.getString("stop_name"), row.getString("stop_image"));
