@@ -311,7 +311,7 @@
     },
     "/lines/{lineId}/trips": {
       "get": {
-        "description": "Returns all scheduled trips of the requested line.",
+        "description": "Returns all scheduled trips of the requested line, both directions, in ascending order by `departure_day_offset` and `departure_time` of the trip's start; trips leaving in the same minute are ordered outbound before inbound, then by `id`. A line without trips returns an empty array.",
         "operationId": "listLineTrips",
         "parameters": [
           {
@@ -347,7 +347,7 @@
                 }
               }
             },
-            "description": "Invalid identifier"
+            "description": "Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`."
           },
           "404": {
             "content": {
@@ -357,7 +357,7 @@
                 }
               }
             },
-            "description": "Line not found"
+            "description": "Line not found (`{\"error\": \"Line not found\"}`)."
           }
         },
         "summary": "List trips of a line",
@@ -682,7 +682,7 @@
     },
     "/stops/{stopId}/departures": {
       "get": {
-        "description": "Returns scheduled departures from the requested stop in ascending order by `departure_day_offset` and `departure_time`.",
+        "description": "Returns scheduled departures from the requested stop in ascending order by `departure_day_offset` and `departure_time`; departures in the same minute are ordered by line number, then `trip_id`. A trip's last stop is only an arrival, so trips ending at this stop are not listed. The whole day's timetable is returned (there is no date parameter); a stop no trip leaves from returns an empty array.",
         "operationId": "listStopDepartures",
         "parameters": [
           {
@@ -718,7 +718,7 @@
                 }
               }
             },
-            "description": "Invalid identifier"
+            "description": "Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`."
           },
           "404": {
             "content": {
@@ -728,7 +728,7 @@
                 }
               }
             },
-            "description": "Stop not found"
+            "description": "Stop not found (`{\"error\": \"Stop not found\"}`)."
           }
         },
         "summary": "List departures from a stop",
@@ -756,7 +756,7 @@
     },
     "/trips/{tripId}": {
       "get": {
-        "description": "Returns the line, direction and ordered timetable of one trip.",
+        "description": "Returns the line, direction and ordered timetable of one trip. `stops` follow the route's stop order; day offsets count from the day the trip starts, so a stop reached after midnight has offset 1.",
         "operationId": "getTrip",
         "parameters": [
           {
@@ -789,7 +789,7 @@
                 }
               }
             },
-            "description": "Invalid identifier"
+            "description": "Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`."
           },
           "404": {
             "content": {
@@ -799,7 +799,7 @@
                 }
               }
             },
-            "description": "Trip not found"
+            "description": "Trip not found (`{\"error\": \"Trip not found\"}`)."
           }
         },
         "summary": "Get trip detail and timetable",
@@ -815,6 +815,7 @@
           "arrival_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.",
             "example": 0,
             "minimum": 0
           },
@@ -827,6 +828,7 @@
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.",
             "example": 0,
             "minimum": 0
           },
@@ -842,6 +844,7 @@
           },
           "direction": {
             "type": "string",
+            "description": "`outbound` travels away from the line's starting stop; `inbound` travels back towards it.",
             "enum": ["outbound", "inbound"]
           },
           "line": {
@@ -1148,6 +1151,7 @@
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Always 0: a trip starts on its operating day.",
             "example": 0,
             "minimum": 0
           },
@@ -1161,6 +1165,7 @@
           },
           "direction": {
             "type": "string",
+            "description": "`outbound` travels away from the line's starting stop; `inbound` travels back towards it.",
             "enum": ["outbound", "inbound"]
           },
           "id": {
@@ -1183,6 +1188,7 @@
           },
           "stops": {
             "type": "array",
+            "description": "Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.",
             "items": {
               "$ref": "#/components/schemas/TripStopTime"
             },
@@ -1207,6 +1213,7 @@
           "arrival_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.",
             "example": 0,
             "minimum": 0
           },
@@ -1218,6 +1225,7 @@
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.",
             "example": 0,
             "minimum": 0
           },
@@ -1232,7 +1240,7 @@
           "stop_order": {
             "type": "integer",
             "format": "int32",
-            "description": "1-based order on the route",
+            "description": "1-based position of the stop on the route, as in GET /lines/{id}.",
             "example": 2,
             "minimum": 1
           }
@@ -1252,21 +1260,23 @@
           "departure_day_offset": {
             "type": "integer",
             "format": "int32",
+            "description": "Always 0: a trip starts on its operating day.",
             "example": 0,
             "minimum": 0
           },
           "departure_time": {
             "type": "string",
-            "description": "Departure from the origin.",
+            "description": "Departure from the origin, the trip's first timetabled stop.",
             "example": "07:00",
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
           },
           "destination": {
-            "$ref": "#/components/schemas/StopSummary"
+            "$ref": "#/components/schemas/StopSummary",
+            "description": "Last timetabled stop of the trip."
           },
           "direction": {
             "type": "string",
-            "description": "Outbound leaves the line's first stop, inbound returns to it.",
+            "description": "`outbound` travels away from the line's starting stop; `inbound` travels back towards it.",
             "enum": ["outbound", "inbound"]
           },
           "id": {
@@ -1279,7 +1289,8 @@
             "$ref": "#/components/schemas/Line"
           },
           "origin": {
-            "$ref": "#/components/schemas/StopSummary"
+            "$ref": "#/components/schemas/StopSummary",
+            "description": "First timetabled stop of the trip."
           },
           "route_id": {
             "type": "integer",

@@ -197,7 +197,8 @@ class TripApiIntegrationTest {
                 + " FROM route_stop WHERE id = "
                 + stop.formatted(1),
             // Arriving at the first stop earlier than leaving it: a trip starts on departure.
-            "UPDATE stop_time SET arrival_time = '00:01' WHERE trip_id = 101001 AND route_stop_id = "
+            "UPDATE stop_time SET arrival_time = '00:01' WHERE trip_id = 101001 AND route_stop_id ="
+                + " "
                 + stop.formatted(1),
             // Leaving the last stop later than arriving: a trip ends on arrival.
             "UPDATE stop_time SET departure_time = departure_time + INTERVAL '5 minutes'"
@@ -389,10 +390,86 @@ class TripApiIntegrationTest {
       assertEquals(405, response.statusCode(), response.body());
       assertTrue(mapper.readTree(response.body()).hasNonNull("error"));
     }
-    for (var id : List.of("0", "-1", "1.5", "99999999999999999999")) {
+    for (var id : List.of("0", "-1", "1.5", "99999999999999999999", "1%20", "%201", "+1", "1e3")) {
       assertError(400, "/trips/" + id);
       assertError(400, "/stops/" + id + "/departures");
+      assertError(400, "/lines/" + id + "/trips");
     }
+    assertEquals("Invalid line ID", error("/lines/1%20/trips"));
+    assertEquals("Invalid trip ID", error("/trips/+1"));
+    assertEquals("Invalid stop ID", error("/stops/%201/departures"));
+    assertEquals("Trip not found", error("/trips/999999"));
+    assertEquals("Line not found", error("/lines/999999/trips"));
+    assertEquals("Stop not found", error("/stops/999999/departures"));
+    // Phase-3 endpoints get the same strict ids.
+    assertError(400, "/lines/1%20");
+    assertError(400, "/stops/1%20");
+  }
+
+  @Test
+  void aFixtureTripCrossingMidnightKeepsItsEveningPlace() throws Exception {
+    // Copy of 101001 (line A) moved to start at 23:55, so its later calls run past midnight.
+    var trip = 990101L;
+    try (var connection = dataSource.getConnection();
+        var sql = connection.createStatement()) {
+      sql.execute(
+          "WITH copy AS (INSERT INTO trip (id, route_id, source_ref) SELECT "
+              + trip
+              + ", route_id, 'T99010100001' FROM trip WHERE id = 101001 RETURNING id)"
+              + " INSERT INTO stop_time SELECT copy.id, st.route_id, st.route_stop_id,"
+              + " st.arrival_time + shift.by, st.departure_time + shift.by FROM stop_time st, copy,"
+              + " (SELECT INTERVAL '23 hours 55 minutes' - min(departure_time) AS by FROM stop_time"
+              + " WHERE trip_id = 101001) shift WHERE st.trip_id = 101001");
+    }
+    try {
+      var detail = get("/trips/" + trip);
+      assertEquals("23:55", detail.get("departure_time").asString());
+      assertEquals(0, detail.get("departure_day_offset").asInt());
+      var stops = detail.get("stops");
+      var last = stops.get(stops.size() - 1);
+      assertEquals(1, last.get("arrival_day_offset").asInt());
+      assertTrue(last.get("arrival_time").asString().startsWith("00:"));
+      var previous = -1;
+      for (var stop : stops) {
+        var minutes =
+            stop.get("arrival_day_offset").asInt() * 1440
+                + minutes(stop.get("arrival_time").asString());
+        assertTrue(minutes >= previous, "after-midnight calls stay after the evening ones");
+        previous = minutes;
+        assertTrue(stop.get("arrival_time").asString().matches(TIME));
+      }
+
+      // At a stop the fixture leaves after midnight, it comes after every same-day departure.
+      var afterMidnight =
+          stops
+              .valueStream()
+              .filter(s -> s.get("departure_day_offset").asInt() == 1)
+              .filter(s -> !s.equals(last))
+              .findFirst()
+              .orElseThrow();
+      var departures =
+          get("/stops/" + afterMidnight.get("stop").get("id").asLong() + "/departures");
+      var ids = departures.valueStream().map(d -> d.get("trip_id").asLong()).toList();
+      var at = ids.indexOf(trip);
+      assertTrue(at >= 0);
+      assertEquals(1, departures.get(at).get("departure_day_offset").asInt());
+      for (var i = 0; i < departures.size(); i++) {
+        if (departures.get(i).get("departure_day_offset").asInt() == 0) assertTrue(i < at);
+      }
+
+      // On the line's list it starts last, at 23:55 on day 0, not first at 00:xx.
+      var lineTrips = get("/lines/" + detail.get("line").get("id").asLong() + "/trips");
+      assertEquals(trip, lineTrips.get(lineTrips.size() - 1).get("id").asLong());
+    } finally {
+      try (var connection = dataSource.getConnection();
+          var sql = connection.createStatement()) {
+        sql.execute("DELETE FROM trip WHERE id = " + trip);
+      }
+    }
+  }
+
+  private String error(String path) throws Exception {
+    return mapper.readTree(send(path).body()).get("error").asString();
   }
 
   @Test

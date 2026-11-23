@@ -25,10 +25,25 @@ public record TripDetailResponse(
     @Schema(minimum = "1", example = "201001") long id,
     @Schema(example = "3", minimum = "1") long routeId,
     LineResponse line,
-    RouteDirection direction,
+    @Schema(
+            description =
+                "`outbound` travels away from the line's starting stop; `inbound` travels back"
+                    + " towards it.")
+        RouteDirection direction,
     StopSummaryResponse origin,
     StopSummaryResponse destination,
     @Schema(pattern = Clock.PATTERN, example = "07:00") String departureTime,
-    @Schema(minimum = "0", example = "0") int departureDayOffset,
-    @ArraySchema(minItems = 1, schema = @Schema(implementation = TripStopTimeResponse.class))
+    @Schema(
+            minimum = "0",
+            example = "0",
+            description = "Always 0: a trip starts on its operating day.")
+        int departureDayOffset,
+    @ArraySchema(
+            arraySchema =
+                @Schema(
+                    description =
+                        "Timetabled stops in route order (ascending `stop_order`). A trip has at"
+                            + " least two stops."),
+            minItems = 1,
+            schema = @Schema(implementation = TripStopTimeResponse.class))
         List<TripStopTimeResponse> stops) {}

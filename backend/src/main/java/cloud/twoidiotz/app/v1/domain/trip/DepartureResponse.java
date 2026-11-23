@@ -21,11 +21,29 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record DepartureResponse(
     @Schema(minimum = "1", example = "201001") long tripId,
     LineResponse line,
-    RouteDirection direction,
+    @Schema(
+            description =
+                "`outbound` travels away from the line's starting stop; `inbound` travels back"
+                    + " towards it.")
+        RouteDirection direction,
     @Schema(description = "Final stop of the trip.") StopSummaryResponse destination,
     @Schema(pattern = Clock.PATTERN, example = "07:24", description = "Arrival at this stop.")
         String arrivalTime,
-    @Schema(minimum = "0", example = "0") int arrivalDayOffset,
+    @Schema(
+            minimum = "0",
+            example = "0",
+            description =
+                "Calendar days after the day the trip starts (0 or 1). Times past midnight are"
+                    + " shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with"
+                    + " offset 1.")
+        int arrivalDayOffset,
     @Schema(pattern = Clock.PATTERN, example = "07:26", description = "Departure from this stop.")
         String departureTime,
-    @Schema(minimum = "0", example = "0") int departureDayOffset) {}
+    @Schema(
+            minimum = "0",
+            example = "0",
+            description =
+                "Calendar days after the day the trip starts (0 or 1). Times past midnight are"
+                    + " shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with"
+                    + " offset 1.")
+        int departureDayOffset) {}

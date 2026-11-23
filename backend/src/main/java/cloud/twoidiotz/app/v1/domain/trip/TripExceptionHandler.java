@@ -33,18 +33,19 @@ public class TripExceptionHandler {
         exception.getParameterValidationResults().stream()
             .map(result -> result.getMethodParameter().getParameterName())
             .findFirst()
-            .orElse("id");
+            .orElse("");
     return positive(name);
   }
 
   // Same wording as the phase-3 handlers: lines say "Invalid line ID", stops "Invalid stop ID".
+  // Every TripController path variable is named, so the neutral fallback is only a safety net.
   private static ApiError positive(String name) {
     return new ApiError(
         switch (name) {
           case "stopId" -> "Invalid stop ID";
           case "tripId" -> "Invalid trip ID";
-          case "lineId", "id" -> "Invalid line ID";
-          default -> "Invalid " + name;
+          case "lineId" -> "Invalid line ID";
+          default -> "Invalid ID";
         });
   }
 }
