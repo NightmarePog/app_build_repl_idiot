@@ -5,7 +5,7 @@
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { duration } from '$lib/features/timetable/time';
   import { lineDirectionHref, withQuery } from '$lib/links';
-  import { dayNote, transfersLabel } from './planner';
+  import { dayNote, journeyBar, LONG_WAIT, transfersLabel } from './planner';
 
   /**
    * One search result, IDOS style: times, duration, changes and the line plates up front; the
@@ -37,6 +37,11 @@
   const waits = (call: ConnectionStopTime) =>
     call.arrival_time !== call.departure_time ||
     call.arrival_day_offset !== call.departure_day_offset;
+
+  const bar = $derived(journeyBar(connection));
+  const longWait = $derived(
+    connection.legs.some((l, i) => i > 0 && (l.transfer_minutes ?? 0) >= LONG_WAIT)
+  );
 
   const spoken = $derived(
     `Odjezd ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
@@ -71,11 +76,26 @@
       {#if countdown}<span class="countdown">{countdown}</span>{/if}
       <span><strong>{duration(connection.duration_minutes)}</strong></span>
       <span class:direct={connection.transfers === 0}>{transfersLabel(connection.transfers)}</span>
+      {#if longWait}<span class="long-flag">dlouhé čekání</span>{/if}
+    </span>
+    <span class="bar" aria-hidden="true">
+      {#each bar as part, index (index)}
+        {#if part.kind === 'ride'}
+          <span
+            class="bar-ride"
+            style:--line={part.leg.line.color}
+            style:flex-grow={Math.max(part.share, 0.04)}
+          ></span>
+        {:else}
+          <span class="bar-wait" class:long={part.long} style:flex-grow={Math.max(part.share, 0.03)}
+          ></span>
+        {/if}
+      {/each}
     </span>
     <span class="strip" aria-hidden="true">
       {#each connection.legs as leg, index (index)}
         {#if index > 0}
-          <span class="change">
+          <span class="change" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
             <Footprints class="size-3.5" />
             {leg.transfer_minutes} min
           </span>
@@ -181,7 +201,7 @@
   .summary {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'times facts' 'strip toggle';
+    grid-template-areas: 'times facts' 'bar bar' 'strip toggle';
     align-items: center;
     gap: 0.625rem 1rem;
     width: 100%;
@@ -263,6 +283,7 @@
   .strip-text,
   .strip-end {
     color: var(--muted-foreground);
+    white-space: nowrap;
   }
   .strip-time {
     color: var(--foreground);
@@ -281,6 +302,55 @@
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
     font-size: var(--fs-xs);
+  }
+  .change.long {
+    border-color: var(--destructive);
+    color: var(--destructive);
+    font-weight: var(--weight-strong);
+  }
+  .long-flag {
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-full);
+    background: color-mix(in oklch, var(--destructive) 12%, var(--background));
+    color: var(--destructive);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+  }
+  /* The journey bar: one segment per ride in its line colour, waits dashed grey. */
+  .bar {
+    grid-area: bar;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 0.625rem;
+  }
+  .bar-ride {
+    flex-basis: 0;
+    height: 100%;
+    border-radius: var(--radius-full);
+    background: var(--line);
+    transform-origin: left;
+    animation: bar-in var(--motion-normal) var(--ease-out) both;
+  }
+  .bar-wait {
+    flex-basis: 0;
+    height: 0;
+    border-top: 2px dashed var(--muted-foreground);
+    opacity: 0.6;
+  }
+  .bar-wait.long {
+    border-top-color: var(--destructive);
+    opacity: 1;
+  }
+  @keyframes bar-in {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar-ride {
+      animation: none;
+    }
   }
   .toggle {
     grid-area: toggle;
@@ -460,7 +530,7 @@
   @media (max-width: 639px) {
     .summary {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: 'times' 'facts' 'strip' 'toggle';
+      grid-template-areas: 'times' 'facts' 'bar' 'strip' 'toggle';
       padding: 0.875rem 1rem;
     }
     .facts {

@@ -8,7 +8,7 @@
   import { loadNetwork } from '$lib/features/network/lines.svelte';
   import { clock, nowMinutes } from '$lib/features/timetable/time';
   import StopPicker from './StopPicker.svelte';
-  import { plannerHref, type Mode, type Query } from './planner';
+  import { normalizeTime, plannerHref, type Mode, type Query } from './planner';
 
   /** From, to, when: the IDOS-style search form, on the planner page and the home page. */
   let {
@@ -19,17 +19,17 @@
 
   let from = $state<number | null>(untrack(() => query.from));
   let to = $state<number | null>(untrack(() => query.to));
-  /** Empty means "now" (no time in the URL), like IDOS's default. */
-  let time = $state(untrack(() => query.time ?? ''));
+  /** Always a 24 h time; the current time when the URL has none, like IDOS. */
+  let time = $state(untrack(() => query.time ?? clock(nowMinutes())));
   let mode = $state<Mode>(untrack(() => query.mode));
-  let errors = $state<{ from?: string; to?: string }>({});
+  let errors = $state<{ from?: string; to?: string; time?: string }>({});
   let toPicker: StopPicker | undefined = $state();
 
   // A new URL (back button, a link) resets the form to it.
   $effect(() => {
     from = query.from;
     to = query.to;
-    time = query.time ?? '';
+    time = query.time ?? clock(nowMinutes());
     mode = query.mode;
     errors = {};
   });
@@ -49,8 +49,9 @@
   }
 
   function now() {
-    time = '';
+    time = clock(nowMinutes());
     mode = 'departure';
+    errors.time = undefined;
   }
 
   function submit(event: SubmitEvent) {
@@ -59,15 +60,19 @@
     if (from === null) errors.from = 'Vyberte zastávku, odkud jedete.';
     if (to === null) errors.to = 'Vyberte zastávku, kam jedete.';
     else if (from === to) errors.to = 'Cíl musí být jiná zastávka než start.';
-    if (errors.from || errors.to) {
-      document.getElementById(errors.from ? `${idBase}-from` : `${idBase}-to`)?.focus();
+    const picked = normalizeTime(time);
+    if (picked === null) errors.time = 'Zadejte čas ve tvaru 07:30.';
+    if (errors.from || errors.to || errors.time) {
+      const field = errors.from ? 'from' : errors.to ? 'to' : 'time';
+      document.getElementById(`${idBase}-${field}`)?.focus();
       return;
     }
-    void goto(plannerHref({ from, to, time: time || null, mode }), { keepFocus: true });
+    // The current minute stays "now", so results keep their countdowns.
+    const pinned = picked === clock(nowMinutes()) && mode === 'departure' ? null : picked;
+    void goto(plannerHref({ from, to, time: pinned, mode }), { keepFocus: true });
   }
 
   const idBase = $derived(compact ? 'hero-plan' : 'plan');
-  const nowLabel = $derived(time ? null : `teď (${clock(nowMinutes())})`);
 </script>
 
 <form
@@ -130,14 +135,25 @@
     <label class="time">
       <span class="sr-only">Čas {mode === 'arrival' ? 'příjezdu' : 'odjezdu'}</span>
       <Clock3 class="size-4" aria-hidden="true" />
-      <input type="time" name="cas" bind:value={time} aria-describedby={`${idBase}-now`} />
+      <input
+        id={`${idBase}-time`}
+        type="text"
+        name="cas"
+        inputmode="numeric"
+        autocomplete="off"
+        maxlength="5"
+        placeholder="07:30"
+        pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]"
+        bind:value={time}
+        aria-invalid={errors.time ? 'true' : undefined}
+        aria-describedby={errors.time ? `${idBase}-time-error` : undefined}
+        oninput={() => (errors.time = undefined)}
+      />
     </label>
-    <button type="button" class="now" class:on={!time} onclick={now} aria-pressed={!time}>
-      Teď
-    </button>
-    <span id={`${idBase}-now`} class="now-hint">
-      {#if nowLabel}Hledáme od {nowLabel}{:else}Prázdný čas = teď{/if}
-    </span>
+    <Button type="button" variant="outline" class="now" onclick={now}>Teď</Button>
+    {#if errors.time}
+      <span id={`${idBase}-time-error`} class="time-error" role="alert">{errors.time}</span>
+    {/if}
   </div>
 
   <Button type="submit" size="lg" class="submit">
@@ -253,27 +269,15 @@
   .time input:focus {
     outline: none;
   }
-  .now {
+  .when :global(.now) {
     min-height: 2.75rem;
-    padding: 0 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--background);
-    color: var(--foreground);
-    font: inherit;
-    font-weight: var(--weight-strong);
-    cursor: pointer;
   }
-  .now.on {
-    border-color: var(--primary);
-    background: color-mix(in oklch, var(--primary) 12%, var(--background));
+  .time input {
+    width: 4.5ch;
   }
-  .now:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-  }
-  .now-hint {
-    color: var(--muted-foreground);
+  .time-error {
+    flex-basis: 100%;
+    color: var(--destructive);
     font-size: var(--fs-sm);
   }
   .planner :global(.submit) {
@@ -304,9 +308,6 @@
     }
     .planner :global(.submit) {
       justify-self: stretch;
-    }
-    .now-hint {
-      flex-basis: 100%;
     }
   }
   .compact {
