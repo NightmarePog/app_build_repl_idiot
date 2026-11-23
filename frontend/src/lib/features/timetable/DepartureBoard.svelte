@@ -14,7 +14,7 @@
   let { stopId, stopName }: { stopId: number; stopName: string } = $props();
 
   /** Upcoming rows shown at first; "Zobrazit další" adds this many more. */
-  const PAGE = 8;
+  const PAGE = 20;
 
   const board = createResource(
     (signal) => unwrap(listStopDepartures({ path: { stopId }, signal })),
@@ -199,10 +199,8 @@
     <header class="board-head">
       <div>
         <!-- The page title already names the stop; the board only says what it lists. -->
-        <h2 id="board-heading" class="board-title">
-          Odjezdy<span class="sr-only"> ze zastávky {stopName}</span>
-        </h2>
-        <p class="board-sub">Všechny linky, živě podle pražského času</p>
+        <h2 id="board-heading" class="board-title">Odjezdy</h2>
+        <p class="board-sub">ze zastávky <strong>{stopName}</strong> · živě podle pražského času</p>
       </div>
       <p class="clock" aria-label={`Teď je ${clock(now)} pražského času`}>
         <span class="clock-label" aria-hidden="true">Nyní</span>
@@ -288,7 +286,10 @@
         {/each}
       </ol>
     {:else if departures.length === 0}
-      <p class="empty">Z této zastávky zatím žádný spoj neodjíždí.</p>
+      <p class="empty">
+        Odsud žádný spoj neodjíždí: linky tu jen končí, nebo tudy zatím nejezdí. Přehled linek a
+        jejich jízdní řády najdete níže v části „Linky na zastávce“.
+      </p>
     {:else if target !== null && trips.error}
       <p class="empty">
         Spoje do zastávky {targetName} se nepodařilo načíst.
@@ -298,7 +299,14 @@
     {:else if target !== null && !trips.data}
       <p class="empty" role="status">Hledáme spoje do zastávky {targetName}…</p>
     {:else if rows.length === 0}
-      <p class="empty">Žádný spoj neodpovídá filtru.</p>
+      <p class="empty">
+        Žádný spoj neodpovídá filtru.
+        <button
+          type="button"
+          class="retry"
+          onclick={() => ((lineFilter = []), (target = null), (limit = PAGE))}>Zrušit filtry</button
+        >
+      </p>
     {:else}
       {#if onlyLine && onlyRoute}
         <a class="line-link" href={lineDirectionHref(onlyLine.id, onlyRoute, stopId)}
@@ -350,6 +358,7 @@
               <a class="hit" href={tripHref(row.trip_id)} aria-label={rowLabel(row, by)}></a>
               <LinePlate number={row.line.number} color={row.line.color} />
               <div class="dest">
+                <span class="line-name" aria-hidden="true">Linka {row.line.number}</span>
                 <strong
                   ><span class="arrow" aria-hidden="true">→ </span>{row.destination.name}</strong
                 >
@@ -370,7 +379,9 @@
                 {#if row.reach}
                   <span class="time tabular">{row.reach.time}</span>
                   <span class="arr-m tabular" style:display="block"
-                    >odjezd {row.departure_time} · {row.reach.minutes - row.dep} min</span
+                    >{#if waits > 0}příjezd {row.arrival_time} ·
+                    {/if}odjezd {row.departure_time}
+                    · {row.reach.minutes - row.dep} min</span
                   >
                 {:else}
                   <span class="dep-label">odjezd</span>
@@ -849,6 +860,14 @@
     background: var(--board-raised);
     color: var(--board-fg);
     font-weight: var(--weight-strong);
+  }
+  .line-name {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.75;
   }
   .via {
     color: var(--board-muted);

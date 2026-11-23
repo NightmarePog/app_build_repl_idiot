@@ -62,7 +62,7 @@
 
 {#if failure}
   <PageState
-    title={failure === 'missing' ? 'Zastávka nebyla nalezena' : 'Detail se nepodařilo načíst'}
+    title={failure === 'missing' ? 'Zastávka nebyla nalezena' : 'Zastávku se nepodařilo načíst'}
     headingLevel={1}
     error
     onretry={failure === 'unavailable' ? () => attempt++ : undefined}

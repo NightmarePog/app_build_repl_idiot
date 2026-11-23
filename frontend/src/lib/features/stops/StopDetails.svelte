@@ -151,8 +151,10 @@
       grid-template-columns: minmax(0, 1fr);
       gap: 1rem;
     }
+    /* A thin banner on phones, so the departure board stays near the top. */
     .detail-image :global(.detail-image-frame) {
-      height: 9rem;
+      height: auto;
+      aspect-ratio: 16 / 5;
     }
   }
 </style>
