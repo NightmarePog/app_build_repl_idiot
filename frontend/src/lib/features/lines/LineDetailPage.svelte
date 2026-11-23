@@ -130,6 +130,11 @@
     return null;
   });
 
+  /** Travel time the other way, to flag that per-stop minutes differ by direction. */
+  const otherTravel = $derived(
+    line?.routes.filter((r) => r.id !== route?.id).map((r) => travelByRoute.get(r.id))[0] ?? null
+  );
+
   /** Other lines at the stop, linked straight to that stop on their own diagram. */
   function transfersAt(stopName: string) {
     return linesOf(stopName)
@@ -168,7 +173,7 @@
     style:--line={line.color}
     style:--line-ink={inkFor(line.color)}
   >
-    <div class="band">
+    <div class="head">
       <PageHeader
         kind="Linka"
         icon={line.type.toLowerCase() === 'tram' ? TramFront : BusFront}
@@ -183,7 +188,6 @@
             {(line?.routes.length ?? 0) > 1 ? 'dva směry' : 'jeden směr'}</span
           >{/snippet}
       </PageHeader>
-      <div class="band-bus" aria-hidden="true"><BusIllustration stripe={line.color} /></div>
     </div>
 
     {#if !route || route.stops.length === 0}
@@ -191,7 +195,8 @@
     {:else}
       {#if line.routes.length > 1}
         <!-- Headsigns as tabs, like a stop timetable: pick where you are going. -->
-        <h2 class="section-title">Zobrazený směr trasy</h2>
+        <h2 class="section-title">Trasa</h2>
+        <p class="hint">Vyberte směr pro diagram trasy. Spoje obou směrů jsou níže.</p>
         <nav class="directions" aria-label="Směr jízdy">
           {#each line.routes as option (option.id)}
             <a
@@ -229,8 +234,13 @@
         {/if}
       </p>
 
-      <h2 class="section-title">Trasa a zastávky linky</h2>
-      {#if cumulative.size}<p class="leg-head">min od výchozí</p>{/if}
+      {#if line.routes.length <= 1}<h2 class="section-title">Trasa</h2>{/if}
+      {#if otherTravel !== null && travelByRoute.get(route.id) != null && otherTravel !== travelByRoute.get(route.id)}
+        <p class="hint">
+          Minuty jsou od výchozí zastávky ve směru {route.direction}. V opačném směru trvá jízda
+          {otherTravel} min a časy mezi zastávkami se liší.
+        </p>
+      {/if}
       <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
         {#each route.stops as stop, index (stop.id)}
           {@const others = transfersAt(stop.name)}
@@ -254,9 +264,9 @@
                 ><BusIllustration stripe={line.color} /></a
               >
             {/if}
-            {#if leg !== undefined}
-              <span class="leg tabular" title="minut od výchozí zastávky">+{leg}</span>
-            {/if}
+            <span class="leg tabular" title="minut od výchozí zastávky"
+              >{leg !== undefined ? `+${leg} min` : ''}</span
+            >
             <div class="stop">
               <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
                 >{stop.name}<span class="chev" aria-hidden="true">›</span></a
@@ -266,7 +276,7 @@
               {/if}
               {#if others.length}
                 <span class="transfer">
-                  <span class="transfer-label">přestup na</span>
+                  <span class="transfer-label">Přestup:</span>
                   {#each others as other (other.number)}
                     <a
                       class="badge tabular"
@@ -281,16 +291,19 @@
                 </span>
               {/if}
               {#if wait > 0 && !first && !last}<span class="note">stojí {wait} min</span>{/if}
+              {#if first}<span class="note">výchozí</span>{/if}
               {#if last}<span class="note">konečná</span>{/if}
             </div>
           </li>
         {/each}
       </ol>
 
-      <h2 class="section-title trips-title">Spoje linky {line.number} v obou směrech</h2>
-      {#each [route, ...line.routes.filter((r) => r.id !== route?.id)] as r (r.id)}
-        <LineTrips {timetable} route={r} lineNumber={line.number} />
-      {/each}
+      <h2 class="trips-title">Spoje</h2>
+      <div class="boards">
+        {#each line.routes as r (r.id)}
+          <LineTrips {timetable} route={r} lineNumber={line.number} />
+        {/each}
+      </div>
     {/if}
   </article>
 {/if}
@@ -299,26 +312,19 @@
   .state {
     margin-top: 1rem;
   }
-  .band {
-    position: relative;
+  /* Line-colour stripe ties the plain header to the line, like the stop and trip pages' tags. */
+  .head {
     margin-bottom: 1rem;
-    padding: 1.25rem 1.25rem 0.25rem;
-    border-radius: var(--radius-xl);
+    padding-top: 1rem;
     border-top: 6px solid var(--line);
-    background: color-mix(in oklch, var(--line) 12%, var(--background));
-    overflow: hidden;
   }
-  .band-bus {
-    position: absolute;
-    right: 1.25rem;
-    bottom: 0.75rem;
-    width: 9rem;
-    opacity: 0.9;
-  }
-  @media (max-width: 639px) {
-    .band-bus {
-      display: none;
-    }
+  .hint {
+    max-width: 44rem;
+    margin-top: -0.375rem;
+    color: var(--foreground);
+    opacity: 0.8;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
   }
 
   .back {
@@ -413,7 +419,7 @@
   .diagram li {
     position: relative;
     display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr);
+    grid-template-columns: 2rem 4.25rem minmax(0, 1fr);
     align-items: center;
     column-gap: 0.75rem;
     min-height: 3.5rem;
@@ -478,7 +484,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.125rem 0.125rem 0.125rem 0.625rem;
+    padding: 0.1875rem 0.25rem 0.1875rem 0.625rem;
     border: 1.5px solid var(--foreground);
     border-radius: 999px;
   }
@@ -491,8 +497,8 @@
     position: relative;
     display: inline-grid;
     place-items: center;
-    min-width: 1.75rem;
-    height: 1.75rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
     padding-inline: 0.375rem;
     border-radius: 999px;
     font-size: var(--fs-sm);
@@ -507,21 +513,11 @@
   }
   /* Minutes from the first stop, right-aligned like an IDOS / SBB stop list. */
   .leg {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
     color: var(--foreground);
+    text-align: right;
+    white-space: nowrap;
     font-size: var(--fs-base);
     font-weight: var(--weight-strong);
-  }
-  .leg-head {
-    max-width: 44rem;
-    margin-top: 0.75rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    text-align: right;
   }
   .chev {
     margin-left: 0.375rem;
@@ -530,8 +526,22 @@
   .diagram li:hover .chev {
     color: var(--foreground);
   }
+  /* Parent of the two direction boards: one size up from section titles so it reads as a level. */
   .trips-title {
     margin-top: 3rem;
+    font-size: var(--fs-h2);
+    font-weight: var(--font-display-weight);
+    letter-spacing: var(--tracking-display);
+  }
+  .boards {
+    display: grid;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (min-width: 64rem) {
+    .boards {
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    }
   }
   .bus {
     position: absolute;
