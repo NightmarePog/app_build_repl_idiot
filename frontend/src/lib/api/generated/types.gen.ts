@@ -112,7 +112,7 @@ export type ConnectionStopTime = {
 
 export type Departure = {
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     arrival_day_offset: number;
     /**
@@ -120,7 +120,7 @@ export type Departure = {
      */
     arrival_time: string;
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     departure_day_offset: number;
     /**
@@ -250,12 +250,12 @@ export type TripDetail = {
 
 export type TripStopTime = {
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     arrival_day_offset: number;
     arrival_time: string;
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     departure_day_offset: number;
     departure_time: string;
@@ -386,7 +386,7 @@ export type ConnectionSearchWritable = {
 
 export type DepartureWritable = {
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     arrival_day_offset: number;
     /**
@@ -394,7 +394,7 @@ export type DepartureWritable = {
      */
     arrival_time: string;
     /**
-     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     * Calendar days after the day the trip starts. Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
      */
     departure_day_offset: number;
     /**

@@ -14,7 +14,7 @@ import java.util.Set;
  * 24:14 is caught both late in the evening and just after midnight, and a search can look a full
  * day ahead or back from any time.
  *
- * <p>The network is small, so every journey with up to {@link #MAX_LEGS} legs is enumerated instead
+ * <p>The network is small, so every journey (capped at {@link #MAX_CANDIDATES}) with up to {@link #MAX_LEGS} legs is enumerated instead
  * of approximated. A journey never visits a stop twice (no riding to the terminus and back), never
  * rides past its destination and changes buses only with {@link #TRANSFER_MINUTES} to spare;
  * staying on the same bus needs nothing, so zero-minute dwells and buses overtaking each other are
@@ -24,7 +24,17 @@ import java.util.Set;
 final class Planner {
   static final int TRANSFER_MINUTES = 2;
   static final int MAX_LEGS = 4;
+  /**
+   * Upper bound on candidate journeys per search. The enumeration is exponential in network size,
+   * so a larger network stops collecting here instead of running away; the seeded network stays far
+   * below it.
+   */
+  static final int MAX_CANDIDATES = 1_000_000;
+
   private static final int DAY = 24 * 60;
+
+  /** Journeys with the same times and transfers collapse to the one with the least waiting. */
+  private record Key(int departure, int arrival, int transfers) {}
 
   record Call(long stopId, int arrival, int departure) {}
 
@@ -113,10 +123,10 @@ final class Planner {
     var visited = new HashSet<Long>();
     visited.add(fromStop);
     search(fromStop, toStop, fromTime, until, new ArrayList<>(), visited, all);
-    var best = new HashMap<String, Journey>();
+    var best = new HashMap<Key, Journey>();
     for (var journey : all)
       best.merge(
-          journey.departure() + "/" + journey.arrival() + "/" + journey.transfers(),
+          new Key(journey.departure(), journey.arrival(), journey.transfers()),
           journey,
           (a, b) -> waiting(b) < waiting(a) ? b : a);
     var unique = new ArrayList<>(best.values());
@@ -135,6 +145,7 @@ final class Planner {
       Set<Long> visited,
       List<Journey> out) {
     for (var boarding : boardings.getOrDefault(stop, List.of())) {
+      if (out.size() >= MAX_CANDIDATES) return;
       var run = runs.get(boarding.run());
       var calls = run.calls();
       var departure = calls.get(boarding.index()).departure();

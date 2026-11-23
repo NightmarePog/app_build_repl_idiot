@@ -26,7 +26,7 @@ public record TripStopTimeResponse(
             minimum = "0",
             example = "0",
             description =
-                "Calendar days after the day the trip starts (0 or 1). Times past midnight are"
+                "Calendar days after the day the trip starts. Times past midnight are"
                     + " shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with"
                     + " offset 1.")
         int arrivalDayOffset,
@@ -35,7 +35,7 @@ public record TripStopTimeResponse(
             minimum = "0",
             example = "0",
             description =
-                "Calendar days after the day the trip starts (0 or 1). Times past midnight are"
+                "Calendar days after the day the trip starts. Times past midnight are"
                     + " shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with"
                     + " offset 1.")
         int departureDayOffset) {}

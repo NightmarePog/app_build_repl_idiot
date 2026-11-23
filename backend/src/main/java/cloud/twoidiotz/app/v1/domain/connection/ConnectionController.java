@@ -47,13 +47,13 @@ public class ConnectionController {
       operationId = "searchConnections",
       summary = "Search connections between two stops",
       description =
-          "Plans journeys from `from` to `to` over the daily timetable with the Connection Scan"
-              + " Algorithm, including changes between buses at the same stop (at least"
+          "Plans journeys from `from` to `to` over the daily timetable with a bounded exhaustive"
+              + " search of up to 4 legs, including changes between buses at the same stop (at least"
               + " `min_transfer_minutes`, staying on the same bus needs no time). With"
               + " `mode=departure` it returns the first `limit` connections leaving at or after"
               + " `time`; with `mode=arrival` the last `limit` connections arriving at or before"
-              + " `time`. Only Pareto-optimal connections are returned: none leaves earlier,"
-              + " arrives later and changes more often than another. The search looks up to 24"
+              + " `time`. Only Pareto-optimal connections are returned: a connection is dropped"
+              + " when another one leaves no earlier, arrives no later and changes no more often. The search looks up to 24"
               + " hours ahead (or back) and wraps past midnight; day offsets count from the search"
               + " day. Connections are ordered by departure. No connection gives an empty array.")
   public ResponseEntity<ConnectionSearchResponse> search(
