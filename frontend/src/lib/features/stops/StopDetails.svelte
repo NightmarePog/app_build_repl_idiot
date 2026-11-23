@@ -9,14 +9,16 @@
   import StopImage from './StopImage.svelte';
   import DepartureBoard from '$lib/features/timetable/DepartureBoard.svelte';
   import { AMENITIES } from './amenities';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { stop }: { stop: Stop } = $props();
-  const titleTransition = $derived(`stop-title-${String(stop.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`);
 </script>
 
 <!-- Wikipedia-style: the board is the article, the stop facts sit in a sticky infobox. -->
+<PageHeader kind="Zastávka" icon={MapPin} title={stop.name} />
+
 <article class="stop-detail">
-  <aside class="infobox" aria-labelledby="stop-title">
+  <aside class="infobox" aria-label={`Zastávka ${stop.name}`}>
     <StopImage
       src={stop.image_url}
       name={stop.name}
@@ -26,8 +28,6 @@
       class="info-photo"
     />
     <div class="info-body">
-      <p class="kind"><MapPin aria-hidden="true" size={18} /> Zastávka</p>
-      <h1 id="stop-title" style:view-transition-name={titleTransition}>{stop.name}</h1>
       <ul class="lines" aria-label="Linky">
         {#each linesOf(stop.name) as id (id)}
           <li>
@@ -42,12 +42,13 @@
       <ul class="amenities" aria-label="Vybavení">
         {#each AMENITIES as amenity (amenity.field)}
           {@const has = stop[amenity.field]}
-          <li
-            class:no={!has}
-            title={`${amenity.label}: ${has ? 'ano' : 'ne'}`}
-            aria-label={`${amenity.label}: ${has ? 'ano' : 'ne'}`}
-          >
-            <amenity.icon aria-hidden="true" size={22} strokeWidth={1.75} />
+          <li class:no={!has} title={`${amenity.label}: ${has ? 'ano' : 'ne'}`}>
+            <span class="icon" aria-hidden="true"
+              ><amenity.icon size={20} strokeWidth={1.75} /></span
+            >
+            <span class="caption"
+              ><span class="sr-only">{has ? '' : 'Není: '}</span>{amenity.label}</span
+            >
           </li>
         {/each}
       </ul>
@@ -69,7 +70,6 @@
     grid-template-areas: 'main info';
     align-items: start;
     gap: 2rem;
-    margin-top: 1rem;
     padding-bottom: calc(var(--tabbar-h, 0px) + env(safe-area-inset-bottom) + 1rem);
   }
   .main {
@@ -95,39 +95,43 @@
     gap: 1rem;
     padding: 1rem;
   }
-  .kind {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-weight: var(--weight-strong);
-  }
-  h1 {
-    font-size: var(--fs-h2, 1.75rem);
-    font-weight: var(--font-display-weight);
-    line-height: 1.1;
-    overflow-wrap: anywhere;
-  }
-  .lines,
-  .amenities {
+  .lines {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .amenities li {
+  .amenities {
     display: grid;
+    gap: 0.375rem;
+  }
+  .amenities li {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .amenities .icon {
+    display: grid;
+    flex: none;
     place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: var(--radius);
     background: color-mix(in oklch, var(--status-ok, var(--foreground)) 14%, transparent);
     color: var(--status-ok, var(--foreground));
   }
   .amenities li.no {
+    color: var(--muted-foreground);
+  }
+  .amenities li.no .caption {
+    text-decoration: line-through;
+  }
+  .amenities li.no .icon {
     background: var(--muted);
     color: var(--muted-foreground);
-    opacity: 0.55;
   }
-  .amenities li.no :global(svg) {
+  .amenities li.no .icon :global(svg) {
     /* A struck-through icon: the amenity is missing. */
     background: linear-gradient(
       to top right,
@@ -143,22 +147,28 @@
       grid-template-areas: 'info' 'main';
       gap: 1.5rem;
     }
+    /* Phones and tablets: a compact strip so the departures start high on the screen. */
     .infobox {
       position: static;
       display: grid;
-      grid-template-columns: 9rem minmax(0, 1fr);
+      grid-template-columns: 6.5rem minmax(0, 1fr);
     }
     .infobox :global(.info-photo) {
       height: 100%;
       aspect-ratio: auto;
     }
-  }
-  @media (max-width: 479px) {
-    .infobox {
-      grid-template-columns: minmax(0, 1fr);
+    .info-body {
+      gap: 0.625rem;
+      padding: 0.75rem;
     }
-    .infobox :global(.info-photo) {
-      aspect-ratio: 16 / 7;
+    .amenities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.75rem;
+    }
+    .amenities .icon {
+      width: 1.75rem;
+      height: 1.75rem;
     }
   }
 </style>
