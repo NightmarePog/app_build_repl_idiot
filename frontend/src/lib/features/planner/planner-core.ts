@@ -36,19 +36,58 @@ export type BarPart =
   | { kind: 'ride'; leg: ConnectionLeg; share: number }
   | { kind: 'wait'; minutes: number; long: boolean; share: number };
 
-/** The journey bar: rides and waits as shares of the whole door-to-door time. */
+/** Longest wait drawn to scale; anything longer gets a break glyph instead of its full width. */
+export const WAIT_CAP = 8;
+
+/**
+ * The journey bar on a compressed time scale: rides keep their real length, a wait is drawn at
+ * most WAIT_CAP minutes wide so a 13 h night wait does not squeeze the rides into chips.
+ */
 export function journeyBar(connection: Connection): BarPart[] {
-  const total = Math.max(connection.duration_minutes, 1);
+  const drawn = (minutes: number) => Math.min(minutes, WAIT_CAP);
+  const total = Math.max(
+    connection.legs.reduce(
+      (sum, leg, index) =>
+        sum + leg.duration_minutes + (index > 0 ? drawn(leg.transfer_minutes ?? 0) : 0),
+      0
+    ),
+    1
+  );
   const parts: BarPart[] = [];
   connection.legs.forEach((leg, index) => {
     if (index > 0) {
       const minutes = leg.transfer_minutes ?? 0;
-      parts.push({ kind: 'wait', minutes, long: minutes >= LONG_WAIT, share: minutes / total });
+      parts.push({
+        kind: 'wait',
+        minutes,
+        long: minutes >= LONG_WAIT,
+        share: drawn(minutes) / total
+      });
     }
     parts.push({ kind: 'ride', leg, share: leg.duration_minutes / total });
   });
   return parts;
 }
+
+/** Longest wait of a connection, 0 for a direct one. */
+export function longestWait(connection: Connection) {
+  return Math.max(0, ...connection.legs.map((l) => l.transfer_minutes ?? 0));
+}
+
+/**
+ * Duration that marks the one fastest result: only when exactly one connection has the
+ * shortest time and the times actually differ, otherwise the badge would mean nothing.
+ */
+export function fastestDuration(connections: Connection[]) {
+  if (connections.length < 2) return null;
+  const minutes = connections.map((c) => c.duration_minutes);
+  const min = Math.min(...minutes);
+  return minutes.filter((m) => m === min).length === 1 ? min : null;
+}
+
+/** "Bus A01" for the vehicle working a trip, null when none is assigned. */
+export const vehicleLabel = (blockRef: string | null | undefined) =>
+  blockRef ? `Bus ${blockRef}` : null;
 
 /**
  * A connection with its day offsets moved by `shift` days, so pages fetched for a later or

@@ -1,11 +1,18 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { ArrowRight, ChevronDown, Hourglass, Clock as TripIcon } from '@lucide/svelte';
+  import { ArrowRight, Bus, ChevronDown, Hourglass, MoonStar } from '@lucide/svelte';
   import type { Connection, ConnectionLeg, ConnectionStopTime } from '$lib/api/generated';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { duration } from '$lib/features/timetable/time';
   import { lineDirectionHref, withQuery } from '$lib/links';
-  import { dayNote, journeyBar, LONG_WAIT, transfersLabel } from './planner';
+  import {
+    dayNote,
+    journeyBar,
+    LONG_WAIT,
+    longestWait,
+    transfersLabel,
+    vehicleLabel
+  } from './planner';
 
   /**
    * One search result, IDOS style: times, duration, changes and the line plates up front; the
@@ -45,11 +52,16 @@
     call.arrival_day_offset !== call.departure_day_offset;
 
   const bar = $derived(journeyBar(connection));
+  const maxWait = $derived(longestWait(connection));
+  /** "13 h" for the break glyph of a long wait. */
+  const hours = (minutes: number) => `${Math.round(minutes / 60)} h`;
 
   const spoken = $derived(
     `Odjezd ${dayNote(connection.departure_day_offset)} ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
       `${connection.arrival_time} do ${last.to.name}, ${duration(connection.duration_minutes)}, ` +
-      `${transfersLabel(connection.transfers)}, linky ${connection.legs.map((l) => l.line.number).join(', ')}`
+      `${transfersLabel(connection.transfers)}, linky ${connection.legs
+        .map((l) => [l.line.number, vehicleLabel(l.block_ref)].filter(Boolean).join(' '))
+        .join(', ')}${maxWait >= LONG_WAIT ? `, dlouhé čekání ${duration(maxWait)}` : ''}`
   );
 </script>
 
@@ -70,6 +82,11 @@
     </span>
     <span class="facts" aria-hidden="true">
       {#if fastest}<span class="fastest">Nejrychlejší</span>{/if}
+      {#if maxWait >= LONG_WAIT}
+        <span class="long-wait"
+          ><MoonStar class="size-4" aria-hidden="true" /> čekání {duration(maxWait)}</span
+        >
+      {/if}
       {#if countdown}<span class="countdown">{countdown}</span>{/if}
       <span><strong>{duration(connection.duration_minutes)}</strong></span>
       <span class:direct={connection.transfers === 0}>{transfersLabel(connection.transfers)}</span>
@@ -82,9 +99,13 @@
             style:--line={part.leg.line.color}
             style:flex-grow={Math.max(part.share, 0.12)}
           >
-            <span class="bar-tick">{part.leg.departure_time}</span>
-            <span class="bar-badge">{part.leg.line.number}</span>
-            <span class="bar-tick">{part.leg.arrival_time}</span>
+            <span class="bar-tick dep">{part.leg.departure_time}</span>
+            <span class="bar-badge"
+              >{part.leg.line.number}{#if part.leg.block_ref}<span class="bar-vehicle"
+                  >{part.leg.block_ref}</span
+                >{/if}</span
+            >
+            <span class="bar-tick arr-tick">{part.leg.arrival_time}</span>
           </span>
         {:else}
           <span
@@ -92,7 +113,12 @@
             class:long={part.long}
             style:flex-grow={Math.max(part.share, 0.08)}
           >
-            <span class="bar-wait-label">{duration(part.minutes)}</span>
+            {#if part.long}
+              <span class="bar-break" aria-hidden="true">//</span>
+              <span class="bar-wait-label">{hours(part.minutes)}</span>
+            {:else}
+              <span class="bar-wait-label">{duration(part.minutes)}</span>
+            {/if}
             <span class="bar-node"></span>
           </span>
         {/if}
@@ -125,13 +151,20 @@
         <section class="leg" aria-label={`Úsek ${index + 1}: linka ${leg.line.number}`}>
           <header class="leg-head">
             <LinePlate number={leg.line.number} color={leg.line.color} size="md" label />
+            {#if leg.block_ref}<span class="leg-vehicle"
+                ><Bus class="size-4" aria-hidden="true" />{vehicleLabel(leg.block_ref)}</span
+              >{/if}
             <p class="leg-name">
-              <span class="leg-dir">směr</span>
+              <ArrowRight class="size-4 leg-arrow" aria-hidden="true" />
+              <span class="sr-only">směr</span>
               {leg.destination.name}
             </p>
             <span class="leg-duration">{duration(leg.duration_minutes)}</span>
             <nav class="leg-links" aria-label={`Odkazy úseku ${index + 1}`}>
-              <a href={tripHref(leg)}><TripIcon class="size-4" aria-hidden="true" /> Spoj</a>
+              <a href={tripHref(leg)}
+                ><Bus class="size-4" aria-hidden="true" />
+                {leg.block_ref ? `Spoj ${vehicleLabel(leg.block_ref)}` : 'Spoj'}</a
+              >
               <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
                 ><LinePlate number={leg.line.number} color={leg.line.color} size="sm" /> Linka {leg
                   .line.number}</a
@@ -146,6 +179,7 @@
                 <span class="call-time tabular">
                   {#if !alight && waits(call)}
                     <span class="arr">příj. {call.arrival_time}</span>
+                    <span class="sr-only">odj.</span>
                     <span class:main={board}>{call.departure_time}</span>
                   {:else}
                     <span class="main">{alight ? call.arrival_time : call.departure_time}</span>
@@ -244,6 +278,16 @@
     color: var(--primary-foreground);
     font-weight: var(--weight-strong);
   }
+  .long-wait {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius);
+    background: color-mix(in oklch, var(--destructive) 14%, var(--background));
+    color: var(--foreground);
+    font-weight: var(--weight-strong);
+  }
   .countdown {
     padding: 0.125rem 0.5rem;
     border-radius: var(--radius);
@@ -265,21 +309,36 @@
     justify-content: space-between;
     gap: 0.25rem;
     flex-basis: 0;
-    min-width: 4.5rem;
-    height: 1.75rem;
-    padding: 0 0.375rem;
+    min-width: 7rem;
+    height: 2.25rem;
+    padding: 0 0.5rem;
     border-radius: var(--radius);
     background: var(--line);
     color: var(--primary-foreground);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
     font-variant-numeric: tabular-nums;
     transform-origin: left;
-    min-height: 1.75rem;
     animation: bar-in var(--motion-normal) var(--ease-out) both;
   }
   .bar-badge {
-    font-size: var(--fs-sm);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    font-size: var(--fs-base);
+    font-weight: var(--font-display-weight);
+  }
+  .bar-vehicle {
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+  }
+  .bar-break {
+    position: relative;
+    padding: 0 0.125rem;
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: var(--weight-strong);
+    line-height: 1;
   }
   .bar-wait {
     display: flex;
@@ -358,11 +417,16 @@
     align-items: center;
     gap: 0.5rem 0.875rem;
   }
-  .leg-dir {
-    margin-right: 0.25rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-sm);
-    font-weight: normal;
+  .leg-vehicle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .leg-name :global(.leg-arrow) {
+    display: inline;
+    vertical-align: -0.125em;
   }
   .leg-name {
     flex: 1 1 10rem;
@@ -451,8 +515,7 @@
     font-weight: var(--font-display-weight);
   }
   .call-time .arr {
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
   }
   .day-sub {
     font-size: var(--fs-xs);
@@ -503,13 +566,12 @@
     .facts {
       justify-content: flex-start;
     }
-    /* Narrow: only the line letter fits inside a ride segment. */
-    .bar-tick {
+    /* Narrow: the boarding time and the line stay, the arrival tick goes. */
+    .arr-tick {
       display: none;
     }
     .bar-ride {
-      justify-content: center;
-      min-width: 2.25rem;
+      min-width: 5.5rem;
     }
     .toggle {
       justify-self: start;
