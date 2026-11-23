@@ -123,7 +123,7 @@ export type TeamResponse = {
 
 export type TripDetail = {
     /**
-     * Always 0: a trip starts on its operating day.
+     * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
     departure_time: string;
@@ -162,7 +162,7 @@ export type TripStopTime = {
 
 export type TripSummary = {
     /**
-     * Always 0: a trip starts on its operating day.
+     * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
     /**
@@ -243,7 +243,7 @@ export type StopWritable = {
 
 export type TripDetailWritable = {
     /**
-     * Always 0: a trip starts on its operating day.
+     * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
     departure_time: string;
@@ -264,7 +264,7 @@ export type TripDetailWritable = {
 
 export type TripSummaryWritable = {
     /**
-     * Always 0: a trip starts on its operating day.
+     * Day offset of the trip start, counted from its operating day.
      */
     departure_day_offset: number;
     /**
