@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, BusFront, Clock, TramFront } from '@lucide/svelte';
+  import { ArrowRight, BusFront, ChevronRight, Clock, MapPin, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -281,8 +281,29 @@
                 <div class="stop">
                   <span class="stop-main">
                     <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
-                      >{stop.name}</a
+                      >{stop.name}<ChevronRight size={16} aria-hidden="true" /></a
                     >
+                    {#if others.length}
+                      <span class="transfers">
+                        {#each others as other (other.number)}
+                          <a
+                            class="badge tabular"
+                            href={resolve(`/lines/[id]#stop-${stop.id}`, {
+                              id: String(other.apiId)
+                            })}
+                            style:background={other.color}
+                            style:color={other.ink}
+                            title={`Přestup na linku ${other.number}`}
+                            ><span aria-hidden="true">{other.number}</span><span class="sr-only"
+                              >přestup na linku {other.number}</span
+                            ></a
+                          >
+                        {/each}
+                      </span>
+                    {/if}
+                    {#if picked}<span class="board-mark"
+                        ><MapPin size={14} aria-hidden="true" />Nástup</span
+                      >{/if}
                     {#if stepFree.get(stop.id)}<Isa size={16} label="bezbariérový nástup" />{/if}
                   </span>
                   <span class="leg tabular"
@@ -290,24 +311,6 @@
                         od začátku trasy</span
                       >{/if}</span
                   >
-                  {#if others.length}
-                    <span class="stop-sub">
-                      {#each others as other (other.number)}
-                        <a
-                          class="badge tabular"
-                          href={resolve(`/lines/[id]#stop-${stop.id}`, {
-                            id: String(other.apiId)
-                          })}
-                          style:background={other.color}
-                          style:color={other.ink}
-                          title={`Přestup na linku ${other.number}`}
-                          ><span aria-hidden="true">{other.number}</span><span class="sr-only"
-                            >přestup na linku {other.number}</span
-                          ></a
-                        >
-                      {/each}
-                    </span>
-                  {/if}
                 </div>
               </li>
             {/each}
@@ -526,18 +529,11 @@
     gap: 0.125rem 0.75rem;
     padding-block: 0.5rem;
   }
-  .stop-sub {
-    grid-column: 1 / -1;
-  }
-  .stop-main,
-  .stop-sub {
+  .stop-main {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem 0.5rem;
-  }
-  .stop-sub {
-    padding-bottom: 0.25rem;
   }
   .name {
     padding-block: 0.25rem;
@@ -584,12 +580,33 @@
   }
   /* Every stop gets the same node; termini and transfers are said in words next to the name. */
   /* Stop picked in the timetable. */
-  .diagram li.boarding {
-    background: linear-gradient(
-      to right,
-      transparent 2.5rem,
-      color-mix(in oklch, var(--line) 22%, transparent) 2.5rem
-    );
+  .board-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius);
+    background: var(--foreground);
+    color: var(--background);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .transfers {
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+  .name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+  .line {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 64rem) {
+    .line {
+      padding-bottom: 0;
+    }
   }
   .boarding .name {
     font-weight: var(--weight-strong);
