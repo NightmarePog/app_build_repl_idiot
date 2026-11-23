@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowLeftRight, BusFront, Check, TramFront } from '@lucide/svelte';
+  import { BusFront, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -62,17 +62,27 @@
     new Map((stopsList() ?? []).map((stop) => [stop.id, stop.wheelchair_accessible]))
   );
 
-  const bound = $derived(page.url.searchParams.get('smer') === 'inbound' ? 'inbound' : 'outbound');
-  const route = $derived<Route | undefined>(
-    line ? (line.routes.find((r) => r.bound === bound) ?? line.routes[0]) : undefined
-  );
+  const asked = $derived(page.url.searchParams.get('smer'));
+  const timetable = createLineTimetable(() => Number(id));
+  /**
+   * Direction from the URL; without one, the first direction that has trips, so the page never
+   * opens on an empty timetable when the other direction runs.
+   */
+  const route = $derived.by<Route | undefined>(() => {
+    if (!line) return undefined;
+    const pick = line.routes.find((r) => r.bound === asked);
+    if (pick) return pick;
+    const served = timetable.trips
+      ? line.routes.find((r) => timetable.trips!.some((trip) => trip.route_id === r.id))
+      : undefined;
+    return served ?? line.routes.find((r) => r.bound === 'outbound') ?? line.routes[0];
+  });
   const accessible = $derived(
     route ? route.stops.filter((stop) => stepFree.get(stop.id)).length : 0
   );
 
   // Trips of the line: drive the trips sheet, the per-direction travel time on the tabs and the
   // minutes between stops on the diagram. One request set per line, shared by all three.
-  const timetable = createLineTimetable(() => Number(id));
   $effect(() => clock.subscribe());
 
   /** Typical end-to-end minutes per route, shown on the direction tabs (C differs by direction). */
@@ -132,9 +142,6 @@
     }
     return null;
   });
-
-  /** Departure of the trip the per-stop minutes come from, named in the caption. */
-  const firstTrip = $derived(routeDetails[0]?.stops[0]?.departure_time ?? null);
 
   /** Type tag in the header: "Autobusová linka", so the subtitle can carry facts instead. */
   const kindLabel = $derived.by(() => {
@@ -227,25 +234,21 @@
     {:else}
       <!-- One direction switch drives the whole page: the route and the timetable below. -->
       <div class="direction-bar">
-        <h2 class="section-title" id="direction-label">Směr jízdy</h2>
+        <h2 class="section-title" id="direction-label">
+          {line.routes.length > 1 ? 'Vyberte směr' : 'Směr jízdy'}
+        </h2>
         {#if line.routes.length > 1}
           <nav class="directions" aria-labelledby="direction-label">
             {#each line.routes as option (option.id)}
               <a
                 href={option.bound === 'inbound'
                   ? resolve('/lines/[id]?smer=inbound', { id })
-                  : resolve('/lines/[id]', { id })}
+                  : resolve('/lines/[id]?smer=outbound', { id })}
                 aria-current={option.id === route.id ? 'page' : undefined}
                 data-sveltekit-replacestate
                 data-sveltekit-noscroll
               >
-                <span class="dir-name">
-                  {#if option.id === route.id}<Check
-                      class="size-4"
-                      aria-hidden="true"
-                    />{:else}<ArrowLeftRight class="size-4" aria-hidden="true" />{/if}
-                  Směr {option.direction}
-                </span>
+                <span class="dir-name">Směr {option.direction}</span>
                 <span class="dir-label tabular">
                   {[
                     `z ${option.stops[0]?.name ?? ''}`,
@@ -269,14 +272,6 @@
         <section class="route" aria-labelledby="route-heading">
           <h2 id="route-heading" class="section-title">Trasa</h2>
           <p class="caption">
-            <span class="legend" aria-hidden="true">
-              <span class="key"><span class="dot key-end"></span>konečná</span>
-              <span class="key"><span class="dot"></span>zastávka</span>
-              <span class="key"><span class="dot key-transfer"></span>přestup</span>
-            </span>
-            {#if firstTrip}
-              <span class="tabular">+min = od odjezdu spoje v {firstTrip}</span>
-            {/if}
             {#if stopsList()}
               <span class="isa-count tabular">
                 <Isa size={16} />
@@ -288,6 +283,11 @@
               <span>Bezbariérovost zastávek se nepodařilo zjistit.</span>
             {/if}
           </p>
+          {#if cumulative.size > 0}
+            <p class="diagram-head" aria-hidden="true">
+              <span>Zastávka</span><span>Jízdní doba</span>
+            </p>
+          {/if}
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
             {#each route.stops as stop, index (stop.id)}
               {@const others = transfersAt(stop.name)}
@@ -298,7 +298,6 @@
               <li
                 id={`stop-${stop.id}`}
                 class:terminus={first || last}
-                class:interchange={others.length > 0}
                 class:boarding={boardStop === stop.id || (boardStop === null && first)}
               >
                 <span class="dot" aria-hidden="true"></span>
@@ -319,17 +318,19 @@
                     {#if first}<span class="end-tag">výchozí</span>{/if}
                     {#if last}<span class="end-tag">konečná</span>{/if}
                     {#if stepFree.get(stop.id)}<Isa size={16} label="bezbariérový nástup" />{/if}
-                    <span class="leg tabular"
-                      >{leg !== undefined ? `+${leg} min` : ''}<span class="sr-only">
-                        od startu</span
-                      ></span
-                    >
                   </span>
+                  <span class="leg tabular"
+                    >{leg !== undefined ? `${leg} min` : ''}{#if leg !== undefined}<span
+                        class="sr-only"
+                      >
+                        od začátku trasy</span
+                      >{/if}</span
+                  >
                   {#if others.length || (wait > 0 && !first && !last)}
                     <span class="stop-sub">
                       {#if others.length}
                         <span class="transfer">
-                          <span class="transfer-label">Přestup</span>
+                          <span class="transfer-label">Přestup na</span>
                           {#each others as other (other.number)}
                             <a
                               class="badge tabular"
@@ -504,10 +505,28 @@
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
   }
+  /* Name row on the left, travel minutes pinned right on the same row, even on phones. */
   .stop {
     display: grid;
-    gap: 0.125rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.125rem 0.75rem;
     padding-block: 0.5rem;
+  }
+  .stop-sub {
+    grid-column: 1 / -1;
+  }
+  .diagram-head {
+    display: flex;
+    justify-content: space-between;
+    max-width: 44rem;
+    margin-top: 0.75rem;
+    padding-left: 2.75rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
   }
   .stop-main,
   .stop-sub {
@@ -577,39 +596,13 @@
   }
   /* Minutes from the first stop, at the end of the name row so they read with it. */
   .leg {
-    margin-left: auto;
+    padding-top: 0.375rem;
     color: var(--muted-foreground);
     white-space: nowrap;
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
   }
-  /* One symbol convention: filled = terminus, hollow = stop, ringed = transfer. */
-  .terminus .dot,
-  .key-end {
-    background: var(--line-stroke, var(--line));
-  }
-  .interchange .dot,
-  .key-transfer {
-    box-shadow:
-      0 0 0 2px var(--background),
-      0 0 0 4px var(--foreground);
-  }
-  .legend {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.875rem;
-  }
-  .key {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-  .key .dot {
-    margin: 0;
-    width: 0.75rem;
-    height: 0.75rem;
-    border-width: 2px;
-  }
+  /* Every stop gets the same node; termini and transfers are said in words next to the name. */
   /* Stop picked in the timetable. */
   .diagram li.boarding {
     background: linear-gradient(to right, transparent 2.5rem, var(--muted) 2.5rem);
