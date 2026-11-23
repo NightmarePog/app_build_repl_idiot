@@ -8,3 +8,9 @@ New items are appended at the bottom. Every fixer must check the items in its ar
    - "Dál z konečné Hopper Hall / Další spoj této trasy 07:00 zítra" is confusing and not useful; replace with something a passenger actually needs (onward connections from the destination, or remove).
    - Labels "přij./odj.", "tady nastupujete", "KONEČNÁ · PŘÍJEZD" are cramped and inconsistent; one clear time column, clear boarding/alighting markers.
    - Overall: one clear reading order top-to-bottom, model it on IDOS spoj detail and DB Navigator journey detail.
+
+2. Orient the user with visual PATTERNS, not text. Labels and explanations are a last resort; the user reads shape, colour, icon and position far faster than words.
+   - Each kind of thing must have its own instantly recognisable visual signature, used identically everywhere: a LINE (coloured line badge + route strip), a STOP (stop sign/pin shape + photo), a TRIP (vertical route spine with times), a CONNECTION from the planner (journey bar with legs coloured by line, like IDOS/Citymapper), a DEPARTURE BOARD (dark split-flap board). Never reuse one pattern for another kind.
+   - Today too many pages look like the same generic table/list, so the user can't tell where he is. Pages must look different from each other because their content type differs, while sharing the same tokens/type/spacing.
+   - Replace explanatory text, legends and hint lines with self-evident visuals (icons, position on a route line, colour, emphasis, timeline position). Keep text short.
+   - Consistency rule: the SAME kind of information always uses the SAME component and look on every page (e.g. a line badge, a time, a stop name link, "boarding here" marker).
