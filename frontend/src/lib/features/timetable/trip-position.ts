@@ -208,6 +208,7 @@ export function dayRank(
   };
   const same = trips.filter((t) => t.direction === trip.direction).sort((a, b) => at(a) - at(b));
   const index = same.findIndex((t) => t.id === trip.id);
-  if (index < 0) return null;
+  // A lone run is both first and last, which tells the passenger nothing.
+  if (index < 0 || same.length < 2) return null;
   return { first: index === 0, last: index === same.length - 1 };
 }
