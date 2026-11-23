@@ -41,10 +41,6 @@
             class="logo logo-dark"
           />
         </a>
-        <p class="tagline">
-          Autobusové zastávky a linky kampusu na jedné mapě. Bezbariérový nástup, střecha i jízdenky
-          u každé zastávky.
-        </p>
         {@render credits?.()}
       </section>
 
@@ -141,9 +137,6 @@
   }
   :global(.dark) .logo-dark {
     display: block;
-  }
-  .tagline {
-    line-height: 1.55;
   }
 
   .column h2 {
