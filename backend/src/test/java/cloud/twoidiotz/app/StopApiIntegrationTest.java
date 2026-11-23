@@ -183,7 +183,7 @@ class StopApiIntegrationTest {
             "https://example.com/stops/cejl.jpg", "https://example.com/" + "x".repeat(235)
           }) {
         var input = (tools.jackson.databind.node.ObjectNode) mapper.readTree(INPUT);
-        input.put("name", "x".repeat(255));
+        input.put("name", "x".repeat(254) + (image.length() % 10));
         input.put("image_url", image);
         var result = request("POST", "/stops", input.toString());
         assertEquals(201, result.statusCode(), result.body());
