@@ -1,6 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { ArrowRight, ChevronDown, Hourglass, Route, Clock as TripIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, Hourglass, Clock as TripIcon } from '@lucide/svelte';
   import type { Connection, ConnectionLeg, ConnectionStopTime } from '$lib/api/generated';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { duration } from '$lib/features/timetable/time';
@@ -16,6 +16,7 @@
     id,
     open = false,
     countdown = null,
+    fastest = false,
     ontoggle
   }: {
     connection: Connection;
@@ -23,6 +24,8 @@
     open?: boolean;
     /** "za 5 min" when searching from now. */
     countdown?: string | null;
+    /** The shortest travel time of the list: the one to pick. */
+    fastest?: boolean;
     ontoggle: () => void;
   } = $props();
 
@@ -44,7 +47,7 @@
   const bar = $derived(journeyBar(connection));
 
   const spoken = $derived(
-    `Odjezd ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
+    `Odjezd ${dayNote(connection.departure_day_offset)} ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
       `${connection.arrival_time} do ${last.to.name}, ${duration(connection.duration_minutes)}, ` +
       `${transfersLabel(connection.transfers)}, linky ${connection.legs.map((l) => l.line.number).join(', ')}`
   );
@@ -62,16 +65,11 @@
     <span class="sr-only">{spoken}</span>
     <span class="times" aria-hidden="true">
       <span class="time">{connection.departure_time}</span>
-      {#if dayNote(connection.departure_day_offset)}
-        <span class="day">{dayNote(connection.departure_day_offset)}</span>
-      {/if}
       <ArrowRight class="size-5 arrow" />
       <span class="time">{connection.arrival_time}</span>
-      {#if dayNote(connection.arrival_day_offset)}
-        <span class="day">{dayNote(connection.arrival_day_offset)}</span>
-      {/if}
     </span>
     <span class="facts" aria-hidden="true">
+      {#if fastest}<span class="fastest">Nejrychlejší</span>{/if}
       {#if countdown}<span class="countdown">{countdown}</span>{/if}
       <span><strong>{duration(connection.duration_minutes)}</strong></span>
       <span class:direct={connection.transfers === 0}>{transfersLabel(connection.transfers)}</span>
@@ -95,30 +93,10 @@
             style:flex-grow={Math.max(part.share, 0.08)}
           >
             <span class="bar-wait-label">{duration(part.minutes)}</span>
+            <span class="bar-node"></span>
           </span>
         {/if}
       {/each}
-    </span>
-    <span class="strip" aria-hidden="true">
-      {#each connection.legs as leg, index (index)}
-        {#if index > 0}
-          <span class="change" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
-            <Hourglass class="size-3.5" />
-            {duration(leg.transfer_minutes ?? 0)} čekání
-          </span>
-        {/if}
-        <span class="strip-leg">
-          <LinePlate number={leg.line.number} color={leg.line.color} size="sm" />
-          <span class="strip-text">
-            <span class="strip-time">{leg.departure_time}</span>
-            {leg.from.name}
-          </span>
-        </span>
-      {/each}
-      <span class="strip-end">
-        <span class="strip-time">{connection.arrival_time}</span>
-        {last.to.name}
-      </span>
     </span>
     <span class="toggle" aria-hidden="true">
       {open ? 'Skrýt detail' : 'Detail spojení'}
@@ -148,18 +126,15 @@
           <header class="leg-head">
             <LinePlate number={leg.line.number} color={leg.line.color} size="md" label />
             <p class="leg-name">
-              <span class="sr-only">směr</span><span aria-hidden="true">→ </span>{leg.destination
-                .name}
+              <span class="leg-dir">směr</span>
+              {leg.destination.name}
             </p>
             <span class="leg-duration">{duration(leg.duration_minutes)}</span>
             <nav class="leg-links" aria-label={`Odkazy úseku ${index + 1}`}>
               <a href={tripHref(leg)}><TripIcon class="size-4" aria-hidden="true" /> Spoj</a>
-              <a
-                href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
-                title={`Jízdní řád linky ${leg.line.number}`}
-                ><Route class="size-4" aria-hidden="true" /><span class="sr-only"
-                  >Jízdní řád linky {leg.line.number}</span
-                ></a
+              <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
+                ><LinePlate number={leg.line.number} color={leg.line.color} size="sm" /> Linka {leg
+                  .line.number}</a
               >
             </nav>
           </header>
@@ -169,9 +144,9 @@
               {@const alight = at === leg.stops.length - 1}
               <li class:edge={board || alight}>
                 <span class="call-time tabular">
-                  {#if !board && !alight && waits(call)}
-                    <span>{call.arrival_time}</span>
-                    <span>{call.departure_time}</span>
+                  {#if !alight && waits(call)}
+                    <span class="arr">příj. {call.arrival_time}</span>
+                    <span class:main={board}>{call.departure_time}</span>
                   {:else}
                     <span class="main">{alight ? call.arrival_time : call.departure_time}</span>
                   {/if}
@@ -211,7 +186,7 @@
   .summary {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'times facts' 'bar bar' 'strip toggle';
+    grid-template-areas: 'times facts' 'bar bar' '. toggle';
     align-items: center;
     gap: 0.625rem 1rem;
     width: 100%;
@@ -244,14 +219,6 @@
   .times :global(.arrow) {
     color: var(--muted-foreground);
   }
-  .day {
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius);
-    background: var(--muted);
-    color: var(--foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-  }
   .facts {
     grid-area: facts;
     display: flex;
@@ -270,52 +237,18 @@
     color: var(--foreground);
     font-weight: var(--weight-strong);
   }
+  .fastest {
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: var(--weight-strong);
+  }
   .countdown {
     padding: 0.125rem 0.5rem;
     border-radius: var(--radius);
     background: color-mix(in oklch, var(--primary) 14%, var(--background));
     color: var(--foreground);
-    font-weight: var(--weight-strong);
-  }
-  .strip {
-    grid-area: strip;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem 0.625rem;
-    font-size: var(--fs-sm);
-  }
-  .strip-leg {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-  .strip-text,
-  .strip-end {
-    color: var(--foreground);
-    white-space: nowrap;
-  }
-  .strip-time {
-    color: var(--foreground);
-    font-weight: var(--weight-strong);
-    font-variant-numeric: tabular-nums;
-  }
-  .strip-end::before {
-    content: '→ ';
-  }
-  .change {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    padding: 0.1rem 0.4rem;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius);
-    color: var(--foreground);
-    font-size: var(--fs-xs);
-  }
-  .change.long {
-    border-color: var(--destructive);
-    color: var(--destructive);
     font-weight: var(--weight-strong);
   }
   /* The journey bar: one segment per ride in its line colour, waits dashed grey. */
@@ -337,11 +270,12 @@
     padding: 0 0.375rem;
     border-radius: var(--radius);
     background: var(--line);
-    color: #fff;
+    color: var(--primary-foreground);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
     font-variant-numeric: tabular-nums;
     transform-origin: left;
+    min-height: 1.75rem;
     animation: bar-in var(--motion-normal) var(--ease-out) both;
   }
   .bar-badge {
@@ -352,13 +286,30 @@
     justify-content: center;
     flex-basis: 0;
     min-width: 3.5rem;
-    border-top: 2px dotted var(--border);
-    padding-top: 0.125rem;
+    position: relative;
+    align-items: center;
+    height: 0.625rem;
+    border-radius: var(--radius);
+    background: repeating-linear-gradient(135deg, var(--muted) 0 4px, var(--border) 4px 6px);
+    margin-top: 1.25rem;
     font-size: var(--fs-xs);
     font-variant-numeric: tabular-nums;
   }
   .bar-wait-label {
+    position: absolute;
+    bottom: 100%;
     white-space: nowrap;
+    color: var(--muted-foreground);
+  }
+  /* The transfer stop: a node where the wait meets the next ride. */
+  .bar-node {
+    position: absolute;
+    right: -0.5rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2.5px solid var(--foreground);
+    border-radius: 50%;
+    background: var(--background);
   }
   .bar-wait.long {
     font-weight: var(--weight-strong);
@@ -406,6 +357,12 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 0.875rem;
+  }
+  .leg-dir {
+    margin-right: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+    font-weight: normal;
   }
   .leg-name {
     flex: 1 1 10rem;
@@ -493,6 +450,10 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
   }
+  .call-time .arr {
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
+  }
   .day-sub {
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
@@ -536,11 +497,19 @@
   @media (max-width: 639px) {
     .summary {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: 'times' 'facts' 'bar' 'strip' 'toggle';
+      grid-template-areas: 'times' 'facts' 'bar' 'toggle';
       padding: 0.875rem 1rem;
     }
     .facts {
       justify-content: flex-start;
+    }
+    /* Narrow: only the line letter fits inside a ride segment. */
+    .bar-tick {
+      display: none;
+    }
+    .bar-ride {
+      justify-content: center;
+      min-width: 2.25rem;
     }
     .toggle {
       justify-self: start;

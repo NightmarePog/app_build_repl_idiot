@@ -14,7 +14,7 @@
   import { clock as clockText, countdown, minutesUntil } from '$lib/features/timetable/time';
   import ConnectionCard from './ConnectionCard.svelte';
   import PlannerForm from './PlannerForm.svelte';
-  import { absolute, connectionKey, parseQuery, plannerHref, shifted } from './planner';
+  import { absolute, connectionKey, dayNote, parseQuery, plannerHref, shifted } from './planner';
 
   const PAGE = 5;
 
@@ -122,6 +122,35 @@
     });
   });
 
+  /** Deep link (?detail=): bring the opened card into view and focus it, once. */
+  let deepLinked = false;
+  $effect(() => {
+    if (deepLinked || !opened || !connections.length) return;
+    deepLinked = true;
+    const id = `c-${opened}-summary`;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ block: 'start' });
+      el?.focus({ preventScroll: true });
+    });
+  });
+
+  const fastestMinutes = $derived(
+    connections.length > 1 ? Math.min(...connections.map((c) => c.duration_minutes)) : null
+  );
+
+  /** "zítra · út 24. 11." for a day divider; the search day itself needs none. */
+  function dayLabel(offset: number) {
+    const date = new Date(clock.now);
+    date.setDate(date.getDate() + offset);
+    const day = date.toLocaleDateString('cs-CZ', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'numeric'
+    });
+    return `${dayNote(offset)} · ${day}`;
+  }
+
   function toggle(key: string) {
     opened = opened === key ? null : key;
     void goto(plannerHref(query, opened), {
@@ -165,7 +194,9 @@
   <PageHeader kind="Spojení" icon={Navigation} {title}>
     {#snippet meta()}
       {#if sameStop}
-        <span>Start a cíl jsou stejná zastávka. Vyberte jinou cílovou zastávku.</span>
+        <span class="same-stop" role="alert"
+          >Start a cíl jsou stejná zastávka. Vyberte jinou cílovou zastávku.</span
+        >
       {/if}
     {/snippet}
   </PageHeader>
@@ -219,14 +250,19 @@
           {/if}
         </div>
         <ol class="list" bind:this={list}>
-          {#each connections as connection (connectionKey(connection))}
+          {#each connections as connection, index (connectionKey(connection))}
             {@const key = connectionKey(connection)}
+            {@const day = connection.departure_day_offset}
+            {#if day !== 0 && (index === 0 || connections[index - 1].departure_day_offset !== day)}
+              <li class="day-divider" aria-hidden="true"><span>{dayLabel(day)}</span></li>
+            {/if}
             <li>
               <ConnectionCard
                 {connection}
                 id={`c-${key}`}
                 open={opened === key}
                 countdown={countdownOf(connection)}
+                fastest={connection.duration_minutes === fastestMinutes}
                 ontoggle={() => toggle(key)}
               />
             </li>
@@ -296,6 +332,29 @@
     justify-content: center;
     align-items: center;
     gap: 0.5rem 0.75rem;
+  }
+  .day-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .day-divider::before,
+  .day-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .same-stop {
+    color: var(--destructive);
+    font-weight: var(--weight-strong);
+  }
+  @media (max-width: 767px) {
+    .planner-page {
+      padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
   }
   .page-error {
     color: var(--destructive);
