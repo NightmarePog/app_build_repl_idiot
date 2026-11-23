@@ -193,3 +193,21 @@ export function rideProgress(board: { dep: number }, last: { arr: number }, now:
   const t = [now, now + 1440].find((m) => m >= board.dep && m <= last.arr);
   return t === undefined ? null : (t - board.dep) / Math.max(1, last.arr - board.dep);
 }
+
+/**
+ * Where a trip sits in its operating day among the line's trips in the same direction: the
+ * first or last service of the day. Null when the trip is not in the list.
+ */
+export function dayRank(
+  trips: { id: number; direction: string; departure_time: string; departure_day_offset: number }[],
+  trip: { id: number; direction: string }
+) {
+  const at = (t: { departure_time: string; departure_day_offset: number }) => {
+    const [h, m] = t.departure_time.split(':').map(Number);
+    return t.departure_day_offset * 1440 + h * 60 + m;
+  };
+  const same = trips.filter((t) => t.direction === trip.direction).sort((a, b) => at(a) - at(b));
+  const index = same.findIndex((t) => t.id === trip.id);
+  if (index < 0) return null;
+  return { first: index === 0, last: index === same.length - 1 };
+}
