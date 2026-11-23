@@ -3,17 +3,17 @@
   import { page } from '$app/state';
   import {
     ArrowRight,
-    Shuffle,
     ChevronRight,
     LogIn,
     LogOut,
+    Moon,
     Timer as TimerIcon,
-    Clock as TripIcon
+    BusFront as TripIcon
   } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import type { TripDetail } from '$lib/api/generated';
-  import { createResource, ResourceError } from '$lib/api/resource.svelte';
+  import { listLineTrips, type TripDetail } from '$lib/api/generated';
+  import { createResource, ResourceError, unwrap } from '$lib/api/resource.svelte';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { inkFor, isPale } from '$lib/features/lines/line-style';
@@ -22,6 +22,7 @@
   import { clock } from './clock.svelte';
   import { duration } from './time';
   import {
+    dayRank,
     rideProgress,
     segment,
     spokenStop,
@@ -51,6 +52,17 @@
   );
   const trip = $derived(resource.data);
   const failure = $derived(resource.error);
+
+  /** The line's trips, only to tell whether this is the first or last service of the day. */
+  const lineTrips = createResource(
+    (signal) =>
+      trip
+        ? unwrap(listLineTrips({ path: { lineId: trip.line.id }, signal }))
+        : Promise.reject(new ResourceError('missing')),
+    () => trip?.line.id
+  );
+  const rank = $derived(trip && lineTrips.data ? dayRank(lineTrips.data, trip) : null);
+
   $effect(() => clock.subscribe());
   $effect(() => {
     void loadNetwork();
@@ -111,9 +123,24 @@
           .filter(Boolean)
       : [];
 
-  /** The title names the vehicle; the spine carries my boarding and alighting times. */
+  /** Shown time at a stop: arrival where the passenger gets off, else departure. */
+  const boardTime = $derived(board?.departure_time ?? '');
+  const alightTime = $derived(alight?.arrival_time ?? '');
+
+  /** "Bus B03 · Ada Exchange 23:06 → Hopper Hall 23:10": vehicle plus my ride, always. */
   const title = $derived(
-    vehicleName ?? (trip ? `${trip.origin.name} → ${trip.destination.name}` : '')
+    board && alight
+      ? `${vehicleName ? `${vehicleName} · ` : ''}${board.stop.name} ${boardTime} → ${alight.stop.name} ${alightTime}`
+      : ''
+  );
+
+  /** The calendar day this run belongs to: today, or tomorrow once today's has gone. */
+  const runDate = $derived(
+    new Date(Date.now() + (status?.tone === 'done' ? 86_400_000 : 0)).toLocaleDateString('cs-CZ', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'numeric'
+    })
   );
 
   function lineHref(trip: TripDetail) {
@@ -157,19 +184,22 @@
 
     <PageHeader kind="Spoj" icon={TripIcon} {title} color={trip.line.color}>
       {#snippet meta()}
-        <div class="meta-row" role="status">
-          {#if partial}<span class="chip tabular"
-              ><span class="sr-only">Vaše jízda </span>{board.stop.name} → {alight.stop.name} · {duration(
-                ribbon.total
-              )}</span
-            >{/if}
+        <div class="meta-row">
           {#if status}
-            <span class="chip tabular" data-tone={status.tone}>
-              {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
-              <TimerIcon aria-hidden="true" class="size-4" />
+            <span class="chip countdown tabular" data-tone={status.tone} role="status">
+              {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"
+                ></span>{:else}<TimerIcon aria-hidden="true" class="size-5" />{/if}
               {#if status.detail}{status.tone === 'done' ? 'zítra · ' : ''}odjezd {status.detail}{:else}{status.title}{/if}
             </span>
           {/if}
+          <span class="chip"
+            ><ArrowRight aria-hidden="true" class="size-4" />směr {trip.destination.name}</span
+          >
+          <span class="chip tabular">{duration(ribbon.total)}</span>
+          {#if rank?.last}<span class="chip night"
+              ><Moon aria-hidden="true" class="size-4" />poslední spoj dne</span
+            >{:else if rank?.first}<span class="chip">první spoj dne</span>{/if}
+          <span class="chip tabular">{runDate}</span>
           {#if progress !== null}
             <span class="progress" aria-label={`Ujeto ${Math.round(progress * 100)} % vaší jízdy`}>
               <span class="progress-track">
@@ -190,12 +220,6 @@
 
     <p class="sr-only" aria-live="polite">{vehicleStop}</p>
 
-    {#if part.missing}
-      <p class="notice" role="status">
-        Zastávkou, ze které jste přišli, tento spoj nejede. Ukazujeme jízdu od výchozí zastávky.
-      </p>
-    {/if}
-
     <div class="trip-grid">
       <div class="main">
         <h2 class="heading" id="timetable-heading">Trasa spoje</h2>
@@ -206,9 +230,11 @@
             {@const isTo = i === part.to}
             {@const first = i === 0}
             {@const end = i === stops.length - 1}
-            {@const shown = end ? stop.arrival_time : stop.departure_time}
+            {@const waits = stop.dwell > 0 && !first && !end}
             {#if stop.crossesMidnight && i > 0}
-              <li class="midnight" aria-hidden="true"><span>☾ po půlnoci</span></li>
+              <li class="midnight" aria-hidden="true">
+                <span><Moon class="size-4" />Půlnoc</span>
+              </li>
             {/if}
             <li
               class="stop"
@@ -230,15 +256,11 @@
                   style:top={`calc(${vehicle.share} * var(--gap))`}
                 ></span>
               {/if}
+              <!-- One time per stop: arrival where the ride or route ends, departure elsewhere. -->
               <div class="times" aria-hidden="true">
-                {#if stop.dwell > 0 && !first && !end && !isTo && !isFrom}
-                  <span class="t">{stop.arrival_time}</span>
-                  <span class="t">{stop.departure_time}</span>
-                {:else}
-                  <span class="t" class:big={isFrom || isTo}
-                    >{isTo && !end ? stop.arrival_time : shown}</span
-                  >
-                {/if}
+                <span class="t"
+                  >{end || (isTo && !isFrom) ? stop.arrival_time : stop.departure_time}</span
+                >
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
@@ -248,30 +270,68 @@
                     class="name-chevron size-4"
                   /></a
                 >
-                {#if otherLines(stop.stop.name).length}<span class="xfer" aria-hidden="true"
-                    ><Shuffle class="size-4" /></span
-                  >{/if}
                 {#each otherLines(stop.stop.name) as other (other.number)}<a
                     class="stop-line"
                     href={resolve('/lines/[id]', { id: String(other.apiId) })}
                     aria-label={`Přestup na linku ${other.number}`}
                     ><LinePlate number={other.number} color={other.color} size="sm" /></a
                   >{/each}
-                {#if isFrom && partial}<span class="flag"
-                    ><LogIn aria-hidden="true" class="size-4" />Nástup</span
-                  >{/if}
-                {#if isTo && partial}<span class="flag out"
-                    ><LogOut aria-hidden="true" class="size-4" />Výstup</span
-                  >{/if}
-                <span class="sr-only">{spokenStop(stop, first, end)}</span>
+                {#if (partial && (isFrom || isTo)) || waits}
+                  <span class="tags" aria-hidden="true">
+                    {#if isFrom && partial}<span class="flag"><LogIn class="size-4" />Nástup</span
+                      >{/if}
+                    {#if isTo && partial}<span class="flag out"
+                        ><LogOut class="size-4" />Výstup</span
+                      >{/if}
+                    {#if waits}<span class="dwell tabular"
+                        >příjezd {stop.arrival_time} · stojí {stop.dwell} min</span
+                      >{/if}
+                  </span>
+                {/if}
+                <span class="sr-only"
+                  >{spokenStop(stop, first, end)}{isFrom && partial ? ', nástup' : ''}{isTo &&
+                  partial
+                    ? ', výstup'
+                    : ''}</span
+                >
               </div>
             </li>
           {/each}
         </ol>
+      </div>
+
+      <aside class="infobox" aria-labelledby="info-heading">
+        <h2 id="info-heading" class="heading">O spoji</h2>
+        <dl class="facts">
+          <div>
+            <dt>Linka</dt>
+            <dd>
+              <a class="fact-link" href={lineHref(trip)}
+                ><LinePlate number={trip.line.number} color={trip.line.color} />{trip.line.name}</a
+              >
+            </dd>
+          </div>
+          {#if vehicleName}<div>
+              <dt>Vůz</dt>
+              <dd>{vehicleName}</dd>
+            </div>{/if}
+          <div>
+            <dt>Trasa</dt>
+            <dd class="tabular">
+              {trip.origin.name}
+              {stops[0].departure_time} → {trip.destination.name}
+              {stops[stops.length - 1].arrival_time}
+            </dd>
+          </div>
+          <div>
+            <dt>Zastávek</dt>
+            <dd>{stops.length}</dd>
+          </div>
+        </dl>
 
         {#if transfers.length}
           <section class="onward" aria-labelledby="onward-heading">
-            <h2 id="onward-heading" class="heading">Přestup v zastávce {alight.stop.name}</h2>
+            <h3 id="onward-heading" class="heading">Přestup v {alight.stop.name}</h3>
             <ul class="change">
               {#each transfers as other (other.number)}
                 <li>
@@ -285,7 +345,7 @@
             </ul>
           </section>
         {/if}
-      </div>
+      </aside>
     </div>
   </article>
 {/if}
@@ -363,19 +423,83 @@
   }
 
   .trip-grid {
+    display: grid;
+    gap: 2rem;
     margin-top: 0.5rem;
-    max-width: 48rem;
+  }
+  @media (min-width: 960px) {
+    .trip-grid {
+      grid-template-columns: minmax(0, 1fr) 22rem;
+      align-items: start;
+    }
+    .infobox {
+      position: sticky;
+      top: calc(var(--header-h, 4rem) + 1rem);
+    }
+  }
+  /* Countdown is the one thing to read first: filled in the line colour, larger. */
+  .meta-row .countdown {
+    min-height: 2.5rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--line);
+    color: var(--line-ink);
+    box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
+    font-size: var(--fs-lg);
+  }
+  .meta-row .night {
+    background: var(--foreground);
+    color: var(--background);
+  }
+  .infobox {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius);
+    background: var(--secondary);
+  }
+  .facts {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .facts dt {
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .facts dd {
+    font-size: var(--fs-base, 1rem);
+    font-weight: var(--weight-strong);
+  }
+  .fact-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .fact-link:hover {
+    text-decoration: underline;
+  }
+  .infobox .change-link {
+    background: var(--background);
+  }
+  /* Boarding, alighting and a wait sit on their own line under the name, in the same spot. */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    flex-basis: 100%;
+  }
+  .dwell {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem 0.5rem;
+    border-radius: var(--radius);
+    background: var(--secondary);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    line-height: 1.5rem;
   }
   .heading {
     font-size: var(--fs-xl);
     font-weight: var(--font-display-weight);
-  }
-  .notice {
-    margin-top: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    background: var(--secondary);
-    font-weight: var(--weight-strong);
   }
 
   /*
@@ -433,13 +557,6 @@
     opacity: 0.4;
     filter: grayscale(1);
   }
-  .outside::before,
-  .outside::after {
-    width: 0;
-    border-left: 0.25rem dashed color-mix(in oklch, var(--line) 50%, var(--background));
-    background: none;
-    left: calc(var(--rail-x) - 0.125rem);
-  }
   .outside .name {
     font-weight: var(--weight-normal, 400);
   }
@@ -479,7 +596,7 @@
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-ok) 60%, transparent);
     animation: ping var(--loop-pulse) var(--ease-out) infinite;
   }
-  /* One time column: arrival above departure, same size, only when the bus waits. */
+  /* One time column, one size: the shown time is the one the passenger acts on. */
   .times {
     grid-area: times;
     display: flex;
@@ -491,14 +608,6 @@
   .t {
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
-  }
-  .t.big {
-    font-size: var(--fs-2xl, 1.75rem);
-    line-height: 1.75rem;
-  }
-  .xfer {
-    display: inline-flex;
-    color: var(--muted-foreground);
   }
   .stop-line {
     display: inline-flex;
@@ -547,16 +656,20 @@
   .midnight::after {
     content: '';
     flex: 1;
-    border-top: 1px dashed var(--muted-foreground);
+    border-top: 1px solid var(--border);
   }
   .midnight span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
     color: var(--foreground);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
   }
 
   .onward {
-    margin-top: 2rem;
+    display: grid;
+    gap: 0.5rem;
   }
   .change {
     display: grid;
