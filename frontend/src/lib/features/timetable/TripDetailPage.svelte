@@ -98,11 +98,17 @@
       : []
   );
 
-  /** Vehicle run name ("Bus B03") once the API carries block_ref; the contract fields stay as they are. */
-  const vehicleName = $derived.by(() => {
-    const ref = trip && 'block_ref' in trip ? (trip as { block_ref?: unknown }).block_ref : null;
-    return typeof ref === 'string' && ref ? `Bus ${ref}` : null;
-  });
+  /** Vehicle run name ("Bus B03") from block_ref. */
+  const vehicleName = $derived(trip?.block_ref ? `Bus ${trip.block_ref}` : null);
+
+  /** Other lines at a stop, shown as badges on its row (IDOS-style transfers). */
+  const otherLines = (stopName: string) =>
+    trip
+      ? linesOf(stopName)
+          .filter((number) => number !== trip.line.number)
+          .map((number) => LINES[number])
+          .filter(Boolean)
+      : [];
 
   /** The title names MY ride: where I board and get off, with times, not the whole route. */
   const title = $derived(
@@ -162,23 +168,25 @@
 
     <!-- My ride, then its live state: one card, read left to right, top to bottom. -->
     <section class="ride-hero" aria-label="Vaše jízda">
-      <div class="ends">
-        <div class="end">
-          <span class="flag"><LogIn aria-hidden="true" class="size-4" />Nástup</span>
-          <strong class="hero-time tabular">{board.departure_time}</strong>
-          <span class="hero-stop">{board.stop.name}</span>
+      {#if partial}
+        <div class="ends">
+          <div class="end">
+            <span class="flag"><LogIn aria-hidden="true" class="size-4" />Nástup</span>
+            <strong class="hero-time tabular">{board.departure_time}</strong>
+            <span class="hero-stop">{board.stop.name}</span>
+          </div>
+          <span class="hero-mid" aria-hidden="true">
+            <span class="chip tabular">{duration(ribbon.total)}</span>
+            <ArrowRight class="hero-arrow size-6" />
+          </span>
+          <span class="sr-only">jízda {duration(ribbon.total)}</span>
+          <div class="end">
+            <span class="flag out"><LogOut aria-hidden="true" class="size-4" />Výstup</span>
+            <strong class="hero-time tabular">{alight.arrival_time}</strong>
+            <span class="hero-stop">{alight.stop.name}</span>
+          </div>
         </div>
-        <span class="hero-mid" aria-hidden="true">
-          <span class="chip tabular">{duration(ribbon.total)}</span>
-          <ArrowRight class="hero-arrow size-6" />
-        </span>
-        <span class="sr-only">jízda {duration(ribbon.total)}</span>
-        <div class="end">
-          <span class="flag out"><LogOut aria-hidden="true" class="size-4" />Výstup</span>
-          <strong class="hero-time tabular">{alight.arrival_time}</strong>
-          <span class="hero-stop">{alight.stop.name}</span>
-        </div>
-      </div>
+      {/if}
       {#if status}
         <div class="status-row" role="status">
           <p class="status" data-tone={status.tone}>
@@ -249,9 +257,6 @@
               {/if}
               <div class="times" aria-hidden="true">
                 <!-- One time column: the departure; the arrival only as a small mark where the bus waits. -->
-                {#if stop.dwell > 0 && !first && !end && !isTo}
-                  <span class="t-arr">{stop.arrival_time}</span>
-                {/if}
                 <span class="t">{isTo && !end ? stop.arrival_time : shown}</span>
               </div>
               <span class="node" aria-hidden="true"></span>
@@ -262,6 +267,17 @@
                     class="name-chevron size-4"
                   /></a
                 >
+                {#if stop.dwell > 0 && !first && !end && !isTo}<span
+                    class="dwell tabular"
+                    title={`Příjezd ${stop.arrival_time}, odjezd ${stop.departure_time}`}
+                    ><TimerIcon aria-hidden="true" class="size-4" />{stop.dwell} min stání</span
+                  >{/if}
+                {#each otherLines(stop.stop.name) as other (other.number)}<a
+                    class="stop-line"
+                    href={resolve('/lines/[id]', { id: String(other.apiId) })}
+                    aria-label={`Přestup na linku ${other.number}`}
+                    ><LinePlate number={other.number} color={other.color} size="sm" /></a
+                  >{/each}
                 {#if isFrom && partial}<span class="flag"
                     ><LogIn aria-hidden="true" class="size-4" />Nástup</span
                   >{/if}
@@ -371,6 +387,11 @@
     margin-top: 1rem;
     padding-top: 0.75rem;
     border-top: 1px solid var(--border);
+  }
+  .status-row:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
   }
   .status {
     display: flex;
@@ -544,10 +565,17 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
   }
-  .t-arr {
+  .dwell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     font-size: var(--fs-sm);
-    color: var(--muted-foreground);
-    line-height: 1.25rem;
+  }
+  .stop-line {
+    display: inline-flex;
   }
   .countdown {
     display: inline-flex;
