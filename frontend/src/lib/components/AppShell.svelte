@@ -226,9 +226,8 @@
               : null
   );
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
-  const onLines = $derived(
-    page.url.pathname.startsWith('/lines') || page.url.pathname.startsWith('/trips')
-  );
+  /** A trip is a "Spoj", not a line: it lights up no section. */
+  const onLines = $derived(page.url.pathname.startsWith('/lines'));
   const onPlanner = $derived(page.url.pathname.startsWith('/spojeni'));
   /** The landing and the map page manage their own width; everything else gets the column. */
   const fullBleed = $derived(onHome || page.url.pathname === '/stops');

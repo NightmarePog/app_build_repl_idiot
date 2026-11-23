@@ -1,6 +1,6 @@
 <script lang="ts">
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { Info } from '@lucide/svelte';
+  import { PAGE_KINDS } from '$lib/page-kinds';
   import { reveal } from '$lib/motion';
   import { resolve } from '$app/paths';
   import { ArrowLeft, ArrowUpRight } from '@lucide/svelte';
@@ -17,7 +17,11 @@
     ><ArrowLeft data-icon="inline-start" aria-hidden="true" /> Zpět na úvod</Button
   >
   {#if kind === 'contact'}
-    <PageHeader kind="Kontakt na tým" icon={Info} title="Kontakt" />
+    <PageHeader
+      kind={PAGE_KINDS.contact.label}
+      icon={PAGE_KINDS.contact.icon}
+      title="Kontakt na tým"
+    />
     <p class="intro">Chyby a návrhy na zlepšení přijímáme přes GitHub.</p>
     <section {@attach reveal()}>
       <h2 class="section-title">Hlášení chyb</h2>
@@ -39,7 +43,11 @@
       </p>
     </section>
   {:else}
-    <PageHeader kind="Pravidla" icon={Info} title="Podmínky používání" />
+    <PageHeader
+      kind={PAGE_KINDS.terms.label}
+      icon={PAGE_KINDS.terms.icon}
+      title="Podmínky používání"
+    />
     <p class="intro">Pravidla používání studentského projektu.</p>
     <p class="note">Nejde o právní smlouvu, jen o shrnutí, jak aplikaci používat.</p>
     <section {@attach reveal()}>
