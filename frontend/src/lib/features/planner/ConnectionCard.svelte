@@ -31,7 +31,10 @@
 
   const stopHref = (stopId: number) => resolve('/stops/[id]', { id: String(stopId) });
   const tripHref = (leg: ConnectionLeg) =>
-    withQuery(resolve('/trips/[id]', { id: String(leg.trip_id) }), { od: leg.from.id });
+    withQuery(resolve('/trips/[id]', { id: String(leg.trip_id) }), {
+      od: leg.from.id,
+      do: leg.to.id
+    });
 
   /** Arrival and departure differ: the bus waits here (Syntax Square), show both. */
   const waits = (call: ConnectionStopTime) =>
