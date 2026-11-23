@@ -3,7 +3,15 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, BusFront, ChevronRight, Clock, MapPin, TramFront } from '@lucide/svelte';
+  import {
+    ArrowLeftRight,
+    ArrowRight,
+    BusFront,
+    ChevronRight,
+    Clock,
+    MapPin,
+    TramFront
+  } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -18,7 +26,7 @@
   import { median, travelMinutes } from '$lib/features/timetable/line-trips';
   import { duration, minutesOf } from '$lib/features/timetable/time';
   import { tripPosition } from '$lib/features/timetable/trip-position';
-  import { inkFor, isPale } from './line-style';
+  import { inkFor, isPale, typeNoun } from './line-style';
 
   let { id }: { id: string } = $props();
 
@@ -199,6 +207,13 @@
             color={line?.color ?? ''}
             size="lg"
           />{/snippet}
+        {#snippet meta()}
+          <span class="type-chip"
+            ><BusFront size={16} aria-hidden="true" /><span class="sr-only">Typ: </span>{typeNoun(
+              line?.type ?? ''
+            )}</span
+          >
+        {/snippet}
       </PageHeader>
     </div>
 
@@ -244,20 +259,18 @@
 
       <div class="line-body">
         <section class="route" aria-labelledby="route-heading">
-          <h2 id="route-heading" class="heading">Trasa linky</h2>
+          <div class="route-head">
+            <h2 id="route-heading" class="heading">Trasa linky</h2>
+            <span class="leg-head">jízdní doba od {route.stops[0]?.name}</span>
+          </div>
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
             {#each route.stops as stop, index (stop.id)}
               {@const others = transfersAt(stop.name)}
               {@const first = index === 0}
               {@const last = index === route.stops.length - 1}
               {@const leg = cumulative.get(stop.id)}
-              {@const picked = !last && (boardStop === stop.id || (boardStop === null && first))}
-              <li
-                id={`stop-${stop.id}`}
-                class:terminus={first || last}
-                class:interchange={others.length > 0}
-                class:boarding={picked}
-              >
+              {@const picked = !last && boardStop === stop.id}
+              <li id={`stop-${stop.id}`} class:terminus={first || last} class:boarding={picked}>
                 <span class="dot" aria-hidden="true"></span>
                 {#if bus && bus.index === index}
                   <a
@@ -274,6 +287,7 @@
                     type="button"
                     class="pick"
                     aria-pressed={picked}
+                    title={`Zobrazit odjezdy ze zastávky ${stop.name}`}
                     aria-label={`Odjezdy ze zastávky ${stop.name}`}
                     onclick={() => pickStop(stop.id)}
                   ></button>
@@ -283,8 +297,10 @@
                     <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
                       >{stop.name}<ChevronRight size={16} aria-hidden="true" /></a
                     >
+                    {#if first || last}<span class="term">konečná</span>{/if}
                     {#if others.length}
-                      <span class="transfers">
+                      <span class="transfers" title="Přestup">
+                        <ArrowLeftRight size={16} aria-hidden="true" />
                         {#each others as other (other.number)}
                           <a
                             class="badge tabular"
@@ -302,13 +318,17 @@
                       </span>
                     {/if}
                     {#if picked}<span class="board-mark"
-                        ><MapPin size={14} aria-hidden="true" />Nástup</span
+                        ><MapPin size={14} aria-hidden="true" />zvolená zastávka</span
                       >{/if}
-                    {#if stepFree.get(stop.id)}<Isa size={16} label="bezbariérový nástup" />{/if}
+                    {#if stepFree.get(stop.id) === false}<Isa
+                        size={18}
+                        off
+                        label="bez bezbariérového nástupu"
+                      />{/if}
                   </span>
                   <span class="leg tabular"
-                    >{#if leg !== undefined}{first ? '' : `${leg} min`}<span class="sr-only">
-                        od začátku trasy</span
+                    >{#if leg !== undefined && !first}+{leg} min<span class="sr-only">
+                        od zastávky {route.stops[0]?.name}</span
                       >{/if}</span
                   >
                 </div>
@@ -319,13 +339,15 @@
 
         <section class="schedule" aria-labelledby="schedule-heading">
           <h2 id="schedule-heading" class="heading">Jízdní řád</h2>
-          <!-- Both directions at once, the one shown on the route first. -->
-          {#key route.id}
-            <LineTrips {timetable} {route} lineNumber={line.number} bind:stopId={boardStop} />
-          {/key}
-          {#each line.routes.filter((r) => r.id !== route.id) as other (other.id)}
-            <LineTrips {timetable} route={other} lineNumber={line.number} />
-          {/each}
+          <!-- Both directions side by side, the one shown on the route first. -->
+          <div class="directions-grid">
+            {#key route.id}
+              <LineTrips {timetable} {route} lineNumber={line.number} bind:stopId={boardStop} />
+            {/key}
+            {#each line.routes.filter((r) => r.id !== route.id) as other (other.id)}
+              <LineTrips {timetable} route={other} lineNumber={line.number} />
+            {/each}
+          </div>
         </section>
       </div>
     {/if}
@@ -375,12 +397,10 @@
   .directions a:not([aria-current='page']):hover {
     background: var(--accent);
   }
+  /* Same segmented look as the other toggles: the pressed option is the solid one. */
   .directions a[aria-current='page'] {
-    background: var(--line);
-    color: var(--line-ink);
-    box-shadow:
-      inset 0 0 0 1.5px var(--line-stroke, transparent),
-      0 1px 3px color-mix(in oklch, var(--foreground) 18%, transparent);
+    background: var(--foreground);
+    color: var(--background);
   }
   .dir-name {
     display: flex;
@@ -413,7 +433,7 @@
   }
   @media (min-width: 64rem) {
     .line-body {
-      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
       align-items: start;
     }
   }
@@ -464,36 +484,45 @@
     position: relative;
     z-index: 1;
     justify-self: center;
-    margin-top: calc(1.625rem - 0.25rem);
-    width: 0.625rem;
-    height: 0.625rem;
-    border: 2px solid var(--line-stroke, var(--foreground));
+    margin-top: calc(1.625rem - 0.4375rem);
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 3px solid var(--foreground);
     border-radius: 50%;
     background: var(--background);
   }
-  /* Interchange: a bigger white circle with a thick dark ring, as on PID/TfL diagrams. */
-  .interchange .dot {
-    margin-top: calc(1.625rem - 0.6875rem);
-    width: 1.375rem;
-    height: 1.375rem;
-    border: 4px solid var(--foreground);
+  /* One stop symbol everywhere; termini and transfers are said by the name row instead. */
+  .term {
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
-  /* Termini: a bold end cap across the line, as on PID/TfL diagrams. */
-  .terminus .dot {
-    margin-top: calc(1.625rem - 0.25rem);
-    width: 1.75rem;
-    height: 0.5rem;
-    border: 0;
-    border-radius: 0;
-    background: var(--foreground);
+  .route-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 1rem;
+    max-width: 44rem;
   }
-  .interchange.terminus .dot {
-    margin-top: calc(1.625rem - 0.6875rem);
-    width: 1.375rem;
-    height: 1.375rem;
-    border: 4px solid var(--foreground);
-    border-radius: 50%;
-    background: var(--background);
+  .leg-head {
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-weight: var(--weight-strong);
+    text-transform: capitalize;
+  }
+  .directions-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    align-items: start;
   }
   /* Row-wide button that picks the boarding stop; the links sit above it. */
   .pick {
@@ -585,14 +614,14 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.125rem 0.5rem;
+    border: 1px solid var(--foreground);
     border-radius: var(--radius);
-    background: var(--foreground);
-    color: var(--background);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
   }
   .transfers {
     display: inline-flex;
+    align-items: center;
     gap: 0.25rem;
   }
   .name {

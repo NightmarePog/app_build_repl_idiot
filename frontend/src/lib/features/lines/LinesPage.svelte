@@ -30,7 +30,8 @@
 
 <section class="search" aria-labelledby="search-heading">
   <h2 id="search-heading">Vyhledat spojení</h2>
-  <PlannerForm compact headingId="search-heading" />
+  <!-- Same form, same layout as on /spojeni, where its results open. -->
+  <PlannerForm headingId="search-heading" />
 </section>
 
 {#if networkFailed()}
@@ -52,11 +53,9 @@
 {/if}
 
 <style>
-  .search {
-    margin-top: 1.5rem;
-  }
+  /* PageHeader already ends with its own bottom spacing, same as on every other page. */
   .cards {
-    margin-top: 1.5rem;
+    margin-top: 3rem;
   }
   .network {
     margin-top: 3rem;
