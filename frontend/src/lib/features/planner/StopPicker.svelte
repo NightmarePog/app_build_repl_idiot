@@ -191,7 +191,7 @@
     min-height: 3rem;
     padding: 0 0.875rem;
     border: 1px solid var(--input);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--background);
     color: var(--foreground);
     font: inherit;
@@ -224,7 +224,7 @@
     overflow-y: auto;
     padding: 0.25rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--popover);
     color: var(--popover-foreground);
     box-shadow: var(--shadow-pop);
@@ -236,7 +236,7 @@
     gap: 0.75rem;
     min-height: 2.75rem;
     padding: 0.375rem 0.625rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
     cursor: pointer;
   }
   li.active {

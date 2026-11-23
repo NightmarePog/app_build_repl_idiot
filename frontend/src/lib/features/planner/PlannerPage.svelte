@@ -146,21 +146,6 @@
   const toName = $derived(search.data?.to.name ?? nameOf(query.to));
   const title = $derived(ready && fromName && toName ? `${fromName} → ${toName}` : 'Kam pojedete?');
   const searchedTime = $derived(search.data?.time ?? query.time);
-  /** Day context: the search runs for today unless the time already passed (then IDOS means the next day too). */
-  const todayText = $derived(
-    clock.now >= 0
-      ? new Date().toLocaleDateString('cs-CZ', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'numeric'
-        })
-      : ''
-  );
-  const whenText = $derived(
-    searchedTime
-      ? `Dnes (${todayText}), ${query.mode === 'arrival' ? 'příjezd do' : 'odjezd od'} ${searchedTime}${query.time ? '' : ' (teď)'}`
-      : null
-  );
   const errorKind = $derived<Failure | null>(
     search.error === 'missing' ? 'missing' : search.error ? 'unavailable' : null
   );
@@ -177,18 +162,10 @@
 </svelte:head>
 
 <div class="planner-page">
-  <PageHeader kind="Vyhledání spojení" icon={Navigation} {title}>
+  <PageHeader kind="Spojení" icon={Navigation} {title}>
     {#snippet meta()}
-      {#if ready && whenText}
-        <span>{whenText}</span>
-        {#if search.data}
-          <span aria-hidden="true">·</span>
-          <span>min. {search.data.min_transfer_minutes} min na přestup</span>
-        {/if}
-      {:else if sameStop}
+      {#if sameStop}
         <span>Start a cíl jsou stejná zastávka. Vyberte jinou cílovou zastávku.</span>
-      {:else}
-        <span>Zadejte odkud a kam jedete. Najdeme přímé spoje i cesty s přestupem.</span>
       {/if}
     {/snippet}
   </PageHeader>
@@ -200,12 +177,12 @@
 
   {#if ready}
     <section class="results" aria-labelledby="results-title" aria-busy={search.loading}>
-      <div class="results-head">
-        <h2 id="results-title" class="section-title">Nalezená spojení</h2>
-        {#if connections.length}
-          <p class="count" aria-live="polite">{connections.length} spojení</p>
-        {/if}
-      </div>
+      <h2 id="results-title" class="results-title">
+        Spojení{#if searchedTime}<span class="when-chip"
+            >{query.mode === 'arrival' ? 'příjezd do' : 'odjezd od'} {searchedTime}</span
+          >{/if}
+      </h2>
+      <p class="sr-only" aria-live="polite">{connections.length} spojení</p>
 
       {#if errorKind}
         <PageState
@@ -229,18 +206,14 @@
         />
       {:else if connections.length}
         <div class="pager">
-          <Button
-            variant="outline"
-            onclick={() => more('earlier')}
-            disabled={!!paging || noMore.earlier}
-          >
-            <ChevronUp aria-hidden="true" />
-            {noMore.earlier
-              ? 'Dřívější spojení do 24 h nejsou'
-              : paging === 'earlier'
-                ? 'Načítáme…'
-                : 'Dřívější spojení'}
-          </Button>
+          {#if noMore.earlier}
+            <p class="pager-end">Dřívější spojení v tento den nejsou.</p>
+          {:else}
+            <Button variant="outline" onclick={() => more('earlier')} disabled={!!paging}>
+              <ChevronUp aria-hidden="true" />
+              {paging === 'earlier' ? 'Načítáme…' : 'Dřívější spojení'}
+            </Button>
+          {/if}
           {#if pageError === 'earlier'}
             <p class="page-error" role="alert">Nepodařilo se načíst, zkuste to znovu.</p>
           {/if}
@@ -260,18 +233,14 @@
           {/each}
         </ol>
         <div class="pager">
-          <Button
-            variant="outline"
-            onclick={() => more('later')}
-            disabled={!!paging || noMore.later}
-          >
-            <ChevronDown aria-hidden="true" />
-            {noMore.later
-              ? 'Další spojení do 24 h nejsou'
-              : paging === 'later'
-                ? 'Načítáme…'
-                : 'Pozdější spojení'}
-          </Button>
+          {#if noMore.later}
+            <p class="pager-end">Pozdější spojení v tento den nejsou.</p>
+          {:else}
+            <Button variant="outline" onclick={() => more('later')} disabled={!!paging}>
+              <ChevronDown aria-hidden="true" />
+              {paging === 'later' ? 'Načítáme…' : 'Pozdější spojení'}
+            </Button>
+          {/if}
           {#if pageError === 'later'}
             <p class="page-error" role="alert">Nepodařilo se načíst, zkuste to znovu.</p>
           {/if}
@@ -285,7 +254,9 @@
   .planner-page {
     display: grid;
     gap: 1.5rem;
-    max-width: 56rem;
+    max-width: 60rem;
+    margin-inline: auto;
+    width: 100%;
   }
   .planner-page :global(.page-header) {
     margin-bottom: 0;
@@ -294,12 +265,22 @@
     display: grid;
     gap: 0.75rem;
   }
-  .results-head {
-    display: grid;
-    gap: 0.25rem;
+  .results-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    font-size: var(--fs-xl);
+    font-weight: var(--weight-strong);
   }
-  .count {
-    color: var(--muted-foreground);
+  .when-chip {
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--fs-base);
+    font-variant-numeric: tabular-nums;
+  }
+  .pager-end {
     font-size: var(--fs-sm);
   }
   .list {
