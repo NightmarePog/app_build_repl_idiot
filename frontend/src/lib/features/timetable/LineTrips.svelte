@@ -108,20 +108,20 @@
 </script>
 
 <section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
-  <h2 id={`trips-heading-${route.id}`} class="section-title">
-    Spoje směr {route.direction}
-    {#if timetable.trips}<span class="count tabular"
-        >{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')}</span
-      >{/if}
-  </h2>
-
   <div class="sheet">
     <header class="sheet-head">
-      <span class="plate" aria-hidden="true">{lineNumber}</span>
       <div class="sheet-title">
+        <h3 id={`trips-heading-${route.id}`} class="dir-title">
+          <span class="plate" aria-hidden="true">{lineNumber}</span>
+          <span>Směr {route.direction}</span>
+        </h3>
+        <p class="toward tabular">
+          {#if timetable.trips}{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
+          {#if travel !== null}<span class="travel">· jízda {travel} min</span>{/if}
+        </p>
         {#if boardable.length > 1}
           <label class="board-pick">
-            <span class="board-pick-label">Časy odjezdu ze zastávky</span>
+            <span class="board-pick-label">Odjezdy ze zastávky</span>
             <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
               {#each boardable as stop, i (stop.id)}
                 <option value={stop.id}>{stop.name}{i === 0 ? ' (výchozí)' : ''}</option>
@@ -129,12 +129,8 @@
             </select>
           </label>
         {:else}
-          <p class="stop-name">Časy odjezdu ze zastávky {selected?.name}</p>
+          <p class="stop-name">Odjezdy ze zastávky {selected?.name}</p>
         {/if}
-        <p class="toward">
-          směr <strong>{route.direction}</strong>
-          {#if travel !== null}<span class="travel tabular">· jízda {travel} min</span>{/if}
-        </p>
       </div>
       {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
         >{/if}
@@ -168,14 +164,14 @@
         >
           <span class="next-row">
             <span class="next-tag">Další odjezd</span>
+            {#if next.tomorrow}<span class="next-gone">dnes už nejede ·</span>{/if}
             <span class="next-time tabular"
-              >{next.tomorrow ? 'zítra v ' : ''}{next.row.at.time}</span
+              >{next.tomorrow ? 'zítra ' : ''}{next.row.at.time}</span
             >
             {#if cd && !next.tomorrow}<strong class="next-cd">{cd}</strong>{/if}
           </span>
           <span class="next-info tabular"
-            >ze zastávky {selected?.name}{#if next.row.end}
-              · příjezd {next.row.trip.destination.name}
+            >{#if next.row.end}příjezd {next.row.trip.destination.name}
               {next.row.end.time}{next.row.night ? ' (po půlnoci)' : ''} · jízda {duration(
                 next.row.end.minutes - next.row.dep
               )}{/if}</span
@@ -191,7 +187,6 @@
           <thead class="grid-head">
             <tr>
               <th scope="col">Odjezd</th>
-              <th scope="col">Trasa</th>
               <th scope="col" class="r">Příjezd</th>
               <th scope="col"><span class="sr-only">Detail</span></th>
             </tr>
@@ -204,9 +199,6 @@
                 <td class="t tabular"
                   >{row.at.time}{#if row.dep >= 1440}<span class="moon" title="po půlnoci">☾</span
                     >{/if}</td
-                >
-                <td class="route-cell"
-                  >{selected?.name} → <strong>{row.trip.destination.name}</strong></td
                 >
                 <td class="r tabular"
                   >{row.end?.time ?? '…'}{#if row.night}<span class="moon" title="po půlnoci"
@@ -312,7 +304,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    margin-block: 1rem;
+    margin-top: 0.5rem;
     font-weight: var(--weight-strong);
   }
   .board-pick select {
@@ -323,15 +315,6 @@
     background: var(--background);
     color: var(--foreground);
     font: inherit;
-  }
-  .count {
-    margin-left: 0.5rem;
-    padding: 0.05rem 0.5rem;
-    border-radius: 999px;
-    background: var(--muted);
-    font-size: var(--fs-sm);
-    letter-spacing: 0;
-    vertical-align: middle;
   }
   .list {
     width: 100%;
@@ -369,7 +352,7 @@
     text-underline-offset: 3px;
   }
   .trips {
-    max-width: 52rem;
+    min-width: 0;
     scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
     margin-top: 1.5rem;
   }
@@ -380,7 +363,6 @@
 
   /* The posted sheet: paper card, line-colour band on top like a stop timetable frame. */
   .sheet {
-    margin-top: 1.25rem;
     border: 1px solid var(--border);
     border-top: 6px solid var(--line, var(--primary));
     border-radius: var(--radius-xl);
@@ -404,8 +386,9 @@
     view-transition-name: line-plate;
     display: grid;
     place-items: center;
-    min-width: 3rem;
-    height: 3rem;
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    height: 2.5rem;
     padding-inline: 0.5rem;
     border-radius: var(--radius-lg);
     background: var(--line, var(--primary));
@@ -418,15 +401,24 @@
     gap: 0.25rem;
     min-width: 0;
   }
+  .dir-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
+    line-height: var(--lh-tight);
+  }
+  .next-gone {
+    color: var(--board-muted);
+    font-weight: var(--weight-strong);
+  }
   .stop-name {
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
   }
   .toward {
     color: var(--muted-foreground);
-  }
-  .toward strong {
-    color: var(--foreground);
   }
   .travel {
     white-space: nowrap;
@@ -600,10 +592,6 @@
   @media (max-width: 30rem) {
     .hour {
       width: 2.75rem;
-    }
-    .list thead th:nth-child(2),
-    .list .route-cell {
-      display: none;
     }
   }
   @media (prefers-reduced-motion: reduce) {
