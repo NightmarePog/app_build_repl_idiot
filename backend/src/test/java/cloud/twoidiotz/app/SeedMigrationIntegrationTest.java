@@ -154,6 +154,31 @@ class SeedMigrationIntegrationTest {
   }
 
   @Test
+  void blockRefOfEverySeededTripMatchesTripsJson() throws Exception {
+    var trips =
+        new com.fasterxml.jackson.databind.ObjectMapper()
+            .readTree(new ClassPathResource("seed/v11/trips.json").getInputStream())
+            .get("trips");
+    var expected = new java.util.HashMap<String, String>();
+    trips.forEach(
+        trip ->
+            expected.put(
+                trip.get("source_trip_id").textValue(), trip.get("block_ref").textValue()));
+    var actual = new java.util.HashMap<String, String>();
+    try (var connection = dataSource.getConnection();
+        var rows =
+            connection
+                .createStatement()
+                .executeQuery("SELECT source_ref, block_ref FROM trip WHERE source_ref IS NOT NULL")) {
+      while (rows.next()) {
+        actual.put(rows.getString(1), rows.getString(2));
+      }
+    }
+    assertEquals(16, expected.size());
+    assertEquals(expected, actual);
+  }
+
+  @Test
   void timetableSeedFailsInsteadOfSkippingUnmatchedRows() throws Exception {
     withSchema(
         (connection, schema) -> {

@@ -8,6 +8,7 @@ import cloud.twoidiotz.app.v1.domain.station.StationRepository;
 import cloud.twoidiotz.app.v1.domain.trip.Clock;
 import cloud.twoidiotz.app.v1.domain.trip.StopSummaryResponse;
 import java.util.ArrayList;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -47,7 +48,10 @@ public class ConnectionService {
     var legs = new ArrayList<ConnectionLegResponse>();
     Integer previousArrival = null;
     for (var leg : journey.legs()) {
-      var info = timetable.trips().get(leg.run().trip().id());
+      var tripId = leg.run().trip().id();
+      var info =
+          Objects.requireNonNull(
+              timetable.trips().get(tripId), () -> "Planner trip " + tripId + " has no trip info");
       var calls = leg.run().calls().subList(leg.board(), leg.alight() + 1);
       var stops =
           calls.stream()

@@ -46,11 +46,11 @@ public class V11__seed_timetable extends BaseJavaMigration {
     }
     try (var insert = connection.prepareStatement("INSERT INTO seed_trip VALUES (?, ?, ?, ?, ?)")) {
       for (JsonNode trip : json.readTree(text("trips.json")).get("trips")) {
-        insert.setLong(1, required(trip, "id").longValue());
-        insert.setString(2, required(trip, "source_trip_id").textValue());
-        insert.setString(3, required(trip, "route_ref").textValue());
-        insert.setString(4, required(trip, "line_ref").textValue());
-        insert.setInt(5, required(trip, "direction_id").intValue());
+        insert.setLong(1, number(trip, "id").longValue());
+        insert.setString(2, text(trip, "source_trip_id"));
+        insert.setString(3, text(trip, "route_ref"));
+        insert.setString(4, text(trip, "line_ref"));
+        insert.setInt(5, number(trip, "direction_id").intValue());
         insert.addBatch();
       }
       insert.executeBatch();
@@ -58,11 +58,11 @@ public class V11__seed_timetable extends BaseJavaMigration {
     try (var insert =
         connection.prepareStatement("INSERT INTO seed_stop_time VALUES (?, ?, ?, ?, ?)")) {
       for (JsonNode row : json.readTree(text("stop_times.json")).get("stop_times")) {
-        insert.setLong(1, required(row, "trip_id").longValue());
-        insert.setInt(2, required(row, "stop_sequence").intValue());
-        insert.setString(3, required(row, "stop_name").textValue());
-        insert.setString(4, required(row, "arrival_time").textValue());
-        insert.setString(5, required(row, "departure_time").textValue());
+        insert.setLong(1, number(row, "trip_id").longValue());
+        insert.setInt(2, number(row, "stop_sequence").intValue());
+        insert.setString(3, text(row, "stop_name"));
+        insert.setString(4, text(row, "arrival_time"));
+        insert.setString(5, text(row, "departure_time"));
         insert.addBatch();
       }
       insert.executeBatch();
@@ -72,14 +72,29 @@ public class V11__seed_timetable extends BaseJavaMigration {
     }
   }
 
-  /** A field the seed needs: present, not null, and of the expected kind (number or text). */
-  private static JsonNode required(JsonNode row, String field) {
+  /** A text field the seed needs: present and a non-blank JSON string. */
+  private static String text(JsonNode row, String field) {
+    var value = present(row, field);
+    if (!value.isTextual() || value.textValue().isBlank()) {
+      throw new IllegalStateException(
+          "Timetable seed row needs " + field + " as non-blank text: " + row);
+    }
+    return value.textValue();
+  }
+
+  /** A number field the seed needs: present and a JSON integer. */
+  private static JsonNode number(JsonNode row, String field) {
+    var value = present(row, field);
+    if (!value.isIntegralNumber()) {
+      throw new IllegalStateException("Timetable seed row needs " + field + " as an integer: " + row);
+    }
+    return value;
+  }
+
+  private static JsonNode present(JsonNode row, String field) {
     var value = row.get(field);
     if (value == null || value.isNull()) {
       throw new IllegalStateException("Timetable seed row is missing " + field + ": " + row);
-    }
-    if (value.isTextual() ? value.textValue().isBlank() : !value.isIntegralNumber()) {
-      throw new IllegalStateException("Timetable seed row has an invalid " + field + ": " + row);
     }
     return value;
   }
