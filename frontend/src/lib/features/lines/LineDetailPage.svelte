@@ -16,7 +16,7 @@
   import { clock } from '$lib/features/timetable/clock.svelte';
   import { createLineTimetable } from '$lib/features/timetable/line-timetable.svelte';
   import { hops, median, travelMinutes } from '$lib/features/timetable/line-trips';
-  import { minutesOf } from '$lib/features/timetable/time';
+  import { duration, minutesOf } from '$lib/features/timetable/time';
   import { tripPosition } from '$lib/features/timetable/trip-position';
   import { inkFor, isPale, typeLabel, zOrZe } from './line-style';
   import { czechCount } from '$lib/plural';
@@ -254,7 +254,7 @@
                   {[
                     `z ${option.stops[0]?.name ?? ''}`,
                     travelByRoute.get(option.id) != null
-                      ? `jízda ${travelByRoute.get(option.id)} min`
+                      ? `jízda ${duration(travelByRoute.get(option.id)!)}`
                       : ''
                   ]
                     .filter(Boolean)
@@ -271,7 +271,7 @@
 
       <div class="line-body">
         <section class="route" aria-labelledby="route-heading">
-          <h2 id="route-heading" class="section-title">Trasa</h2>
+          <h2 id="route-heading" class="section-title">Trasa · směr {route.direction}</h2>
           <p class="caption">
             {#if stopsList()}
               <span class="isa-count tabular">
@@ -286,7 +286,7 @@
           </p>
           {#if cumulative.size > 0}
             <p class="diagram-head" aria-hidden="true">
-              <span>Zastávka</span><span>Jízdní doba</span>
+              <span>Zastávka</span><span>min od startu</span>
             </p>
           {/if}
           <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
@@ -590,6 +590,12 @@
     line-height: 1;
   }
   /* 44px hit area around the small badge. */
+  .badge:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    outline: 2px solid var(--foreground);
+    outline-offset: 1px;
+  }
   .badge::after {
     content: '';
     position: absolute;
@@ -619,7 +625,7 @@
     width: 2.5rem;
     transform: translateY(-50%);
     transition: top var(--motion-xslow) var(--ease-out);
-    filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.25));
+    filter: drop-shadow(0 2px 4px var(--board-shadow));
   }
   .note {
     font-size: var(--fs-sm);

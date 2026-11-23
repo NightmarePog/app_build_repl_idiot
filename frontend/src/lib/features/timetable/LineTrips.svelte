@@ -122,7 +122,7 @@
         </h3>
         <p class="toward tabular">
           {#if timetable.trips}{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
-          {#if travel !== null}<span class="travel">· jízda {travel} min</span>{/if}
+          {#if travel !== null}<span class="travel">· jízda {duration(travel)}</span>{/if}
         </p>
         {#if boardable.length > 1}
           <label class="board-pick">
