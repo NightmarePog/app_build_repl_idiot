@@ -43,7 +43,8 @@ public class TripExceptionHandler {
         switch (name) {
           case "stopId" -> "Invalid stop ID";
           case "tripId" -> "Invalid trip ID";
-          default -> "Invalid line ID";
+          case "lineId", "id" -> "Invalid line ID";
+          default -> "Invalid " + name;
         });
   }
 }

@@ -45,6 +45,22 @@ public class GlobalExceptionHandler {
     return new ApiError("Conflicts with existing data");
   }
 
+  // Deferred timetable triggers fail at COMMIT, after the JPA flush, so Spring wraps the
+  // violation in a TransactionSystemException instead of a DataIntegrityViolationException.
+  @ExceptionHandler(org.springframework.transaction.TransactionSystemException.class)
+  public org.springframework.http.ResponseEntity<ApiError> commitFailed(
+      org.springframework.transaction.TransactionSystemException exception) {
+    for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+      if (cause instanceof java.sql.SQLException sql
+          && sql.getSQLState() != null
+          && sql.getSQLState().startsWith("23")) {
+        return org.springframework.http.ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ApiError("Conflicts with existing data"));
+      }
+    }
+    throw exception;
+  }
+
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
   @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
   public ApiError methodNotAllowed() {

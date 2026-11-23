@@ -298,6 +298,29 @@ class TripApiIntegrationTest {
   }
 
   @Test
+  void deletingATerminalStopMakesTheNextCallTheNewEnd() throws Exception {
+    // Every trip of line B starts or ends at Hopper Hall; its neighbour has a dwell on some trips.
+    try (var connection = dataSource.getConnection()) {
+      connection.setAutoCommit(false);
+      try (var sql = connection.createStatement()) {
+        sql.execute("DELETE FROM station WHERE name IN ('Hopper Hall', 'Turing Terminal')");
+        sql.execute("SET CONSTRAINTS ALL IMMEDIATE");
+        try (var result =
+            sql.executeQuery(
+                "SELECT count(*) FROM trip_summary ts JOIN stop_time st ON st.trip_id = ts.trip_id"
+                    + " JOIN route_stop rs ON rs.id = st.route_stop_id"
+                    + " WHERE rs.stop_id IN (ts.origin_id, ts.dest_id)"
+                    + " AND st.arrival_time <> st.departure_time")) {
+          result.next();
+          assertEquals(0, result.getLong(1));
+        }
+      } finally {
+        connection.rollback();
+      }
+    }
+  }
+
+  @Test
   void errorsAreJsonWhateverTheClientAccepts() throws Exception {
     try (var client = HttpClient.newHttpClient()) {
       var response =

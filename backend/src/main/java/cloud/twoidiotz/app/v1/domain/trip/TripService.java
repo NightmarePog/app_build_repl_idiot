@@ -49,7 +49,7 @@ public class TripService {
         stop(trip.origin()),
         stop(trip.destination()),
         Clock.time(start),
-        0,
+        Clock.dayOffset(start, start),
         stops);
   }
 
@@ -70,7 +70,6 @@ public class TripService {
         .toList();
   }
 
-  /** The database guarantees every trip starts on its operating day, so its offset is 0. */
   private static TripSummaryResponse summary(TripRow.Trip trip) {
     return new TripSummaryResponse(
         trip.id(),
@@ -80,7 +79,7 @@ public class TripService {
         stop(trip.origin()),
         stop(trip.destination()),
         Clock.time(trip.startMinute()),
-        0);
+        Clock.dayOffset(trip.startMinute(), trip.startMinute()));
   }
 
   private static LineResponse line(TripRow.Line line) {
