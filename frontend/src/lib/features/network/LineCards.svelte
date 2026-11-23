@@ -283,16 +283,6 @@
     align-items: center;
     gap: 0.625rem;
   }
-  .kind {
-    color: var(--card-ink);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
-  .compact .kind {
-    display: none;
-  }
   .letter {
     display: grid;
     place-items: center;

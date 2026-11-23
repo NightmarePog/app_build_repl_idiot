@@ -4,7 +4,7 @@
   import { onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { House, Map as MapIcon, Moon, Navigation, Route, Search, Sun } from '@lucide/svelte';
+  import { House, Map as MapIcon, Moon, Route, Search, Sun } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import { prefersReducedMotion } from '$lib/motion';
   import { cn } from '$lib/utils';
@@ -168,25 +168,25 @@
     seen.observe(target);
     return () => seen.disconnect();
   });
+  /** Journey results (/spojeni) belong to the Linky section. */
+  const onLines = $derived(
+    page.url.pathname.startsWith('/lines') || page.url.pathname.startsWith('/spojeni')
+  );
   const activeTab = $derived(
     paletteOpen
       ? 'search'
-      : page.url.pathname.startsWith('/spojeni')
-        ? 'planner'
-        : page.url.pathname.startsWith('/stops')
-          ? 'map'
-          : page.url.pathname.startsWith('/lines')
-            ? 'lines'
-            : onHome
-              ? atLines
-                ? 'lines'
-                : 'home'
-              : null
+      : page.url.pathname.startsWith('/stops')
+        ? 'map'
+        : onLines
+          ? 'lines'
+          : onHome
+            ? atLines
+              ? 'lines'
+              : 'home'
+            : null
   );
   const onStops = $derived(page.url.pathname.startsWith('/stops'));
   /** A trip is a "Spoj", not a line: it lights up no section. */
-  const onLines = $derived(page.url.pathname.startsWith('/lines'));
-  const onPlanner = $derived(page.url.pathname.startsWith('/spojeni'));
   /** The landing and the map page manage their own width; everything else gets the column. */
   const fullBleed = $derived(onHome || page.url.pathname === '/stops');
 </script>
@@ -223,19 +223,14 @@
           class={cn('nav-link', onHome && 'is-active')}>{NAV_LABELS.home}</a
         >
         <a
-          href={resolve('/spojeni')}
-          aria-current={onPlanner ? 'page' : undefined}
-          class={cn('nav-link', onPlanner && 'is-active')}>{NAV_LABELS.connections}</a
+          href={resolve('/lines')}
+          aria-current={onLines ? 'page' : undefined}
+          class={cn('nav-link', onLines && 'is-active')}>{NAV_LABELS.lines}</a
         >
         <a
           href={resolve('/stops')}
           aria-current={onStops ? 'page' : undefined}
           class={cn('nav-link', onStops && 'is-active')}>{NAV_LABELS.stops}</a
-        >
-        <a
-          href={resolve('/lines')}
-          aria-current={onLines ? 'page' : undefined}
-          class={cn('nav-link', onLines && 'is-active')}>{NAV_LABELS.lines}</a
         >
       </nav>
       <button
@@ -284,12 +279,12 @@
     <House aria-hidden="true" /><span>{NAV_LABELS.home}</span>
   </a>
   <a
-    href={resolve('/spojeni')}
+    href={resolve('/lines')}
     class="tab"
-    class:active={activeTab === 'planner'}
-    aria-current={activeTab === 'planner' ? 'page' : undefined}
+    class:active={activeTab === 'lines'}
+    aria-current={activeTab === 'lines' ? 'page' : undefined}
   >
-    <Navigation aria-hidden="true" /><span>{NAV_LABELS.connections}</span>
+    <Route aria-hidden="true" /><span>{NAV_LABELS.lines}</span>
   </a>
   <a
     href={resolve('/stops')}
@@ -298,14 +293,6 @@
     aria-current={activeTab === 'map' ? 'page' : undefined}
   >
     <MapIcon aria-hidden="true" /><span>{NAV_LABELS.stops}</span>
-  </a>
-  <a
-    href={resolve('/lines')}
-    class="tab"
-    class:active={activeTab === 'lines'}
-    aria-current={activeTab === 'lines' ? 'page' : undefined}
-  >
-    <Route aria-hidden="true" /><span>{NAV_LABELS.lines}</span>
   </a>
   <button
     type="button"

@@ -52,9 +52,8 @@
         <h2 id="footer-explore">Procházet</h2>
         <ul>
           <li><a href={resolve('/')}>{NAV_LABELS.home}</a></li>
-          <li><a href={resolve('/spojeni')}>{NAV_LABELS.connections}</a></li>
-          <li><a href={resolve('/stops')}>{NAV_LABELS.stops}</a></li>
           <li><a href={resolve('/lines')}>{NAV_LABELS.lines}</a></li>
+          <li><a href={resolve('/stops')}>{NAV_LABELS.stops}</a></li>
         </ul>
       </nav>
 
