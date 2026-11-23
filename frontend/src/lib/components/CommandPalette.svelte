@@ -370,7 +370,7 @@
     height: 0.625rem;
     margin-left: 0.375rem;
     border: 2px solid var(--muted-foreground);
-    border-radius: 50%;
+    border-radius: 9999px;
   }
   .result-text {
     display: flex;

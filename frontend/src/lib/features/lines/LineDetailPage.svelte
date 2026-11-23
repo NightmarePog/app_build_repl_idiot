@@ -187,6 +187,7 @@
 {#if failure}
   <div class="state">
     <PageState
+      kind="Linka"
       title={failure === 'missing' ? 'Linka nebyla nalezena' : 'Linku se nepodařilo načíst'}
       headingLevel={1}
       error={failure === 'unavailable'}

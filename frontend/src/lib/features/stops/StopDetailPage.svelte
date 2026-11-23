@@ -62,6 +62,7 @@
 
 {#if failure}
   <PageState
+    kind="Zastávka"
     title={failure === 'missing' ? 'Zastávka nebyla nalezena' : 'Zastávku se nepodařilo načíst'}
     headingLevel={1}
     error
