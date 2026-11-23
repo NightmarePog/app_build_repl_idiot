@@ -421,9 +421,6 @@
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  .foot {
-    margin-top: 0.75rem;
-  }
   .board-tag {
     color: var(--sign-marker);
     font-size: var(--fs-sm);

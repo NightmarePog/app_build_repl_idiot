@@ -16,7 +16,7 @@
     "api:generate": "sh scripts/api.sh",
     "api:check": "sh scripts/api.sh --check",
     "test:api": "tsx --test tests/api.test.ts",
-    "test:unit": "tsx --test tests/timetable.test.ts",
+    "test:unit": "tsx --test tests/timetable.test.ts tests/trip.test.ts",
     "dev:backend": "vite dev --host 0.0.0.0 --mode backend",
     "test:dev": "playwright test --config playwright.dev.config.ts"
   },
