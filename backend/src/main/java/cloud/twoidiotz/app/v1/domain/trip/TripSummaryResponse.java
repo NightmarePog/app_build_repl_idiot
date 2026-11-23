@@ -41,5 +41,5 @@ public record TripSummaryResponse(
     @Schema(
             minimum = "0",
             example = "0",
-            description = "Always 0: a trip starts on its operating day.")
+            description = "Day offset of the trip start, counted from its operating day.")
         int departureDayOffset) {}

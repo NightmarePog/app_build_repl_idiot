@@ -10,6 +10,7 @@ import cloud.twoidiotz.app.v1.domain.station.StationRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -26,6 +27,8 @@ public class TripService {
     return trips.ofLine(lineId).stream().map(TripService::summary).toList();
   }
 
+  /** Header and stop list are read in one snapshot so they always agree. */
+  @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public TripDetailResponse get(long tripId) {
     var trip = trips.trip(tripId).orElseThrow(() -> new TripNotFoundException(tripId));
     var start = trip.startMinute();
@@ -37,9 +40,9 @@ public class TripService {
                         row.stopOrder(),
                         stop(row.stop()),
                         Clock.time(row.arrival()),
-                        Clock.dayOffset(row.arrival(), start),
+                        Clock.dayOffset(row.arrival()),
                         Clock.time(row.departure()),
-                        Clock.dayOffset(row.departure(), start)))
+                        Clock.dayOffset(row.departure())))
             .toList();
     return new TripDetailResponse(
         trip.id(),
@@ -49,7 +52,7 @@ public class TripService {
         stop(trip.origin()),
         stop(trip.destination()),
         Clock.time(start),
-        Clock.dayOffset(start, start),
+        Clock.dayOffset(start),
         stops);
   }
 
@@ -64,9 +67,9 @@ public class TripService {
                     row.direction(),
                     stop(row.destination()),
                     Clock.time(row.arrival()),
-                    Clock.dayOffset(row.arrival(), row.startMinute()),
+                    Clock.dayOffset(row.arrival()),
                     Clock.time(row.departure()),
-                    Clock.dayOffset(row.departure(), row.startMinute())))
+                    Clock.dayOffset(row.departure())))
         .toList();
   }
 
@@ -79,7 +82,7 @@ public class TripService {
         stop(trip.origin()),
         stop(trip.destination()),
         Clock.time(trip.startMinute()),
-        Clock.dayOffset(trip.startMinute(), trip.startMinute()));
+        Clock.dayOffset(trip.startMinute()));
   }
 
   private static LineResponse line(TripRow.Line line) {
