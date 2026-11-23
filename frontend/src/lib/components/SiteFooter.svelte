@@ -226,20 +226,34 @@
     }
   }
   @media (max-width: 639px) {
+    /* Phones: one compact row of links; the tab bar already covers navigation. */
+    .site-footer {
+      margin-top: 2rem;
+    }
     .footer-inner {
-      padding: 2.5rem 1.25rem 1.25rem;
+      padding: 1rem 1rem 0.75rem;
     }
     .footer-top {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
     }
-    /* Line routes need the full width to stay on one line. */
-    .lines-column {
-      grid-column: 1 / -1;
-      order: 1;
+    .brand,
+    .lines-column,
+    .column h2,
+    .attribution {
+      display: none;
+    }
+    .column ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 1rem;
     }
     .footer-bottom {
-      flex-direction: column;
-      align-items: flex-start;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      flex-direction: row;
+      justify-content: space-between;
     }
   }
   @media (prefers-reduced-motion: reduce) {

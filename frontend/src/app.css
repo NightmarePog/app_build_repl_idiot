@@ -21,6 +21,10 @@
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
   --primary: oklch(0.52 0.135 245);
+  /* Page-type accents: a line, a stop, a trip and a connection never share a colour. */
+  --kind-stop: oklch(0.6 0.15 60);
+  --kind-trip: oklch(0.5 0.13 160);
+  --kind-connection: oklch(0.5 0.16 300);
   --primary-hover: oklch(0.46 0.13 248);
   --primary-foreground: oklch(0.99 0.003 85);
   --secondary: oklch(0.955 0.005 80);
@@ -133,6 +137,9 @@
   --popover: oklch(0.215 0.006 70);
   --popover-foreground: var(--foreground);
   --primary: oklch(0.72 0.12 242);
+  --kind-stop: oklch(0.76 0.13 65);
+  --kind-trip: oklch(0.74 0.12 160);
+  --kind-connection: oklch(0.74 0.13 300);
   --primary-hover: oklch(0.78 0.11 240);
   --primary-foreground: oklch(0.17 0.005 70);
   --secondary: oklch(0.24 0.007 70);

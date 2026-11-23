@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component, Snippet } from 'svelte';
+  import { kindFor } from '$lib/page-kinds';
 
   /**
    * One header for every page: a type tag (what kind of thing this is), the title, a meta line.
@@ -25,11 +26,14 @@
     /** Tag colour; defaults to the primary colour. */
     color?: string;
   } = $props();
+
+  /** Colour falls back to the page type's own accent, so a trip never looks like a line. */
+  const tagColor = $derived(color ?? kindFor(kind)?.color);
 </script>
 
 <header class="page-header">
   {#if back}<div class="back-row">{@render back()}</div>{/if}
-  <p class="type-tag" style:--tag={color} aria-hidden="true">
+  <p class="type-tag" style:--tag={tagColor} aria-hidden="true">
     <Icon class="size-4" aria-hidden="true" />
     <span>{kind}</span>
   </p>
