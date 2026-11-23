@@ -31,6 +31,5 @@ final class TripRow {
       RouteDirection direction,
       Stop destination,
       int arrival,
-      int departure,
-      int startMinute) {}
+      int departure) {}
 }

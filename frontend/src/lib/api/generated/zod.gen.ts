@@ -104,7 +104,7 @@ export const zTripDetail = z.object({
     line: zLine,
     origin: zStopSummary,
     route_id: z.int().gte(1),
-    stops: z.array(zTripStopTime).min(2)
+    stops: z.array(zTripStopTime).min(1)
 });
 
 export const zTripSummary = z.object({
@@ -161,7 +161,7 @@ export const zTripDetailWritable = z.object({
     line: zLineWritable,
     origin: zStopSummary,
     route_id: z.int().gte(1),
-    stops: z.array(zTripStopTime).min(2)
+    stops: z.array(zTripStopTime).min(1)
 });
 
 export const zTripSummaryWritable = z.object({
