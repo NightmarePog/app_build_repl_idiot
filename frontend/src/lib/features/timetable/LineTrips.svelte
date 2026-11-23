@@ -11,18 +11,12 @@
   let {
     timetable,
     route,
-    lineNumber,
-    routes = [],
-    directionHref
+    lineNumber
   }: {
     timetable: LineTimetable;
     route: Route;
     lineNumber: string;
-    /** All directions of the line, so the other direction's trips are never hidden. */
-    routes?: Route[];
-    directionHref?: (route: Route) => string;
   } = $props();
-  const opposite = $derived(routes.filter((r) => r.id !== route.id));
 
   let stopId = $state<number | null>(null);
 
@@ -113,9 +107,9 @@
   }
 </script>
 
-<section class="trips" aria-labelledby="trips-heading">
-  <h2 id="trips-heading" class="section-title">
-    Odjezdy linky {lineNumber}
+<section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
+  <h2 id={`trips-heading-${route.id}`} class="section-title">
+    Spoje směr {route.direction}
     {#if timetable.trips}<span class="count tabular"
         >{czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')}</span
       >{/if}
@@ -127,7 +121,7 @@
       <div class="sheet-title">
         {#if boardable.length > 1}
           <label class="board-pick">
-            <span class="board-pick-label">ze zastávky</span>
+            <span class="board-pick-label">Časy odjezdu ze zastávky</span>
             <select value={selected?.id} onchange={(e) => (stopId = Number(e.currentTarget.value))}>
               {#each boardable as stop, i (stop.id)}
                 <option value={stop.id}>{stop.name}{i === 0 ? ' (výchozí)' : ''}</option>
@@ -135,7 +129,7 @@
             </select>
           </label>
         {:else}
-          <p class="stop-name">ze zastávky {selected?.name}</p>
+          <p class="stop-name">Časy odjezdu ze zastávky {selected?.name}</p>
         {/if}
         <p class="toward">
           směr <strong>{route.direction}</strong>
@@ -173,18 +167,19 @@
           aria-label={`Nejbližší spoj ze zastávky ${selected?.name}: ${label(next.row)}`}
         >
           <span class="next-row">
-            <span class="next-tag">{next.tomorrow ? 'zítra první' : 'nejbližší'}</span>
-            <span class="next-time tabular">{next.row.at.time}</span>
+            <span class="next-tag">Další odjezd</span>
+            <span class="next-time tabular"
+              >{next.tomorrow ? 'zítra v ' : ''}{next.row.at.time}</span
+            >
             {#if cd && !next.tomorrow}<strong class="next-cd">{cd}</strong>{/if}
           </span>
-          {#if next.row.end}
-            <span class="next-info tabular"
-              >→ {next.row.trip.destination.name}
-              {next.row.end.time}{next.row.night ? ' po půlnoci' : ''} · {duration(
+          <span class="next-info tabular"
+            >ze zastávky {selected?.name}{#if next.row.end}
+              · příjezd {next.row.trip.destination.name}
+              {next.row.end.time}{next.row.night ? ' (po půlnoci)' : ''} · jízda {duration(
                 next.row.end.minutes - next.row.dep
-              )}</span
-            >
-          {/if}
+              )}{/if}</span
+          >
         </a>
       {/if}
 
@@ -211,9 +206,7 @@
                     >{/if}</td
                 >
                 <td class="route-cell"
-                  >{selected?.name} → <strong>{row.trip.destination.name}</strong><span
-                    class="dir-tag">směr {route.direction}</span
-                  ></td
+                  >{selected?.name} → <strong>{row.trip.destination.name}</strong></td
                 >
                 <td class="r tabular"
                   >{row.end?.time ?? '…'}{#if row.night}<span class="moon" title="po půlnoci"
@@ -297,43 +290,6 @@
       {/if}
     {/if}
   </div>
-
-  {#if timetable.trips && opposite.length}
-    {#each opposite as other (other.id)}
-      {@const otherTrips = (timetable.trips ?? [])
-        .filter((t) => t.route_id === other.id)
-        .sort(
-          (a, b) =>
-            minutesOf(a.departure_time, a.departure_day_offset) -
-            minutesOf(b.departure_time, b.departure_day_offset)
-        )}
-      <div class="other">
-        <h3 class="other-title">
-          Opačný směr: <strong>{other.direction}</strong>
-          <span class="count tabular"
-            >{czechCount(otherTrips.length, 'spoj', 'spoje', 'spojů')}</span
-          >
-        </h3>
-        <ul class="other-list">
-          {#each otherTrips as t (t.id)}
-            <li>
-              <a href={resolve('/trips/[id]', { id: String(t.id) })}>
-                <span class="t tabular">{t.departure_time}</span>
-                <span>{t.origin.name} → <strong>{t.destination.name}</strong></span>
-                <span class="dir-tag">směr {other.direction}</span>
-              </a>
-            </li>
-          {/each}
-        </ul>
-        {#if directionHref}
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- directionHref resolves -->
-          <a class="switch" href={directionHref(other)} data-sveltekit-noscroll
-            >Celý jízdní řád směr {other.direction} ›</a
-          >
-        {/if}
-      </div>
-    {/each}
-  {/if}
 </section>
 
 <style>
@@ -405,17 +361,6 @@
   .list tr.next-row-l {
     background: color-mix(in oklch, var(--sign-marker) 35%, transparent);
   }
-  .dir-tag {
-    display: inline-block;
-    margin-left: 0.5rem;
-    padding: 0 0.5rem;
-    border-radius: 999px;
-    background: var(--muted);
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    white-space: nowrap;
-  }
   .detail {
     font-weight: var(--weight-strong);
     color: var(--primary);
@@ -423,44 +368,10 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .other {
-    margin-top: 1.5rem;
-  }
-  .other-title {
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-strong);
-  }
-  .other-list {
-    display: grid;
-    margin-top: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    background: var(--card);
-  }
-  .other-list li + li {
-    border-top: 1px solid var(--border);
-  }
-  .other-list a {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 0.75rem;
-    padding: 0.625rem 1rem;
-  }
-  .other-list a:hover {
-    background: var(--accent);
-  }
-  .switch {
-    display: inline-block;
-    margin-top: 0.5rem;
-    color: var(--primary);
-    font-weight: var(--weight-strong);
-    text-decoration: underline;
-  }
   .trips {
     max-width: 52rem;
     scroll-margin-top: calc(var(--header-h, 4rem) + 1rem);
-    margin-top: 3rem;
+    margin-top: 1.5rem;
   }
   a:focus-visible {
     outline: 3px solid var(--ring);
@@ -678,16 +589,6 @@
     }
   }
 
-  /* Scrolls sideways on a phone: snap per stop and fade the edges so a cut name reads as more. */
-  /* The route line joining the dots, in the line colour. */
-  .empty {
-    display: inline-grid;
-    place-items: center;
-    min-height: 2.75rem;
-    padding-inline: 0.5rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-sm);
-  }
   .sr-only {
     position: absolute;
     width: 1px;

@@ -100,6 +100,15 @@
   /** Minutes between stops in this direction, from the first trip with times. */
   const legs = $derived(routeDetails[0] ? hops(routeDetails[0].stops) : null);
 
+  /** Minutes from the first stop to each stop (its departure, arrival at the terminus). */
+  const cumulative = $derived.by(() => {
+    const stops = routeDetails[0]?.stops ?? [];
+    const start = stops[0] ? minutesOf(stops[0].departure_time, stops[0].departure_day_offset) : 0;
+    return new Map(
+      stops.map((s) => [s.stop.id, minutesOf(s.arrival_time, s.arrival_day_offset) - start])
+    );
+  });
+
   /** A bus of this direction under way right now, as a fractional stop index on the diagram. */
   const bus = $derived.by(() => {
     for (const detail of routeDetails) {
@@ -182,7 +191,7 @@
     {:else}
       {#if line.routes.length > 1}
         <!-- Headsigns as tabs, like a stop timetable: pick where you are going. -->
-        <h2 class="section-title">Směr jízdy</h2>
+        <h2 class="section-title">Zobrazený směr trasy</h2>
         <nav class="directions" aria-label="Směr jízdy">
           {#each line.routes as option (option.id)}
             <a
@@ -193,7 +202,9 @@
               data-sveltekit-replacestate
               data-sveltekit-noscroll
             >
-              <span class="dir-name">směr {option.direction}</span>
+              <span class="dir-name"
+                >{option.id === route.id ? '✓ ' : ''}Směr {option.direction}</span
+              >
               {#if travelByRoute.get(option.id) != null}<span class="dir-label tabular"
                   >jízda {travelByRoute.get(option.id)} min</span
                 >{/if}
@@ -219,12 +230,13 @@
       </p>
 
       <h2 class="section-title">Trasa a zastávky linky</h2>
+      {#if cumulative.size}<p class="leg-head">min od výchozí</p>{/if}
       <ol class="diagram" aria-label={`Zastávky směr ${route.direction}`}>
         {#each route.stops as stop, index (stop.id)}
           {@const others = transfersAt(stop.name)}
           {@const first = index === 0}
           {@const last = index === route.stops.length - 1}
-          {@const leg = legs?.travel.get(stop.id)}
+          {@const leg = cumulative.get(stop.id)}
           {@const wait = legs?.dwell.get(stop.id) ?? 0}
           <li
             id={`stop-${stop.id}`}
@@ -242,17 +254,19 @@
                 ><BusIllustration stripe={line.color} /></a
               >
             {/if}
-            {#if leg !== undefined && !last}
-              <span class="leg tabular" aria-hidden="true">{leg} min</span>
+            {#if leg !== undefined}
+              <span class="leg tabular" title="minut od výchozí zastávky">+{leg}</span>
             {/if}
             <div class="stop">
-              <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}>{stop.name}</a>
+              <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
+                >{stop.name}<span class="chev" aria-hidden="true">›</span></a
+              >
               {#if stepFree.get(stop.id)}
                 <Isa size={20} label="bezbariérový nástup" />
               {/if}
               {#if others.length}
                 <span class="transfer">
-                  <span class="transfer-label">přestup</span>
+                  <span class="transfer-label">přestup na</span>
                   {#each others as other (other.number)}
                     <a
                       class="badge tabular"
@@ -273,16 +287,10 @@
         {/each}
       </ol>
 
-      <LineTrips
-        {timetable}
-        {route}
-        lineNumber={line.number}
-        routes={line.routes}
-        directionHref={(option) =>
-          option.bound === 'inbound'
-            ? resolve('/lines/[id]?smer=inbound', { id })
-            : resolve('/lines/[id]', { id })}
-      />
+      <h2 class="section-title trips-title">Spoje linky {line.number} v obou směrech</h2>
+      {#each [route, ...line.routes.filter((r) => r.id !== route?.id)] as r (r.id)}
+        <LineTrips {timetable} route={r} lineNumber={line.number} />
+      {/each}
     {/if}
   </article>
 {/if}
@@ -497,19 +505,33 @@
     position: absolute;
     inset: -0.5rem;
   }
-  /* Direction-specific minutes to the next stop, printed on the rail between the two. */
+  /* Minutes from the first stop, right-aligned like an IDOS / SBB stop list. */
   .leg {
     position: absolute;
     right: 0;
-    bottom: -0.625rem;
-    z-index: 1;
-    padding: 0 0.375rem;
-    border-radius: 999px;
-    background: var(--background);
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--foreground);
+    font-size: var(--fs-base);
     font-weight: var(--weight-strong);
-    line-height: 1.25rem;
+  }
+  .leg-head {
+    max-width: 44rem;
+    margin-top: 0.75rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    text-align: right;
+  }
+  .chev {
+    margin-left: 0.375rem;
+    color: var(--muted-foreground);
+  }
+  .diagram li:hover .chev {
+    color: var(--foreground);
+  }
+  .trips-title {
+    margin-top: 3rem;
   }
   .bus {
     position: absolute;
