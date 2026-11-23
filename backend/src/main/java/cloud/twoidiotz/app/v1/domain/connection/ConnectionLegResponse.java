@@ -12,6 +12,7 @@ import java.util.List;
     name = "ConnectionLeg",
     description = "One ride on one trip, from boarding to alighting.",
     requiredProperties = {
+      "block_ref",
       "trip_id",
       "line",
       "direction",

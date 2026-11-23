@@ -1053,6 +1053,7 @@
         "required": [
           "arrival_day_offset",
           "arrival_time",
+          "block_ref",
           "departure_day_offset",
           "departure_time",
           "destination",
