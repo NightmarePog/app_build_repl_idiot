@@ -390,8 +390,10 @@
       {#if visible.length === 0}
         <div class="list-empty">
           <SearchX aria-hidden="true" size={20} />
-          <h2 class="section-title">Takovou zastávku tu nemáme</h2>
-          <p>Zkuste jiný název nebo zrušte filtry.</p>
+          <PageState
+            title="Takovou zastávku tu nemáme"
+            description="Zkuste jiný název nebo zrušte filtry."
+          />
           <Button variant="outline" size="sm" onclick={resetFilters}
             >Zobrazit všechny zastávky</Button
           >
@@ -669,13 +671,6 @@
     gap: 0.375rem;
     padding: 1rem 0;
     border-top: 1px solid var(--border);
-  }
-  .list-empty h2 {
-    font-size: var(--fs-base);
-    font-weight: var(--weight-strong);
-  }
-  .list-empty p {
-    color: var(--muted-foreground);
   }
   .map {
     position: relative;

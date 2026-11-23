@@ -7,32 +7,35 @@
    * The lines through one stop as a schematic: each direction drawn as a short strip in the
    * line colour (previous stop, this stop, next stop). No map tiles, so it never renders empty.
    */
-  let { stopId, stopName }: { stopId: number; stopName: string } = $props();
+  let { stopId }: { stopId: number } = $props();
 
   $effect(() => {
     void loadNetwork();
   });
 
   const strips = $derived(
-    Object.values(LINES).flatMap((line) =>
-      line.routes.flatMap((route) => {
-        const index = route.stops.findIndex((stop) => stop.id === stopId);
-        if (index < 0) return [];
-        return [
-          {
-            line,
-            route,
-            previous: route.stops[index - 1] ?? null,
-            next: route.stops[index + 1] ?? null
-          }
-        ];
-      })
-    )
+    Object.values(LINES)
+      .flatMap((line) =>
+        line.routes.flatMap((route) => {
+          const index = route.stops.findIndex((stop) => stop.id === stopId);
+          if (index < 0) return [];
+          return [
+            {
+              line,
+              route,
+              previous: route.stops[index - 1] ?? null,
+              next: route.stops[index + 1] ?? null
+            }
+          ];
+        })
+      )
+      // Boardable directions first; a direction that ends here is only for getting off.
+      .sort((a, b) => Number(!a.next) - Number(!b.next))
   );
 </script>
 
 <section class="schematic" aria-labelledby="schematic-heading">
-  <h2 id="schematic-heading" class="section-title">Linky přes zastávku</h2>
+  <h2 id="schematic-heading" class="section-title">Linky na zastávce</h2>
   {#if !networkReady()}
     <p class="note" role="status">Načítáme linky…</p>
   {:else if strips.length === 0}
@@ -52,12 +55,14 @@
               <span class="title">Linka {line.number} → <strong>{route.direction}</strong></span>
               {#if next}
                 <span class="hops">
-                  <span>předchozí: {previous?.name ?? '— (výchozí)'}</span>
-                  <span class="here">Tato zastávka: {stopName}</span>
-                  <span>další: {next.name}</span>
+                  <span>další zastávka <strong>{next.name}</strong></span>
+                  {#if !previous}<span>výchozí zastávka linky</span>{/if}
                 </span>
               {:else}
-                <span class="hops"><span>konečná, zde spoj končí – nenastupujte</span></span>
+                <span class="hops">
+                  <span class="end-badge">Konečná – nenastupujte</span>
+                  spoje sem přijíždějí jen k výstupu
+                </span>
               {/if}
             </span>
           </a>
@@ -78,7 +83,9 @@
     background: color-mix(in oklch, var(--line) 10%, var(--background));
   }
   li.ends {
-    opacity: 0.75;
+    border-left-style: dashed;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--border);
   }
   .row-link {
     display: flex;
@@ -114,14 +121,20 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem 0.75rem;
+    align-items: center;
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
   }
-  .here {
+  .hops strong {
+    color: var(--foreground);
+    font-weight: var(--weight-strong);
+  }
+  .end-badge {
     padding: 0 0.5rem;
+    border: 1.5px solid currentColor;
     border-radius: 999px;
-    background: var(--line);
-    color: var(--line-ink);
+    color: var(--foreground);
     font-weight: var(--weight-strong);
   }
   .note {
