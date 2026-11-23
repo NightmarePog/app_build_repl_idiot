@@ -1,6 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { ArrowRight, ChevronDown, Footprints, Route, Clock as TripIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, Hourglass, Route, Clock as TripIcon } from '@lucide/svelte';
   import type { Connection, ConnectionLeg, ConnectionStopTime } from '$lib/api/generated';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { duration } from '$lib/features/timetable/time';
@@ -42,9 +42,6 @@
     call.arrival_day_offset !== call.departure_day_offset;
 
   const bar = $derived(journeyBar(connection));
-  const longWait = $derived(
-    connection.legs.some((l, i) => i > 0 && (l.transfer_minutes ?? 0) >= LONG_WAIT)
-  );
 
   const spoken = $derived(
     `Odjezd ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
@@ -65,21 +62,19 @@
     <span class="sr-only">{spoken}</span>
     <span class="times" aria-hidden="true">
       <span class="time">{connection.departure_time}</span>
+      {#if dayNote(connection.departure_day_offset)}
+        <span class="day">{dayNote(connection.departure_day_offset)}</span>
+      {/if}
       <ArrowRight class="size-5 arrow" />
       <span class="time">{connection.arrival_time}</span>
-      {#if dayNote(connection.arrival_day_offset) || dayNote(connection.departure_day_offset)}
-        <span class="day"
-          >{connection.departure_day_offset !== 0
-            ? dayNote(connection.departure_day_offset)
-            : `příjezd ${dayNote(connection.arrival_day_offset)}`}</span
-        >
+      {#if dayNote(connection.arrival_day_offset)}
+        <span class="day">{dayNote(connection.arrival_day_offset)}</span>
       {/if}
     </span>
     <span class="facts" aria-hidden="true">
       {#if countdown}<span class="countdown">{countdown}</span>{/if}
       <span><strong>{duration(connection.duration_minutes)}</strong></span>
       <span class:direct={connection.transfers === 0}>{transfersLabel(connection.transfers)}</span>
-      {#if longWait}<span class="long-flag">dlouhé čekání</span>{/if}
     </span>
     <span class="bar" aria-hidden="true">
       {#each bar as part, index (index)}
@@ -87,11 +82,20 @@
           <span
             class="bar-ride"
             style:--line={part.leg.line.color}
-            style:flex-grow={Math.max(part.share, 0.04)}
-          ></span>
+            style:flex-grow={Math.max(part.share, 0.12)}
+          >
+            <span class="bar-tick">{part.leg.departure_time}</span>
+            <span class="bar-badge">{part.leg.line.number}</span>
+            <span class="bar-tick">{part.leg.arrival_time}</span>
+          </span>
         {:else}
-          <span class="bar-wait" class:long={part.long} style:flex-grow={Math.max(part.share, 0.03)}
-          ></span>
+          <span
+            class="bar-wait"
+            class:long={part.long}
+            style:flex-grow={Math.max(part.share, 0.08)}
+          >
+            <span class="bar-wait-label">{duration(part.minutes)}</span>
+          </span>
         {/if}
       {/each}
     </span>
@@ -99,8 +103,8 @@
       {#each connection.legs as leg, index (index)}
         {#if index > 0}
           <span class="change" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
-            <Footprints class="size-3.5" />
-            {leg.transfer_minutes} min
+            <Hourglass class="size-3.5" />
+            {duration(leg.transfer_minutes ?? 0)} čekání
           </span>
         {/if}
         <span class="strip-leg">
@@ -126,28 +130,36 @@
     <div class="detail" id={`${id}-detail`}>
       {#each connection.legs as leg, index (index)}
         {#if index > 0}
-          <p class="transfer">
-            <Footprints class="size-4" aria-hidden="true" />
+          <p class="transfer" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
+            <Hourglass class="size-4" aria-hidden="true" />
             <span>
-              Přestup v zastávce <a href={stopHref(leg.from.id)}>{leg.from.name}</a>:
-              <strong>{leg.transfer_minutes} min</strong> na přestup
+              Přestup <strong>{duration(leg.transfer_minutes ?? 0)}</strong> na zastávce
+              <a href={stopHref(leg.from.id)}>{leg.from.name}</a>
+              {#if (leg.transfer_minutes ?? 0) >= LONG_WAIT}
+                · dlouhé čekání na zastávce{dayNote(leg.departure_day_offset) &&
+                leg.departure_day_offset !== connection.legs[index - 1].arrival_day_offset
+                  ? ', přes noc'
+                  : ''}
+              {/if}
             </span>
           </p>
         {/if}
         <section class="leg" aria-label={`Úsek ${index + 1}: linka ${leg.line.number}`}>
           <header class="leg-head">
             <LinePlate number={leg.line.number} color={leg.line.color} size="md" label />
-            <div class="leg-title">
-              <p class="leg-kind">Úsek {index + 1} · {duration(leg.duration_minutes)}</p>
-              <p class="leg-name">
-                Linka {leg.line.number} <span class="muted">směr</span>
-                {leg.destination.name}
-              </p>
-            </div>
+            <p class="leg-name">
+              <span class="sr-only">směr</span><span aria-hidden="true">→ </span>{leg.destination
+                .name}
+            </p>
+            <span class="leg-duration">{duration(leg.duration_minutes)}</span>
             <nav class="leg-links" aria-label={`Odkazy úseku ${index + 1}`}>
               <a href={tripHref(leg)}><TripIcon class="size-4" aria-hidden="true" /> Spoj</a>
-              <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
-                ><Route class="size-4" aria-hidden="true" /> Linka {leg.line.number}</a
+              <a
+                href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
+                title={`Jízdní řád linky ${leg.line.number}`}
+                ><Route class="size-4" aria-hidden="true" /><span class="sr-only"
+                  >Jízdní řád linky {leg.line.number}</span
+                ></a
               >
             </nav>
           </header>
@@ -157,19 +169,14 @@
               {@const alight = at === leg.stops.length - 1}
               <li class:edge={board || alight}>
                 <span class="call-time tabular">
-                  {#if board}
-                    {#if waits(call)}<span class="sub">příj. {call.arrival_time}</span>{/if}
-                    <span class="main"><span class="sub">odj.</span> {call.departure_time}</span>
-                  {:else if alight}
-                    <span class="main"><span class="sub">příj.</span> {call.arrival_time}</span>
-                  {:else if waits(call)}
-                    <span class="sub">příj. {call.arrival_time}</span>
-                    <span class="sub">odj. {call.departure_time}</span>
-                  {:else}
+                  {#if !board && !alight && waits(call)}
+                    <span>{call.arrival_time}</span>
                     <span>{call.departure_time}</span>
+                  {:else}
+                    <span class="main">{alight ? call.arrival_time : call.departure_time}</span>
                   {/if}
                   {#if dayNote(alight ? call.arrival_day_offset : call.departure_day_offset)}
-                    <span class="sub day-sub"
+                    <span class="day-sub"
                       >{dayNote(alight ? call.arrival_day_offset : call.departure_day_offset)}</span
                     >
                   {/if}
@@ -177,8 +184,8 @@
                 <span class="dot" aria-hidden="true"></span>
                 <span class="call-name">
                   <a href={stopHref(call.stop.id)}>{call.stop.name}</a>
-                  {#if board}<span class="tag">nástup</span>{/if}
-                  {#if alight}<span class="tag">výstup</span>{/if}
+                  {#if board}<span class="sr-only">(nástup)</span>{/if}
+                  {#if alight}<span class="sr-only">(výstup)</span>{/if}
                 </span>
               </li>
             {/each}
@@ -192,7 +199,7 @@
 <style>
   .conn {
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
     background: var(--card);
     overflow: hidden;
     transition: box-shadow var(--motion-fast) var(--ease-out);
@@ -219,7 +226,7 @@
   .summary:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: -2px;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
   }
   .times {
     grid-area: times;
@@ -239,9 +246,9 @@
   }
   .day {
     padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     background: var(--muted);
-    color: var(--muted-foreground);
+    color: var(--foreground);
     font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
@@ -252,7 +259,7 @@
     justify-content: flex-end;
     align-items: center;
     gap: 0.25rem 0.75rem;
-    color: var(--muted-foreground);
+    color: var(--foreground);
     font-size: var(--fs-sm);
   }
   .facts strong {
@@ -265,7 +272,7 @@
   }
   .countdown {
     padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     background: color-mix(in oklch, var(--primary) 14%, var(--background));
     color: var(--foreground);
     font-weight: var(--weight-strong);
@@ -285,7 +292,7 @@
   }
   .strip-text,
   .strip-end {
-    color: var(--muted-foreground);
+    color: var(--foreground);
     white-space: nowrap;
   }
   .strip-time {
@@ -302,21 +309,13 @@
     gap: 0.2rem;
     padding: 0.1rem 0.4rem;
     border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--muted-foreground);
+    border-radius: var(--radius);
+    color: var(--foreground);
     font-size: var(--fs-xs);
   }
   .change.long {
     border-color: var(--destructive);
     color: var(--destructive);
-    font-weight: var(--weight-strong);
-  }
-  .long-flag {
-    padding: 0.1rem 0.5rem;
-    border-radius: var(--radius-full);
-    background: color-mix(in oklch, var(--destructive) 12%, var(--background));
-    color: var(--destructive);
-    font-size: var(--fs-xs);
     font-weight: var(--weight-strong);
   }
   /* The journey bar: one segment per ride in its line colour, waits dashed grey. */
@@ -325,25 +324,44 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    height: 0.625rem;
+    min-height: 1.75rem;
   }
   .bar-ride {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
     flex-basis: 0;
-    height: 100%;
-    border-radius: var(--radius-full);
+    min-width: 4.5rem;
+    height: 1.75rem;
+    padding: 0 0.375rem;
+    border-radius: var(--radius);
     background: var(--line);
+    color: #fff;
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
     transform-origin: left;
     animation: bar-in var(--motion-normal) var(--ease-out) both;
   }
+  .bar-badge {
+    font-size: var(--fs-sm);
+  }
   .bar-wait {
+    display: flex;
+    justify-content: center;
     flex-basis: 0;
-    height: 0;
-    border-top: 2px dashed var(--muted-foreground);
-    opacity: 0.6;
+    min-width: 3.5rem;
+    border-top: 2px dotted var(--border);
+    padding-top: 0.125rem;
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-wait-label {
+    white-space: nowrap;
   }
   .bar-wait.long {
-    border-top-color: var(--destructive);
-    opacity: 1;
+    font-weight: var(--weight-strong);
   }
   @keyframes bar-in {
     from {
@@ -389,24 +407,18 @@
     align-items: center;
     gap: 0.5rem 0.875rem;
   }
-  .leg-title {
-    flex: 1 1 12rem;
-    min-width: 0;
-  }
-  .leg-kind {
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
   .leg-name {
+    flex: 1 1 10rem;
+    min-width: 0;
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
   }
-  .muted {
-    color: var(--muted-foreground);
-    font-weight: var(--weight-regular);
+  .leg-duration {
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
   }
   .leg-links {
     display: flex;
@@ -420,7 +432,7 @@
     min-height: 2.5rem;
     padding: 0 0.75rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--background);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
@@ -437,7 +449,7 @@
   .calls li {
     position: relative;
     display: grid;
-    grid-template-columns: 6.5rem 1.25rem minmax(0, 1fr);
+    grid-template-columns: 4.5rem 1.25rem minmax(0, 1fr);
     align-items: center;
     gap: 0.625rem;
     min-height: 2.5rem;
@@ -448,7 +460,7 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    left: calc(6.5rem + 0.625rem + 0.625rem - 3px);
+    left: calc(4.5rem + 0.625rem + 0.625rem - 3px);
     width: 6px;
     background: var(--line);
   }
@@ -481,10 +493,9 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
   }
-  .sub {
-    color: var(--muted-foreground);
+  .day-sub {
     font-size: var(--fs-xs);
-    font-weight: var(--weight-regular);
+    font-weight: var(--weight-strong);
   }
   .call-name {
     display: flex;
@@ -500,26 +511,18 @@
   .edge .call-name a {
     font-weight: var(--weight-strong);
   }
-  .tag {
-    padding: 0.05rem 0.4rem;
-    border-radius: var(--radius-sm);
-    background: var(--muted);
-    color: var(--muted-foreground);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
-  }
   .transfer {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-left: 7.75rem;
+    margin-left: 5.75rem;
     padding: 0.5rem 0.75rem;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-md);
-    color: var(--muted-foreground);
+    border-radius: var(--radius);
+    background: var(--muted);
     font-size: var(--fs-sm);
+  }
+  .transfer.long {
+    font-weight: var(--weight-strong);
   }
   .transfer a {
     color: var(--foreground);

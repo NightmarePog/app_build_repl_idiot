@@ -99,8 +99,8 @@ export function transfersLabel(count: number) {
 
 /** Day relative to the search: "" for the same day. */
 export function dayNote(offset: number) {
-  if (offset === 1) return 'následující den';
-  if (offset === -1) return 'předchozí den';
+  if (offset === 1) return 'zítra';
+  if (offset === -1) return 'včera';
   if (offset > 1) return `+${offset} dny`;
   return '';
 }

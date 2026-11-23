@@ -86,8 +86,8 @@ test('labels', () => {
   assert.equal(transfersLabel(3), '3 přestupy');
   assert.equal(transfersLabel(5), '5 přestupů');
   assert.equal(dayNote(0), '');
-  assert.equal(dayNote(1), 'následující den');
-  assert.equal(dayNote(-1), 'předchozí den');
+  assert.equal(dayNote(1), 'zítra');
+  assert.equal(dayNote(-1), 'včera');
   assert.equal(fold(' Nádraží '), 'nadrazi');
 });
 

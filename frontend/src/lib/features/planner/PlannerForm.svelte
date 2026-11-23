@@ -167,7 +167,7 @@
     gap: 1rem;
     padding: 1.25rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: var(--shadow-sm);
   }
@@ -184,7 +184,7 @@
     height: 2.75rem;
     margin-top: 1.5rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     background: var(--background);
     color: var(--foreground);
     cursor: pointer;
@@ -213,7 +213,7 @@
     display: inline-flex;
     padding: 0.2rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--muted);
   }
   .mode label {
@@ -222,7 +222,7 @@
     align-items: center;
     min-height: 2.5rem;
     padding: 0 0.875rem;
-    border-radius: calc(var(--radius-md) - 2px);
+    border-radius: calc(var(--radius) - 2px);
     color: var(--muted-foreground);
     font-weight: var(--weight-strong);
     cursor: pointer;
@@ -249,7 +249,7 @@
     min-height: 2.75rem;
     padding: 0 0.75rem;
     border: 1px solid var(--input);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     background: var(--background);
     color: var(--muted-foreground);
   }
@@ -308,6 +308,18 @@
     }
     .planner :global(.submit) {
       justify-self: stretch;
+    }
+    .when {
+      gap: 0.375rem;
+    }
+    .mode label {
+      padding: 0 0.5rem;
+    }
+    .time {
+      padding: 0 0.5rem;
+    }
+    .when :global(.now) {
+      padding-inline: 0.625rem;
     }
   }
   .compact {
