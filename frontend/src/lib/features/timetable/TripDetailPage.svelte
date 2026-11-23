@@ -2,7 +2,7 @@
   import { czechCount } from '$lib/plural';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, ChevronDown, Ticket as TicketIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, Clock as TripIcon } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { listLineTrips, type TripDetail } from '$lib/api/generated';
@@ -103,6 +103,18 @@
     return { tone: 'later', title: `Dnes už jel, znovu jede zítra v ${board.departure_time}` };
   });
 
+  /** When this run of the trip leaves, as a word next to the time in the header. */
+  const day = $derived.by(() => {
+    if (!board) return '';
+    if (vehicle) return 'právě jede';
+    return board.dep > now || countdown(minutesUntil(board.dep, now)) ? 'dnes' : 'zítra';
+  });
+
+  /** One labelled line under the bar when the bus is not on the road, so the empty bar is explained. */
+  const idle = $derived(
+    day === 'zítra' ? 'Dnes už dojel · příští jízda zítra' : 'Spoj zatím nevyjel'
+  );
+
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
   const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
 
@@ -164,7 +176,7 @@
     style:--line={trip.line.color}
     style:--line-ink={inkFor(trip.line.color)}
   >
-    <BackLink href={lineHref(trip)} label={`Linka ${trip.line.number}`} />
+    <BackLink href={lineHref(trip)} label={`Linka ${trip.line.number} · jízdní řád`} />
 
     {#if fromMissing}
       <p class="notice" role="status">
@@ -174,16 +186,16 @@
     {/if}
 
     <PageHeader
-      kind="Spoj"
-      icon={TicketIcon}
-      title={`${trip.departure_time} → ${trip.destination.name}`}
+      kind={`Spoj linky ${trip.line.number}`}
+      icon={TripIcon}
+      title={`${trip.departure_time} ${day} → ${trip.destination.name}`}
       color={trip.line.color}
     >
       {#snippet lead()}<span class="vt-plate" aria-hidden="true"
           ><LinePlate number={trip.line.number} color={trip.line.color} size="lg" /></span
         >{/snippet}
       {#snippet meta()}<span
-          >Linka {trip.line.number} · z {trip.origin.name} · {czechCount(
+          >Jeden spoj linky {trip.line.number} · z {trip.origin.name} · {czechCount(
             trip.stops.length,
             'zastávka',
             'zastávky',
@@ -207,15 +219,21 @@
             </p>
           {/if}
           <!-- Progress from boarding to the terminus; the dot is the bus while it runs. -->
-          <div class="progress" aria-hidden="true">
+          <p class="progress-label">
+            {progress !== null ? `Ujeto ${Math.round(progress * 100)} % trasy` : idle}
+          </p>
+          <div class="progress" class:idle={progress === null} aria-hidden="true">
             <span class="progress-track">
               {#if ribbon.night !== null}<span
                   class="progress-night"
                   style:left={`${ribbon.night}%`}
                 ></span>{/if}
               <span class="progress-fill" style:width={`${(progress ?? 0) * 100}%`}></span>
-              {#if progress !== null}<span class="progress-dot" style:left={`${progress * 100}%`}
-                ></span>{/if}
+              <span
+                class="progress-dot"
+                class:ghost={progress === null}
+                style:left={`${(progress ?? 0) * 100}%`}
+              ></span>
             </span>
           </div>
           <dl class="ends">
@@ -245,8 +263,8 @@
 
         <h2 class="section-title">Jízdní řád spoje</h2>
         <p class="cols" aria-hidden="true">
-          <span>Čas</span><span>Zastávka</span><span class="r"
-            >{fromIndex > 0 ? 'od nástupu' : 'od výchozí'}</span
+          <span>Odjezd</span><span>Zastávka</span><span class="r"
+            >{fromIndex > 0 ? 'min. od nástupu' : 'min. od startu'}</span
           >
         </p>
         <ol class="timeline" aria-label={`Zastávky spoje směr ${trip.destination.name}`}>
@@ -264,16 +282,11 @@
               class:passed
               class:from={isFrom}
               class:terminus={first || end}
-              class:no-wait={stop.dwell === 0 && !first && !end}
               style:--gap={`${index === 0 ? 0 : stop.gap * SCALE}rem`}
-              style:--dwell={`${stop.dwell > 0 ? Math.max(stop.dwell * SCALE, 1.75) : 0}rem`}
               style:--i={index}
             >
               {#if vehicle?.kind === 'at' && vehicle.index === i}
-                <span
-                  class="vehicle"
-                  aria-hidden="true"
-                  style:top={`calc(var(--gap) + 0.75rem + ${vehicle.share} * var(--dwell))`}
+                <span class="vehicle" aria-hidden="true" style:top="calc(var(--gap) + 0.75rem)"
                 ></span>
               {:else if vehicle?.kind === 'between' && vehicle.index === i - 1}
                 <span
@@ -283,14 +296,8 @@
                 ></span>
               {/if}
               <div class="times" aria-hidden="true">
-                {#if first}
-                  <span class="t dep">{stop.departure_time}</span>
-                {:else if end || stop.dwell === 0}
-                  <span class="t">{stop.arrival_time}</span>
-                {:else}
-                  <span class="t arr"><span class="t-label">příj.</span>{stop.arrival_time}</span>
-                  <span class="t dep"><span class="t-label">odj.</span>{stop.departure_time}</span>
-                {/if}
+                <!-- One time per row: the departure, or the arrival at the terminus. -->
+                <span class="t">{end ? stop.arrival_time : stop.departure_time}</span>
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
@@ -298,9 +305,9 @@
                   >{stop.stop.name}</a
                 >
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
-                {#if end}<span class="end-tag">konečná</span>{/if}
+                {#if end}<span class="end-tag">konečná · příjezd</span>{/if}
                 {#if stop.dwell > 0 && !first && !end}<span class="wait" aria-hidden="true"
-                    >stojí {stop.dwell} min</span
+                    >příjezd {stop.arrival_time} · stojí {stop.dwell} min</span
                   >{/if}
                 <span class="sr-only">
                   {first
@@ -436,8 +443,14 @@
   .status[data-tone='soon'] {
     color: var(--board-led);
   }
+  .progress-label {
+    margin-top: 1rem;
+    color: var(--board-muted);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
   .progress {
-    margin-top: 1.25rem;
+    margin-top: 0.5rem;
   }
   .progress-track {
     position: relative;
@@ -470,6 +483,11 @@
     background: var(--status-ok);
     transform: translate(-50%, -50%);
     transition: left var(--motion-xslow) var(--ease-out);
+  }
+  /* Not on the road: a hollow ghost bus waiting at the start. */
+  .progress-dot.ghost {
+    border: 2px dashed var(--board-muted);
+    background: var(--board-bg);
   }
   .ends {
     display: flex;
@@ -570,15 +588,15 @@
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-ok) 60%, transparent);
     animation: ping var(--loop-pulse) var(--ease-out) infinite;
   }
-  /* Dwell thickens the spine: the stop marker becomes a capsule as long as the wait. */
+  /* One dot style for every stop; the termini are filled. Dwell is spelled out next to the name. */
   .node {
     grid-area: node;
     justify-self: center;
     position: relative;
     z-index: 2;
-    width: 1.125rem;
-    height: max(1.125rem, calc(var(--dwell) + 1.125rem));
-    margin-top: 0.1875rem;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.25rem;
     border-radius: var(--radius-pill);
     border: 3px solid var(--line-stroke, var(--line));
     background: var(--background);
@@ -594,22 +612,10 @@
     border-color: var(--foreground);
     box-shadow: 0 0 0 5px color-mix(in oklch, var(--line) 40%, transparent);
   }
-  /* Zero dwell: a small solid dot and a single time. */
-  .no-wait .node {
-    width: 0.75rem;
-    height: 0.75rem;
-    margin-top: 0.375rem;
-    border-width: 0;
-    background: var(--line-stroke, var(--line));
-  }
-  /* Arrival above, departure below, aligned with the two ends of the capsule. */
   .times {
     grid-area: times;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: space-between;
-    min-height: max(1.5rem, calc(var(--dwell) + 1.5rem));
+    justify-content: flex-end;
     font-variant-numeric: tabular-nums;
     line-height: 1.5rem;
   }
@@ -617,17 +623,6 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
     letter-spacing: -0.01em;
-  }
-  .t.arr {
-    color: var(--muted-foreground);
-  }
-  .t-label {
-    margin-right: 0.3rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
   }
   .end-tag {
     padding: 0.0625rem 0.5rem;
