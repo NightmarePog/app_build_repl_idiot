@@ -28,7 +28,7 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@hey-api/openapi-ts':
-        specifier: latest
+        specifier: 0.99.0
         version: 0.99.0(typescript@5.9.3)
       '@internationalized/date':
         specifier: ^3.12.4

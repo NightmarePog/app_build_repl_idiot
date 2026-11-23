@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { withSearch } from '$lib/links';
   import { resolve } from '$app/paths';
   import { Check, Minus } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
@@ -17,9 +18,8 @@
   const titleTransition = $derived(`stop-title-${String(stop.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`);
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- The route is already resolved; preserve the query verbatim after it. -->
 <a
-  href={`${resolve('/stops/[id]', { id: String(stop.id) })}${search}`}
+  href={withSearch(resolve('/stops/[id]', { id: String(stop.id) }), search)}
   aria-label={`Detail zastávky ${stop.name}`}
   class="stop-row"
   onclick={() => rememberStop(stop)}
@@ -30,7 +30,7 @@
     id={stop.id}
     transition
     {eager}
-    class="stop-row-image [&_p]:min-w-0 [&_p]:px-1 [&_p]:text-[0.625rem] [&_p]:leading-tight"
+    class="stop-row-image [&_p]:min-w-0 [&_p]:px-1 [&_p]:text-2xs [&_p]:leading-tight"
   />
   <span class="stop-row-body">
     <h2 style:view-transition-name={titleTransition}>{stop.name}</h2>
@@ -45,17 +45,15 @@
       <span class="stop-row-amenity" class:no={!has} title={amenity.label}>
         <amenity.icon aria-hidden="true" size={16} strokeWidth={1.75} />
         {#if has}
-          <Check aria-hidden="true" size={12} strokeWidth={2.5} class="mark" />
+          <Check aria-hidden="true" size={14} class="mark" />
         {:else}
-          <Minus aria-hidden="true" size={12} strokeWidth={2.5} class="mark" />
+          <Minus aria-hidden="true" size={14} class="mark" />
         {/if}
         <span class="sr-only">{amenity.label}: {has ? 'ano' : 'ne'}</span>
       </span>
     {/each}
   </span>
 </a>
-
-<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 <style>
   .stop-row {
@@ -76,7 +74,7 @@
   }
   .stop-row :global(.stop-row-image) {
     width: 4.5rem;
-    border-radius: var(--radius-sm, 0.25rem);
+    border-radius: var(--radius-sm);
   }
   .stop-row-body {
     display: flex;
@@ -85,8 +83,8 @@
     min-width: 0;
   }
   h2 {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
     line-height: 1.25;
     overflow-wrap: anywhere;
   }
@@ -95,7 +93,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem 0.375rem;
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
   }
   .stop-row-amenities {

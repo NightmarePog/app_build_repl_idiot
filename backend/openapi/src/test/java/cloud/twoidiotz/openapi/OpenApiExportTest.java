@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Tag;
@@ -160,5 +161,69 @@ class OpenApiExportTest {
     Files.writeString(output.resolve("health.json"), health.body());
     Files.writeString(output.resolve("team.json"), team.body());
     Files.writeString(output.resolve("stops.json"), stops.body());
+  }
+
+  /** The three phase-4 paths must match the binding contract in docs/assignment/phase-4. */
+  @Test
+  @SuppressWarnings("unchecked")
+  void matchesPhaseFourContract() throws Exception {
+    var mapper = JsonMapper.builder().build();
+    var docs =
+        HttpClient.newHttpClient()
+            .send(
+                HttpRequest.newBuilder(
+                        URI.create("http://localhost:" + port + contextPath + "/v3/api-docs"))
+                    .build(),
+                HttpResponse.BodyHandlers.ofString());
+    var generated = mapper.readTree(docs.body());
+    Map<String, Object> binding;
+    try (var input =
+        Files.newInputStream(Path.of("../docs/assignment/phase-4/phase-4.openapi.yaml"))) {
+      binding = new org.yaml.snakeyaml.Yaml().load(input);
+    }
+    var paths = (Map<String, Map<String, Map<String, Object>>>) binding.get("paths");
+    for (var entry : paths.entrySet()) {
+      var path = entry.getKey().replaceFirst("^/api/v1", "");
+      var expected = entry.getValue().get("get");
+      var actual = generated.get("paths").get(path).get("get");
+      assertEquals(expected.get("operationId"), actual.get("operationId").asString(), path);
+      assertEquals(
+          ((Map<String, Object>) expected.get("responses")).keySet(),
+          Set.copyOf(actual.get("responses").propertyNames()),
+          path);
+    }
+    var schemas =
+        (Map<String, Map<String, Object>>)
+            ((Map<String, Object>) binding.get("components")).get("schemas");
+    for (var name :
+        Set.of("TripSummary", "TripDetail", "TripStopTime", "Departure", "StopSummary", "Error")) {
+      var expected = flatten(schemas, schemas.get(name));
+      var actual = generated.get("components").get("schemas").get(name);
+      assertNotNull(actual, name);
+      assertEquals(
+          expected.get("required"),
+          actual.get("required").valueStream().map(n -> n.asString()).collect(Collectors.toSet()),
+          name);
+      assertEquals(
+          expected.get("properties"), Set.copyOf(actual.get("properties").propertyNames()), name);
+    }
+  }
+
+  /** Required and property names of a binding schema, with allOf parts and $refs merged. */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Set<String>> flatten(
+      Map<String, Map<String, Object>> schemas, Map<String, Object> schema) {
+    var required = new java.util.HashSet<String>();
+    var properties = new java.util.HashSet<String>();
+    var parts = (java.util.List<Map<String, Object>>) schema.get("allOf");
+    for (var part : parts == null ? java.util.List.of(schema) : parts) {
+      var ref = (String) part.get("$ref");
+      var resolved = ref == null ? part : schemas.get(ref.substring(ref.lastIndexOf('/') + 1));
+      var names = (java.util.List<String>) resolved.get("required");
+      if (names != null) required.addAll(names);
+      var props = (Map<String, Object>) resolved.get("properties");
+      if (props != null) properties.addAll(props.keySet());
+    }
+    return Map.of("required", required, "properties", properties);
   }
 }

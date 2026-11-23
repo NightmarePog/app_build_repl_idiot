@@ -66,13 +66,13 @@
               ].join(', ')}
             >
               <i class:off={!stop.wheelchair_accessible} title="Nástup bez schodů"
-                ><Accessibility size={13} aria-hidden="true" /></i
+                ><Accessibility size={14} aria-hidden="true" /></i
               >
               <i class:off={!stop.has_shelter} title="Střecha nad hlavou"
-                ><House size={13} aria-hidden="true" /></i
+                ><House size={14} aria-hidden="true" /></i
               >
               <i class:off={!stop.has_ticket_machine} title="Jízdenky na místě"
-                ><Ticket size={13} aria-hidden="true" /></i
+                ><Ticket size={14} aria-hidden="true" /></i
               >
             </span>
           </a>
@@ -146,8 +146,8 @@
     align-items: center;
     gap: 0.625rem;
     padding-bottom: 0.625rem;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
     color: var(--muted-foreground);
   }
   .route-stop {
@@ -156,10 +156,10 @@
     align-items: center;
     gap: 0.625rem;
     padding: 0.375rem 0.375rem 0.375rem 0;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
     color: var(--foreground);
-    font-size: 0.9375rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
     transition: background-color var(--motion-fast) var(--ease-out);
   }
   .route-stop:hover,
@@ -215,7 +215,7 @@
     place-items: center;
     width: 1.25rem;
     height: 1.25rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
     color: var(--foreground);
   }
   .amenities i.off {
@@ -223,7 +223,7 @@
     opacity: 0.45;
   }
   .menu-note {
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
   }
   .menu-note.wide {
@@ -250,7 +250,7 @@
   }
   .menu-note a {
     color: var(--foreground);
-    font-weight: 700;
+    font-weight: var(--weight-strong);
     text-decoration: underline;
     text-underline-offset: 0.25em;
     text-decoration-color: var(--primary);
@@ -268,7 +268,7 @@
   .menu-all {
     display: block;
     margin-top: 0.75rem;
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     color: var(--primary);
   }
   .menu-all:hover {

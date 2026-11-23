@@ -1,4 +1,7 @@
 <script lang="ts">
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import { czechCount } from '$lib/plural';
+  import { withSearch } from '$lib/links';
   import { onMount, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
   import { fade, fly } from 'svelte/transition';
@@ -6,7 +9,7 @@
   import { afterNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
-  import { ChevronRight, Search, SearchX, X } from '@lucide/svelte';
+  import { ChevronRight, MapPin, Search, SearchX, X } from '@lucide/svelte';
   import type { Stop } from '$lib/api/generated';
   import {
     describeStop,
@@ -278,7 +281,7 @@
 <svelte:document onkeydown={focusSearch} />
 
 <svelte:head>
-  <title>Zastávky | Think different Academy</title>
+  <title>Zastávky · TdA</title>
   <meta
     name="description"
     content={`${networkStopCount} zastávek kampusu${networkReady() ? ` na ${LINE_IDS.length} linkách` : ''}. U každé fotografie a informace o nástupu bez schodů, střeše a prodeji jízdenek.`}
@@ -311,14 +314,16 @@
         }
       }}
     ></button>
-    <header class="panel-head">
-      <h1 id="stops-title">Zastávky</h1>
-      <p class="tabular">
-        {#if networkReady()}{LINE_IDS.length}
-          {LINE_IDS.length === 1 ? 'linka' : LINE_IDS.length < 5 ? 'linky' : 'linek'},
-        {/if}{networkStopCount} zastávek
-      </p>
-    </header>
+    <div class="panel-head" id="stops-title">
+      <PageHeader kind="Zastávky" icon={MapPin} title="Všechny zastávky">
+        {#snippet meta()}
+          <span class="tabular">
+            {#if networkReady()}{czechCount(LINE_IDS.length, 'linka', 'linky', 'linek')},
+            {/if}{czechCount(networkStopCount, 'zastávka', 'zastávky', 'zastávek')}
+          </span>
+        {/snippet}
+      </PageHeader>
+    </div>
 
     {#if stopsFailed()}
       <PageState title="Zastávky se nepodařilo načíst" error onretry={() => void loadStops()} />
@@ -329,7 +334,7 @@
     {:else}
       <form role="search" class="controls" onsubmit={(event) => event.preventDefault()}>
         <label class="search">
-          <Search aria-hidden="true" size={18} />
+          <Search aria-hidden="true" size={20} />
           <span class="sr-only">Hledat zastávku</span>
           <input
             id="stop-search"
@@ -385,7 +390,7 @@
       {#if visible.length === 0}
         <div class="list-empty">
           <SearchX aria-hidden="true" size={20} />
-          <h2>Takovou zastávku tu nemáme</h2>
+          <h2 class="section-title">Takovou zastávku tu nemáme</h2>
           <p>Zkuste jiný název nebo zrušte filtry.</p>
           <Button variant="outline" size="sm" onclick={resetFilters}
             >Zobrazit všechny zastávky</Button
@@ -425,17 +430,15 @@
                   {#each lines as id (id)}<LineBadge {id} />{/each}
                 </span>
               </button>
-              <!-- eslint-disable svelte/no-navigation-without-resolve -- The route is already resolved; preserve the query verbatim after it. -->
               <a
                 class="detail-link"
-                href={`${resolve('/stops/[id]', { id: String(stop.id) })}${directorySearch}`}
+                href={withSearch(resolve('/stops/[id]', { id: String(stop.id) }), directorySearch)}
                 aria-label={`Detail zastávky ${stop.name}`}
                 title="Detail zastávky"
                 onclick={() => rememberStop(stop)}
               >
-                <ChevronRight aria-hidden="true" size={18} />
+                <ChevronRight aria-hidden="true" size={20} />
               </a>
-              <!-- eslint-enable svelte/no-navigation-without-resolve -->
             </li>
           {/each}
         </ul>
@@ -486,22 +489,8 @@
     padding: 1.5rem 1.25rem 1.5rem;
     border-right: 1px solid var(--border);
   }
-  .panel-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.25rem 1rem;
-  }
-  h1 {
-    font-size: 1.75rem;
-    font-weight: var(--font-display-weight, 650);
-    line-height: 1.1;
-    letter-spacing: var(--tracking-display, -0.02em);
-  }
-  .panel-head p {
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
+  .panel-head :global(.page-header) {
+    margin-bottom: 0;
   }
   .controls {
     display: flex;
@@ -533,8 +522,8 @@
     outline: 0;
     color: var(--foreground);
     font: inherit;
-    font-size: 1.0625rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
   }
   .filter-row {
     display: flex;
@@ -545,7 +534,7 @@
   .filter-row :global(.amenity-toggle) {
     min-height: 2.75rem;
     padding: 0 0.625rem;
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
   }
   .line-chips {
     display: flex;
@@ -589,12 +578,12 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
   }
   .result-number {
     color: var(--foreground);
-    font-weight: 650;
+    font-weight: var(--font-display-weight);
     font-variant-numeric: tabular-nums;
   }
   .stop-list {
@@ -650,12 +639,12 @@
     min-width: 0;
   }
   .row-name {
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
   .row-sub {
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
   }
   .row-lines {
@@ -682,8 +671,8 @@
     border-top: 1px solid var(--border);
   }
   .list-empty h2 {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
   }
   .list-empty p {
     color: var(--muted-foreground);
@@ -795,12 +784,10 @@
       padding: 0 1rem 1.25rem;
       overflow-y: auto;
       overscroll-behavior: contain;
-      border-radius: 1.375rem 1.375rem 0 0;
+      border-radius: var(--radius-4xl) var(--radius-4xl) 0 0;
       background: var(--background);
-      box-shadow:
-        0 -1px 0 var(--border),
-        0 -12px 32px -8px rgb(0 0 0 / 0.35);
-      transition: height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: var(--shadow-pop);
+      transition: height var(--motion-slow) var(--ease-out);
     }
     .panel.expanded {
       height: calc(100% - 0.75rem);
@@ -836,10 +823,7 @@
     .sheet-handle:focus-visible {
       outline: 2px solid var(--ring);
       outline-offset: -4px;
-      border-radius: 0.75rem;
-    }
-    h1 {
-      font-size: 1.5rem;
+      border-radius: var(--radius-xl);
     }
     .search :global(kbd) {
       display: none;
@@ -916,7 +900,7 @@
     }
     .summary :global(.summary-image p) {
       padding: 0.25rem;
-      font-size: 0.6875rem;
+      font-size: var(--fs-2xs);
     }
     .summary :global(.summary-body) {
       gap: 0.5rem;
@@ -925,7 +909,7 @@
       display: none;
     }
     .summary :global(h3) {
-      font-size: 1.125rem;
+      font-size: var(--fs-lg);
     }
   }
   @media (prefers-reduced-motion: reduce) {

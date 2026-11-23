@@ -1,6 +1,6 @@
 <script lang="ts">
   /** International Symbol of Access (ISO 7001), as on PID timetables: white on blue. */
-  let { size = 18, label }: { size?: number; label?: string } = $props();
+  let { size = 16, label }: { size?: number; label?: string } = $props();
 </script>
 
 <svg
@@ -12,8 +12,8 @@
   aria-label={label}
   aria-hidden={label ? undefined : 'true'}
 >
-  <rect width="24" height="24" rx="2.5" fill="#0070BB" />
-  <g fill="#fff">
+  <rect width="24" height="24" rx="2.5" fill="var(--brand)" />
+  <g fill="var(--brand-foreground)">
     <circle cx="10.2" cy="4.6" r="1.9" />
     <path
       d="M9 7.6h2.4l.4 4.2h4.4l2.6 5.4 1.3-.6.8 1.6-2.9 1.4-2.8-5.8H10a1.2 1.2 0 0 1-1.2-1.1z"

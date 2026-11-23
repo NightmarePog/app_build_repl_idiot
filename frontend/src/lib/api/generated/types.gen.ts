@@ -4,6 +4,26 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}/api/v1` | (string & {});
 };
 
+export type Departure = {
+    arrival_day_offset: number;
+    /**
+     * Arrival at this stop.
+     */
+    arrival_time: string;
+    departure_day_offset: number;
+    /**
+     * Departure from this stop.
+     */
+    departure_time: string;
+    /**
+     * Final stop of the trip.
+     */
+    destination: StopSummary;
+    direction: 'outbound' | 'inbound';
+    line: Line;
+    trip_id: number;
+};
+
 export type Error = {
     error: string;
 };
@@ -81,9 +101,79 @@ export type StopInput = {
     wheelchair_accessible: boolean;
 };
 
+export type StopSummary = {
+    id: number;
+    image_url: string | null;
+    name: string;
+};
+
 export type TeamResponse = {
     members: Array<string>;
     name: string;
+};
+
+export type TripDetail = {
+    departure_day_offset: number;
+    departure_time: string;
+    destination: StopSummary;
+    direction: 'outbound' | 'inbound';
+    id: number;
+    line: Line;
+    origin: StopSummary;
+    route_id: number;
+    stops: Array<TripStopTime>;
+};
+
+export type TripStopTime = {
+    arrival_day_offset: number;
+    arrival_time: string;
+    departure_day_offset: number;
+    departure_time: string;
+    stop: StopSummary;
+    /**
+     * 1-based order on the route
+     */
+    stop_order: number;
+};
+
+export type TripSummary = {
+    departure_day_offset: number;
+    /**
+     * Departure from the origin.
+     */
+    departure_time: string;
+    destination: StopSummary;
+    /**
+     * Outbound leaves the line's first stop, inbound returns to it.
+     */
+    direction: 'outbound' | 'inbound';
+    id: number;
+    line: Line;
+    origin: StopSummary;
+    /**
+     * ID of the route the trip follows, as listed in the line's routes.
+     */
+    route_id: number;
+};
+
+export type DepartureWritable = {
+    arrival_day_offset: number;
+    /**
+     * Arrival at this stop.
+     */
+    arrival_time: string;
+    departure_day_offset: number;
+    /**
+     * Departure from this stop.
+     */
+    departure_time: string;
+    /**
+     * Final stop of the trip.
+     */
+    destination: StopSummary;
+    direction: 'outbound' | 'inbound';
+    line: LineWritable;
+    trip_id: number;
 };
 
 export type LineWritable = {
@@ -107,6 +197,38 @@ export type StopWritable = {
     image_url: string | null;
     name: string;
     wheelchair_accessible: boolean;
+};
+
+export type TripDetailWritable = {
+    departure_day_offset: number;
+    departure_time: string;
+    destination: StopSummary;
+    direction: 'outbound' | 'inbound';
+    id: number;
+    line: LineWritable;
+    origin: StopSummary;
+    route_id: number;
+    stops: Array<TripStopTime>;
+};
+
+export type TripSummaryWritable = {
+    departure_day_offset: number;
+    /**
+     * Departure from the origin.
+     */
+    departure_time: string;
+    destination: StopSummary;
+    /**
+     * Outbound leaves the line's first stop, inbound returns to it.
+     */
+    direction: 'outbound' | 'inbound';
+    id: number;
+    line: LineWritable;
+    origin: StopSummary;
+    /**
+     * ID of the route the trip follows, as listed in the line's routes.
+     */
+    route_id: number;
 };
 
 export type GetHealthData = {
@@ -279,6 +401,37 @@ export type UpdateLineResponses = {
 };
 
 export type UpdateLineResponse = UpdateLineResponses[keyof UpdateLineResponses];
+
+export type ListLineTripsData = {
+    body?: never;
+    path: {
+        lineId: number;
+    };
+    query?: never;
+    url: '/lines/{lineId}/trips';
+};
+
+export type ListLineTripsErrors = {
+    /**
+     * Invalid identifier
+     */
+    400: Error;
+    /**
+     * Line not found
+     */
+    404: Error;
+};
+
+export type ListLineTripsError = ListLineTripsErrors[keyof ListLineTripsErrors];
+
+export type ListLineTripsResponses = {
+    /**
+     * OK
+     */
+    200: Array<TripSummary>;
+};
+
+export type ListLineTripsResponse = ListLineTripsResponses[keyof ListLineTripsResponses];
 
 export type GetStopsData = {
     body?: never;
@@ -469,6 +622,37 @@ export type GetStopLinesResponses = {
 
 export type GetStopLinesResponse = GetStopLinesResponses[keyof GetStopLinesResponses];
 
+export type ListStopDeparturesData = {
+    body?: never;
+    path: {
+        stopId: number;
+    };
+    query?: never;
+    url: '/stops/{stopId}/departures';
+};
+
+export type ListStopDeparturesErrors = {
+    /**
+     * Invalid identifier
+     */
+    400: Error;
+    /**
+     * Stop not found
+     */
+    404: Error;
+};
+
+export type ListStopDeparturesError = ListStopDeparturesErrors[keyof ListStopDeparturesErrors];
+
+export type ListStopDeparturesResponses = {
+    /**
+     * OK
+     */
+    200: Array<Departure>;
+};
+
+export type ListStopDeparturesResponse = ListStopDeparturesResponses[keyof ListStopDeparturesResponses];
+
 export type GetTeamData = {
     body?: never;
     path?: never;
@@ -484,3 +668,34 @@ export type GetTeamResponses = {
 };
 
 export type GetTeamResponse = GetTeamResponses[keyof GetTeamResponses];
+
+export type GetTripData = {
+    body?: never;
+    path: {
+        tripId: number;
+    };
+    query?: never;
+    url: '/trips/{tripId}';
+};
+
+export type GetTripErrors = {
+    /**
+     * Invalid identifier
+     */
+    400: Error;
+    /**
+     * Trip not found
+     */
+    404: Error;
+};
+
+export type GetTripError = GetTripErrors[keyof GetTripErrors];
+
+export type GetTripResponses = {
+    /**
+     * OK
+     */
+    200: TripDetail;
+};
+
+export type GetTripResponse = GetTripResponses[keyof GetTripResponses];

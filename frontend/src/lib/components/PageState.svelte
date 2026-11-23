@@ -49,11 +49,11 @@
   }
   .page-state :global(h1),
   .page-state :global(h2) {
-    font-size: 1.25rem;
+    font-size: var(--fs-lg);
     line-height: 1.25;
   }
   .page-state :global(h1) {
-    font-size: 1.75rem;
+    font-size: var(--fs-xl);
   }
   p {
     max-width: 36rem;

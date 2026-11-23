@@ -26,8 +26,6 @@
     line?: LineId | null;
     /** Pixels at the bottom covered by an overlay; the camera centres above it. */
     inset?: number;
-    /** Kept for compatibility; the map is always the single MapLibre view. */
-    allow3d?: boolean;
   } = $props();
 </script>
 

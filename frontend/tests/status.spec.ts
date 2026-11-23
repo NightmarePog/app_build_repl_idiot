@@ -37,7 +37,7 @@ test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
     'href',
     '/stops'
   );
-  await expect(page.getByRole('link', { name: 'Seznam linek' })).toHaveAttribute('href', '#lines');
+  await expect(page.getByRole('link', { name: 'Seznam linek' })).toHaveAttribute('href', '/#lines');
   await expect(
     page.getByRole('main').getByRole('heading', { level: 2, name: 'Linky' })
   ).toBeVisible();

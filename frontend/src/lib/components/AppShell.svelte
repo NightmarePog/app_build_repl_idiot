@@ -75,7 +75,10 @@
     dark = document.documentElement.classList.contains('dark');
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', dark ? '#141210' : '#fcfbf9');
+      ?.setAttribute(
+        'content',
+        getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
+      );
   }
 
   function isTyping(target: EventTarget | null) {
@@ -252,34 +255,57 @@
             aria-current={onStops ? 'page' : undefined}
             class={cn('nav-link only-small', onStops && 'is-active')}>Zastávky</a
           >
-          <button
-            type="button"
-            class={cn('nav-link only-large', onStops && 'is-active')}
-            aria-expanded={menu === 'stops'}
-            aria-controls="menu-stops"
-            onclick={() => clickMenu('stops')}
+          <span
+            class="nav-split only-large"
+            role="presentation"
             onmouseenter={() => hoverMenu('stops')}
             onmouseleave={cancelHover}
-            onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-            >Zastávky <ChevronDown class="size-4" aria-hidden="true" /></button
           >
+            <a
+              href={resolve('/stops')}
+              aria-current={onStops ? 'page' : undefined}
+              class={cn('nav-link split-label', onStops && 'is-active')}
+              onclick={closeMenu}>Zastávky</a
+            >
+            <button
+              type="button"
+              class={cn('nav-link split-toggle', onStops && 'is-active')}
+              aria-label="Další: Zastávky"
+              aria-expanded={menu === 'stops'}
+              aria-controls="menu-stops"
+              onclick={() => clickMenu('stops')}
+              onkeydown={(event) => event.key === 'Escape' && closeMenu()}
+              ><ChevronDown class="size-4" aria-hidden="true" /></button
+            >
+          </span>
           {#if menu === 'stops' && menus}
             {@render menus('stops', closeMenu)}
           {/if}
         </div>
         <div class="nav-item">
           <a href={resolve('/lines')} class="nav-link only-small">Linky</a>
-          <button
-            type="button"
-            class="nav-link only-large"
-            aria-expanded={menu === 'lines'}
-            aria-controls="menu-lines"
-            onclick={() => clickMenu('lines')}
+          <span
+            class="nav-split only-large"
+            role="presentation"
             onmouseenter={() => hoverMenu('lines')}
             onmouseleave={cancelHover}
-            onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-            >Linky <ChevronDown class="size-4" aria-hidden="true" /></button
           >
+            <a
+              href={resolve('/lines')}
+              class={cn('nav-link split-label', false)}
+              onclick={closeMenu}>Linky</a
+            >
+            <button
+              type="button"
+              class={cn('nav-link split-toggle', false)}
+              aria-label="Další: Linky"
+              aria-expanded={menu === 'lines'}
+              aria-controls="menu-lines"
+              onclick={() => clickMenu('lines')}
+              onkeydown={(event) => event.key === 'Escape' && closeMenu()}
+              ><ChevronDown class="size-4" aria-hidden="true" /></button
+            >
+          </span>
           {#if menu === 'lines' && menus}
             {@render menus('lines', closeMenu)}
           {/if}
@@ -312,7 +338,7 @@
     tabindex="-1"
     class={cn(
       'w-full flex-1 outline-none',
-      !fullBleed && 'mx-auto max-w-[85rem] px-5 py-8 sm:px-8 sm:py-10'
+      !fullBleed && 'mx-auto max-w-[85rem] px-5 pt-8 pb-28 sm:px-8 sm:py-10'
     )}
   >
     {@render children()}
@@ -389,7 +415,7 @@
     display: flex;
     align-items: center;
     min-height: 2.75rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
   }
   .brand-logo {
@@ -427,8 +453,8 @@
     background: transparent;
     color: var(--muted-foreground);
     font: inherit;
-    font-size: 0.9375rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
     cursor: pointer;
     transition:
       border-color var(--motion-fast) var(--ease-out),
@@ -460,8 +486,8 @@
     background: var(--card);
     color: var(--muted-foreground);
     font: inherit;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
     cursor: pointer;
     transition: border-color var(--motion-fast) var(--ease-out);
   }
@@ -471,6 +497,17 @@
   .search-label {
     min-width: 7rem;
     text-align: left;
+  }
+  .nav-split {
+    display: inline-flex;
+    align-items: center;
+  }
+  .nav-split .split-label {
+    padding-right: 0.15rem;
+  }
+  .nav-split .split-toggle {
+    padding-left: 0.25rem;
+    padding-right: 0.4rem;
   }
   .only-small {
     display: none;
@@ -538,7 +575,7 @@
       /* Solid, not frosted: page-transition snapshots drop backdrop blur, which made the bar
          turn see-through for a moment on every tab change. */
       background: var(--background);
-      box-shadow: 0 -6px 20px -12px rgb(0 0 0 / 0.35);
+      box-shadow: var(--shadow-pop);
       view-transition-name: tabbar;
     }
     .tab {
@@ -549,10 +586,10 @@
       justify-content: center;
       gap: 0.1875rem;
       min-height: 3rem;
-      border-radius: 0.875rem;
+      border-radius: var(--radius-2xl);
       color: var(--muted-foreground);
-      font-size: 0.6875rem;
-      font-weight: 700;
+      font-size: var(--fs-2xs);
+      font-weight: var(--weight-strong);
       letter-spacing: 0.01em;
       transition:
         color var(--motion-fast) var(--ease-out),

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import type { ResolvedPathname } from '$app/types';
   import { ArrowRight } from '@lucide/svelte';
   import type { Attachment } from 'svelte/attachments';
   import { reveal } from '$lib/motion';
@@ -35,8 +36,8 @@
    */
   const SCENES = [
     { seed: 11, stripe: '#0070bb', delay: '0s' },
-    { seed: 23, stripe: '#2f9e5a', delay: '-0.25s' },
-    { seed: 37, stripe: '#23898a', delay: '-0.5s' }
+    { seed: 23, stripe: '#6dd4b1', delay: '-0.25s' },
+    { seed: 37, stripe: '#49b3b4', delay: '-0.5s' }
   ];
 
   const CRUISE = 1;
@@ -116,14 +117,13 @@
   };
 
   /** The bus drives off the card before the stops page opens; plain navigation otherwise. */
-  function drive(event: MouseEvent, id: LineId, href: string) {
+  function drive(event: MouseEvent, id: LineId, href: ResolvedPathname) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
     if (reducedMotion() || leaving) return;
     event.preventDefault();
     leaving = id;
     (event.currentTarget as HTMLElement).dispatchEvent(new Event('depart'));
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- href is resolved above.
     setTimeout(() => void goto(href).finally(() => (leaving = null)), 520);
   }
 </script>
@@ -166,7 +166,7 @@
         </span>
         <span class="route">
           <span class="from"
-            >{line.from} <ArrowRight size={15} strokeWidth={3} aria-hidden="true" /></span
+            >{line.from} <ArrowRight size={16} strokeWidth={3} aria-hidden="true" /></span
           >
           <span class="to">{line.to}</span>
         </span>
@@ -174,8 +174,6 @@
     </li>
   {/each}
 </ul>
-
-<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 <style>
   .line-cards {
@@ -192,8 +190,8 @@
     --card-bg: #0070bb;
     --card-ink: #ffffff;
     --letter-bg: #121413;
-    --letter-ink: #2b90d9;
-    --road: #0b3f66;
+    --letter-ink: #2592b8;
+    --road: #0257a5;
     --kerb: #3d86c0;
     --scene-cloud: rgb(255 255 255 / 0.16);
     --scene-far: rgb(255 255 255 / 0.15);
@@ -202,10 +200,10 @@
     --scene-near: #0b4f80;
   }
   .scene-1 {
-    --card-bg: #a4f8bc;
+    --card-bg: #91f5ad;
     --card-ink: #121413;
     --letter-bg: #121413;
-    --letter-ink: #a4f8bc;
+    --letter-ink: #91f5ad;
     --road: #35503f;
     --kerb: #6fc48a;
     --scene-cloud: rgb(255 255 255 / 0.6);
@@ -237,7 +235,7 @@
     height: 15.5rem;
     padding: 1.25rem;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius-2xl);
     background: var(--card-bg);
     color: var(--card-ink);
     transition: transform var(--motion-normal) var(--ease-out);
@@ -247,7 +245,8 @@
   }
   /* "Look here": each card lifts and rings in turn. */
   .flashing .card {
-    animation: flash 0.9s var(--ease-out) calc(var(--index) * 140ms) both;
+    animation: flash var(--motion-xslow) var(--ease-out) calc(var(--index) * var(--motion-fast))
+      both;
   }
   @keyframes flash {
     30% {
@@ -296,7 +295,7 @@
   }
   /* On click the bus pulls away and leaves the card to the right. */
   .leaving .bus {
-    transition: transform 0.5s cubic-bezier(0.55, 0, 0.9, 0.4);
+    transition: transform var(--motion-slow) var(--ease-in);
     transform: translateX(calc(100% + 2rem));
   }
 
@@ -314,19 +313,19 @@
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
-    border-radius: 0.625rem;
+    border-radius: var(--radius-xl);
     background: var(--letter-bg);
     color: var(--letter-ink);
-    font-size: 1.625rem;
-    font-weight: 800;
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
     line-height: 1;
   }
   .facts {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   .transfers {
     display: flex;
@@ -338,10 +337,10 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: 0.25rem;
-    box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.18);
-    font-size: 0.75rem;
-    font-weight: 800;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-pop);
+    font-size: var(--fs-xs);
+    font-weight: var(--font-display-weight);
     line-height: 1;
   }
   .route {
@@ -353,13 +352,13 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    font-size: 0.9375rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
     opacity: 0.85;
   }
   .to {
-    font-size: 1.3125rem;
-    font-weight: 800;
+    font-size: var(--fs-lg);
+    font-weight: var(--font-display-weight);
     line-height: 1.1;
   }
 
@@ -378,7 +377,7 @@
     row-gap: 0.375rem;
     height: 6.75rem;
     padding: 0.75rem 0.875rem 1.375rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-xl);
   }
   .compact .card:hover {
     transform: none;
@@ -394,7 +393,7 @@
     align-self: center;
     width: 2.25rem;
     height: 2.25rem;
-    font-size: 1.25rem;
+    font-size: var(--fs-lg);
   }
   .compact .route {
     grid-column: 2;
@@ -410,13 +409,13 @@
   .compact .mini {
     width: 1.125rem;
     height: 1.125rem;
-    font-size: 0.6875rem;
+    font-size: var(--fs-2xs);
   }
   .compact .from {
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
   }
   .compact .to {
-    font-size: 1.0625rem;
+    font-size: var(--fs-base);
   }
   .compact .bus {
     right: 0.75rem;

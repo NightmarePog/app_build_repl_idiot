@@ -87,9 +87,9 @@
     min-width: 0;
   }
   h3 {
-    font-size: 1.5rem;
-    font-weight: var(--font-display-weight, 650);
-    letter-spacing: var(--tracking-display, -0.02em);
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
+    letter-spacing: var(--tracking-display);
     line-height: 1.1;
     overflow-wrap: anywhere;
   }
@@ -99,7 +99,7 @@
     align-items: center;
     gap: 0.375rem;
     margin-top: 0.375rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
   }
   dl > div {
@@ -126,7 +126,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     color: var(--status-ok, var(--foreground));
   }
   dd.no {

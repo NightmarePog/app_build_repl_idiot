@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { withHash } from '$lib/links';
   import type { Snippet } from 'svelte';
   import { resolve } from '$app/paths';
   import { ArrowUp, ArrowUpRight } from '@lucide/svelte';
@@ -53,8 +54,7 @@
         <ul>
           <li><a href={resolve('/')}>Úvod</a></li>
           <li><a href={resolve('/stops')}>Mapa zastávek</a></li>
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved root plus an in-page fragment -->
-          <li><a href={`${resolve('/')}#lines`}>Přehled linek</a></li>
+          <li><a href={withHash(resolve('/'), 'lines')}>Přehled linek</a></li>
         </ul>
       </nav>
 
@@ -94,7 +94,7 @@
         >
       </p>
       <a href="#main" class="to-top" onclick={toTop}
-        >Zpátky nahoru <ArrowUp size={15} aria-hidden="true" /></a
+        >Zpátky nahoru <ArrowUp size={16} aria-hidden="true" /></a
       >
     </div>
   </div>
@@ -106,7 +106,7 @@
     border-top: 1px solid var(--border);
     background: color-mix(in oklch, var(--muted) 55%, var(--background));
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
   .footer-inner {
     max-width: 85rem;
@@ -128,7 +128,7 @@
   }
   .brand-mark {
     display: block;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
   }
   .logo {
     display: block;
@@ -149,9 +149,9 @@
   .column h2 {
     margin-bottom: 0.75rem;
     color: var(--foreground);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
   .column :global(ul) {
@@ -165,7 +165,7 @@
     gap: 0.375rem;
     min-height: 2.25rem;
     color: var(--muted-foreground);
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     transition:
       color var(--motion-fast) var(--ease-out),
       transform var(--motion-fast) var(--ease-out);
@@ -184,7 +184,7 @@
     margin-top: 2.5rem;
     padding-top: 1.25rem;
     border-top: 1px solid var(--border);
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
   }
   .attribution a {
     color: inherit;
@@ -202,7 +202,7 @@
     gap: 0.375rem;
     min-height: 2.75rem;
     color: var(--muted-foreground);
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     transition: color var(--motion-fast) var(--ease-out);
   }
   .to-top :global(svg) {
@@ -217,7 +217,7 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
   }
 
   @media (max-width: 979px) {

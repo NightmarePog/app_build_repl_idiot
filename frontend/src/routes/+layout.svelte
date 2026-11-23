@@ -9,6 +9,7 @@
   import NavMenus from '$lib/features/network/NavMenus.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { onMount } from 'svelte';
+  import { onNavigate } from '$app/navigation';
   import {
     describeStop,
     LINES,
@@ -19,6 +20,7 @@
   } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import { rememberStop } from '$lib/features/stops/selected-stop';
+  import { withQuery } from '$lib/links';
   let { children } = $props();
 
   let paletteOpen = $state(false);
@@ -26,15 +28,34 @@
   // The line network feeds the menus, footer, map and stop pages on every route.
   onMount(() => void loadNetwork());
 
+  // Same-document view transitions: the line plate morphs from the line sheet into the trip
+  // ticket. Skipped where unsupported and for reduced motion.
+  onNavigate((navigation) => {
+    if (
+      !document.startViewTransition ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      navigation.from?.url.pathname === navigation.to?.url.pathname
+    )
+      return;
+    return new Promise((done) => {
+      document.startViewTransition(async () => {
+        done();
+        await navigation.complete;
+      });
+    });
+  });
+
   type Item = PaletteItem & { lines: LineId[]; page?: boolean };
 
-  const pages: Item[] = [
-    ['Domů', 'Úvodní stránka', resolve('/')],
-    ['Mapa zastávek', 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
-    ['Linky', 'Přehled všech linek', resolve('/lines')],
-    ['Kontakt', 'Napište týmu', resolve('/contact')],
-    ['Podmínky', 'Podmínky používání', resolve('/terms')]
-  ].map(([label, sub, href]) => ({
+  const pages: Item[] = (
+    [
+      ['Domů', 'Úvodní stránka', resolve('/')],
+      ['Mapa zastávek', 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
+      ['Linky', 'Přehled všech linek', resolve('/lines')],
+      ['Kontakt', 'Napište týmu', resolve('/contact')],
+      ['Podmínky', 'Podmínky používání', resolve('/terms')]
+    ] as const
+  ).map(([label, sub, href]) => ({
     key: `page-${href}`,
     label,
     sub,
@@ -53,7 +74,7 @@
         sub: stops.length
           ? `${stops[0]} → ${stops[stops.length - 1]}, ${stops.length} zastávek`
           : LINES[id].name,
-        href: `${resolve('/stops')}?line=${id}`,
+        href: withQuery(resolve('/stops'), { line: id }),
         lines: [id],
         suggested: true
       };

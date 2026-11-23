@@ -37,6 +37,6 @@ public class LineExceptionHandler {
   })
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ApiError invalidId() {
-    return new ApiError("Invalid ID");
+    return new ApiError("Invalid line ID");
   }
 }

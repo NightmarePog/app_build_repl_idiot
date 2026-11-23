@@ -47,8 +47,8 @@
     border-radius: var(--radius-md);
     background: var(--background);
     color: var(--muted-foreground);
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
     cursor: pointer;
     transition:
       background-color var(--motion-fast) var(--ease-out),
@@ -63,7 +63,7 @@
     border-color: var(--primary);
     background: var(--accent);
     color: var(--foreground);
-    font-weight: 600;
+    font-weight: var(--weight-strong);
   }
   .amenity-toggle:focus-visible {
     outline: 2px solid var(--ring, var(--primary));

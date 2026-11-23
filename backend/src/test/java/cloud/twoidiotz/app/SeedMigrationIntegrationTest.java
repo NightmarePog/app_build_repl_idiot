@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.ActiveProfiles;
+import seed.V11__seed_timetable;
 import seed.V5__seed_stations;
 
 @ActiveProfiles("test")
@@ -120,6 +121,48 @@ class SeedMigrationIntegrationTest {
           }
           flyway(schema, "5").migrate();
           assertEquals(15, number(connection, "SELECT count(*) FROM station"));
+        });
+  }
+
+  @Test
+  void timetableSeedChecksumIgnoresLineEndings() throws Exception {
+    var checksum = new V11__seed_timetable().getChecksum();
+    var thread = Thread.currentThread();
+    var loader = thread.getContextClassLoader();
+    try {
+      thread.setContextClassLoader(
+          new ClassLoader(loader) {
+            @Override
+            public InputStream getResourceAsStream(String name) {
+              var stream = super.getResourceAsStream(name);
+              if (stream == null || !name.startsWith("seed/v11/")) return stream;
+              try (stream) {
+                var text = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+                return new ByteArrayInputStream(
+                    text.replace("\r\n", "\n")
+                        .replace("\n", "\r\n")
+                        .getBytes(StandardCharsets.UTF_8));
+              } catch (java.io.IOException exception) {
+                throw new java.io.UncheckedIOException(exception);
+              }
+            }
+          });
+      assertEquals(checksum, new V11__seed_timetable().getChecksum());
+    } finally {
+      thread.setContextClassLoader(loader);
+    }
+  }
+
+  @Test
+  void timetableSeedFailsInsteadOfSkippingUnmatchedRows() throws Exception {
+    withSchema(
+        (connection, schema) -> {
+          flyway(schema, "10").migrate();
+          try (var sql = connection.createStatement()) {
+            sql.execute("UPDATE station SET name = 'Renamed Hub' WHERE name = 'Kernel Hub'");
+          }
+          assertThrows(FlywayException.class, () -> flyway(schema, "11").migrate());
+          assertEquals(0, number(connection, "SELECT count(*) FROM trip"));
         });
   }
 

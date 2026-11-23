@@ -3,3 +3,6 @@ spring:
     url: ${TEST_DATABASE_URL:jdbc:postgresql://localhost:5433/app_test}
     username: ${TEST_POSTGRES_USER:app}
     password: ${TEST_POSTGRES_PASSWORD:ci-disposable-password}
+  jpa:
+    properties:
+      hibernate.generate_statistics: true

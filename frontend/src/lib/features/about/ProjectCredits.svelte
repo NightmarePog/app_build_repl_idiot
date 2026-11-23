@@ -5,7 +5,7 @@
   let team = $state<TeamResponse>();
   let teamError = $state(false);
 
-  let status = $state('Načítání…');
+  let status = $state('Načítáme…');
 
   onMount(() => {
     const controller = new AbortController();

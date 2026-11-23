@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
-  import { ArrowRight, BusFront, TramFront } from '@lucide/svelte';
+  import { ArrowRight, BusFront, Route as RouteIcon, TramFront } from '@lucide/svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import type { Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
-  import { Skeleton } from '$lib/ui/skeleton';
+  import LoadingState from '$lib/components/LoadingState.svelte';
   import {
     LINES,
     LINE_IDS,
@@ -57,32 +58,31 @@
 </script>
 
 <svelte:head>
-  <title>Linky | Think different Academy</title>
+  <title>Linky · TdA</title>
 </svelte:head>
 
-<header class="intro">
-  <h1>Linky</h1>
+<PageHeader kind="Přehled linek" icon={RouteIcon} title="Všechny linky">
+  {#snippet meta()}Trasy, zastávky a přestupy všech linek kampusu.{/snippet}
+</PageHeader>
+<div class="intro">
   <!-- A map key, not decoration: the diagrams below use these symbols. -->
+  <p class="key-title">Vysvětlivky</p>
   <ul class="key" aria-label="Vysvětlivky">
     <li><span class="key-dot" aria-hidden="true"></span>zastávka</li>
     <li><span class="key-dot interchange" aria-hidden="true"></span>přestup</li>
     <li><span class="key-dot terminus" aria-hidden="true"></span>konečná</li>
-    <li><Isa size={16} />bezbariérová</li>
+    <li><Isa size={16} />bezbariérový nástup</li>
   </ul>
-</header>
+</div>
 
 {#if networkFailed()}
   <PageState title="Linky se nepodařilo načíst" error onretry={() => loadNetwork(true)} />
 {:else if !networkReady()}
-  <p role="status" class="sr-only">Načítáme linky…</p>
-  <div class="loading" aria-hidden="true">
-    {#each [0, 1, 2] as item (item)}
-      <Skeleton class="h-32 w-full rounded-md" />
-    {/each}
-  </div>
+  <LoadingState label="Načítáme linky…" />
 {:else if lines.length === 0}
   <PageState title="Zatím nejsou evidované žádné linky" />
 {:else}
+  <h2 class="section-title list-title">Linky ({lines.length})</h2>
   <ul class="lines">
     {#each lines as line (line.number)}
       {@const route = outbound(line)}
@@ -100,7 +100,7 @@
         <div class="head">
           <span class="plate tabular" aria-hidden="true">{line.number}</span>
           <div class="naming">
-            <h2><span class="sr-only">Linka {line.number}: </span>{line.name}</h2>
+            <h3><span class="sr-only">Linka {line.number}: </span>{line.name}</h3>
             <p class="meta">
               <span class="meta-item">
                 {#if line.type.toLowerCase() === 'tram'}
@@ -115,10 +115,10 @@
                   <Isa size={16} />
                   {accessible}
                   {zOrZe(stops.length)}
-                  {stops.length} bezbariérových
+                  {stops.length} s bezbariérovým nástupem
                 </span>
               {:else if stops.length && stopsFailed()}
-                <span class="meta-item">bezbariérovost nezjištěna</span>
+                <span class="meta-item">bezbariérový nástup nezjištěn</span>
               {/if}
             </p>
           </div>
@@ -188,7 +188,7 @@
 
   {#if interchanges.length}
     <section class="interchanges" aria-labelledby="interchanges-heading">
-      <h2 id="interchanges-heading">Přestupní zastávky</h2>
+      <h2 id="interchanges-heading" class="section-title">Přestupní zastávky</h2>
       <ul>
         {#each interchanges as stop (stop.id)}
           <li>
@@ -218,23 +218,21 @@
   .intro {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem 2rem;
-    margin-block: 0.5rem 1.5rem;
+    gap: 0.5rem 1.25rem;
+    align-items: center;
+    justify-content: flex-start;
+    margin-block: 0 0.5rem;
   }
-  h1 {
-    font-size: 2rem;
-    font-weight: var(--font-display-weight);
-    letter-spacing: var(--tracking-display);
-    line-height: 1.1;
+  .key-title {
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   .key {
     display: flex;
     flex-wrap: wrap;
     gap: 0.375rem 1.125rem;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-regular);
     color: var(--muted-foreground);
   }
   .key li {
@@ -256,11 +254,6 @@
   }
   .key-dot.terminus {
     background: var(--muted-foreground);
-  }
-
-  .loading {
-    display: grid;
-    gap: 1.5rem;
   }
 
   /* Rows separated by rules, no boxes: the plate and the rail carry the line colour. */
@@ -297,17 +290,17 @@
     min-width: 3.5rem;
     height: 3.5rem;
     padding-inline: 0.5rem;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-md);
     background: var(--line);
     color: var(--line-ink);
     box-shadow: inset 0 0 0 1.5px var(--line-stroke, transparent);
-    font-size: 2rem;
-    font-weight: 800;
+    font-size: var(--fs-2xl);
+    font-weight: var(--font-display-weight);
     line-height: 1;
   }
   h2 {
-    font-size: 1.375rem;
-    font-weight: 650;
+    font-size: var(--fs-lg);
+    font-weight: var(--font-display-weight);
     line-height: 1.2;
   }
   .meta {
@@ -315,8 +308,8 @@
     flex-wrap: wrap;
     gap: 0.25rem 1rem;
     margin-top: 0.25rem;
-    font-size: 0.9375rem;
-    font-weight: 500;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-regular);
     color: var(--muted-foreground);
   }
   .meta-item {
@@ -330,7 +323,7 @@
     gap: 0.375rem;
     min-height: 2.75rem;
     padding-inline: 0.25rem;
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     color: var(--primary);
     white-space: nowrap;
     text-underline-offset: 4px;
@@ -399,15 +392,15 @@
   .strip a {
     /* Generous hit area around a short label. */
     padding: 0.5rem 0.375rem;
-    font-size: 0.9375rem;
-    font-weight: 500;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-regular);
     line-height: 1.2;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     text-underline-offset: 3px;
   }
   .terminus a,
   .interchange a {
-    font-weight: 700;
+    font-weight: var(--weight-strong);
   }
   .strip a:hover {
     text-decoration: underline;
@@ -423,26 +416,26 @@
     min-width: 1.25rem;
     height: 1.25rem;
     padding-inline: 0.25rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 800;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    font-weight: var(--font-display-weight);
     line-height: 1;
   }
   .mini.md {
     min-width: 1.625rem;
     height: 1.625rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
 
   .via {
     display: none;
     margin-top: 0.875rem;
-    font-size: 1rem;
+    font-size: var(--fs-base);
     line-height: 1.6;
     color: var(--muted-foreground);
   }
   .via-stop {
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     color: var(--foreground);
   }
   .via.empty {
@@ -451,10 +444,6 @@
 
   .interchanges {
     margin-top: 2.5rem;
-  }
-  .interchanges h2 {
-    margin-bottom: 0.75rem;
-    font-size: 1.25rem;
   }
   .interchanges ul {
     display: grid;
@@ -470,8 +459,8 @@
     border-bottom: 1px solid var(--border);
   }
   .stop-name {
-    font-size: 1.0625rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
   }
   .interchanges a:hover .stop-name {
     text-decoration: underline;
@@ -481,7 +470,7 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
   }
 
   @media (max-width: 767px) {
@@ -503,10 +492,10 @@
     .plate {
       min-width: 3rem;
       height: 3rem;
-      font-size: 1.625rem;
+      font-size: var(--fs-xl);
     }
     h2 {
-      font-size: 1.25rem;
+      font-size: var(--fs-lg);
     }
   }
   @media (prefers-reduced-motion: reduce) {

@@ -35,7 +35,26 @@
   --ring: var(--primary);
   --brand: var(--primary);
   --sign-marker: #91f5ad;
+  /* Platform display: always dark in both themes (brand black #1A1A1A), times in the brand
+     green #91F5AD (docs/brand); the palette has no amber or yellow. */
+  --board-bg: #1a1a1a;
+  --board-fg: #f5f3ee;
+  --board-muted: oklch(0.74 0.012 80);
+  --board-raised: oklch(0.27 0.004 70);
+  --board-line: oklch(0.32 0.004 70);
+  --board-led: #91f5ad;
   --sign-marker-foreground: oklch(0.21 0.008 70);
+  /* Board details: secondary text, flap tiles, skeleton shimmer and the light sweep. Warnings
+     on the board are a tint of the same brand green with an outline, never a new colour. */
+  --board-place: color-mix(in oklch, var(--board-fg) 82%, var(--board-bg));
+  --board-tile-top: oklch(0.27 0 0);
+  --board-tile-bottom: oklch(0.23 0 0);
+  --board-shadow: oklch(0 0 0 / 0.6);
+  --board-skeleton: oklch(0.24 0 0);
+  --board-skeleton-hi: oklch(0.29 0 0);
+  --board-warn-bg: color-mix(in oklch, var(--board-led) 16%, transparent);
+  --board-marker-glow: color-mix(in oklch, var(--sign-marker) 14%, transparent);
+  --sweep: oklch(1 0 0);
   --brand-foreground: var(--primary-foreground);
   --eyebrow: var(--muted-foreground);
   --status-ok: oklch(0.56 0.13 150);
@@ -47,8 +66,30 @@
   --motion-slow: 420ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --font-display-weight: 650;
-  --tracking-display: -0.02em;
+  --font-display-weight: 800;
+  --tracking-display: -0.025em;
+  /* Type scale: the only font sizes used in the app. */
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-2xl: 2rem;
+  --fs-h2: clamp(1.375rem, 1.1rem + 1vw, 1.875rem);
+  --fs-h1: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+  --lh-tight: 1.1;
+  --weight-regular: 500;
+  --weight-strong: 700;
+  --tracking-eyebrow: 0.1em;
+  --ink-on-line-dark: #1a1a1a;
+  --ink-on-line-light: #ffffff;
+  --motion-xslow: 900ms;
+  --ease-in: cubic-bezier(0.55, 0, 0.9, 0.4);
+  --shadow-sm: 0 1px 2px oklch(0.21 0.008 70 / 0.1);
+  --shadow-sheet: 0 -8px 24px -12px oklch(0.21 0.008 70 / 0.25);
+  --page-pad-x: 1.25rem;
+  --page-pad-y: 2rem;
   --header-h: 3.5rem;
   /* Mobile bottom tab bar, not counting the home-indicator safe area. */
   --tabbar-h: 0px;
@@ -93,11 +134,16 @@
   --status-ok: oklch(0.78 0.14 150);
   --status-warn: oklch(0.82 0.13 80);
   --shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px -8px oklch(0 0 0 / 0.55);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.35);
+  --shadow-sheet: 0 -8px 24px -12px oklch(0 0 0 / 0.6);
   --map: oklch(0.195 0.005 70);
   /* Slightly brighter lines so they keep their weight on the dark map. */
 }
 
 @theme inline {
+  --text-2xs: var(--fs-2xs);
+  --text-h2: var(--fs-h2);
+  --text-h1: var(--fs-h1);
   --font-sans: 'Dosis', sans-serif;
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
@@ -151,6 +197,8 @@
     @apply bg-background text-foreground;
     min-width: 320px;
     font-weight: 500;
+    /* A timetable app: every digit lines up, in times, hours and counts alike. */
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
   }
   :where(h1, h2) {
@@ -289,4 +337,50 @@ html {
 }
 .dark .line-cased {
   --line-stroke: var(--line);
+}
+
+/* One physical treatment for both dark boards: a faint perforated dot matrix and a stop-sign
+   stripe in the line colour along the top, instead of a glow. */
+.board-surface {
+  background-color: var(--board-bg);
+  background-image: radial-gradient(oklch(1 0 0 / 0.045) 1px, transparent 1.2px);
+  background-size: 6px 6px;
+  border-top: 6px solid var(--stripe, var(--sign-marker));
+}
+
+@layer utilities {
+  .eyebrow {
+    font-size: var(--fs-2xs);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--eyebrow);
+  }
+  .page-title {
+    font-size: var(--fs-h1);
+    font-weight: var(--font-display-weight);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--lh-tight);
+  }
+}
+
+/* Section header: small caps label with a rule, so page sections scan as labelled parts. */
+@layer components {
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 2.25rem 0 0.875rem;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--foreground);
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(to right, var(--line, var(--primary)) 3rem, var(--border) 3rem);
+  }
 }

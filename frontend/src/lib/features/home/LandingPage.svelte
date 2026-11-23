@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { czechPlural } from '$lib/plural';
+  import { withHash } from '$lib/links';
   import { reveal } from '$lib/motion';
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
@@ -20,15 +22,15 @@
   const transfers = $derived([
     ...new Set(LINE_IDS.flatMap((id) => LINES[id].stops).filter((name) => isTransfer(name)))
   ]);
-  const lineWord = $derived(czechCount(LINE_IDS.length, 'linka', 'linky', 'linek'));
+  const lineWord = $derived(czechPlural(LINE_IDS.length, 'linka', 'linky', 'linek'));
   const transferWord = $derived(
-    czechCount(transfers.length, 'přestupní zastávka', 'přestupní zastávky', 'přestupních zastávek')
+    czechPlural(
+      transfers.length,
+      'přestupní zastávka',
+      'přestupní zastávky',
+      'přestupních zastávek'
+    )
   );
-
-  function czechCount(count: number, one: string, few: string, many: string) {
-    if (count === 1) return one;
-    return count >= 2 && count <= 4 ? few : many;
-  }
 
   onMount(() => {
     const controller = new AbortController();
@@ -38,7 +40,7 @@
 </script>
 
 <svelte:head>
-  <title>Autobusy po kampusu | Think different Academy</title>
+  <title>Autobusy po kampusu · TdA</title>
   <meta
     name="description"
     content={networkReady()
@@ -65,13 +67,14 @@
         <Button href={resolve('/stops')} size="lg">
           Otevřít mapu <ArrowRight data-icon="inline-end" aria-hidden="true" />
         </Button>
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- in-page fragment -->
-        <a href="#lines" class="text-link" onclick={() => highlightLines++}>Seznam linek</a>
+        <a href={withHash(resolve('/'), 'lines')} class="text-link" onclick={() => highlightLines++}
+          >Seznam linek</a
+        >
       </div>
 
       <form class="quick-search" role="search" method="GET" action={resolve('/stops')}>
         <label class="search">
-          <Search aria-hidden="true" size={18} />
+          <Search aria-hidden="true" size={20} />
           <span class="sr-only">Hledat zastávku podle názvu</span>
           <input name="q" type="search" placeholder="Název zastávky" autocomplete="off" />
         </label>
@@ -89,7 +92,7 @@
 
   <section id="lines" class="lines" aria-labelledby="lines-title">
     <div {@attach reveal()}>
-      <h2 id="lines-title">Linky</h2>
+      <h2 id="lines-title" class="section-title">Linky</h2>
       <p>Vyberte linku a ukážeme vám ji na mapě i se všemi zastávkami.</p>
     </div>
     <LineCards highlight={highlightLines} />
@@ -118,14 +121,14 @@
     min-width: 0;
   }
   h1 {
-    font-size: clamp(2.25rem, 4.5vw, 3.25rem);
-    font-weight: var(--font-display-weight, 650);
-    line-height: 1.05;
-    letter-spacing: var(--tracking-display, -0.02em);
+    font-size: var(--fs-h1);
+    font-weight: var(--font-display-weight);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tracking-display);
   }
   .lede {
     max-width: 34rem;
-    font-size: 1.0625rem;
+    font-size: var(--fs-base);
     line-height: 1.55;
     color: var(--muted-foreground);
   }
@@ -139,7 +142,7 @@
     display: inline-flex;
     align-items: center;
     min-height: 2.75rem;
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     text-decoration: underline;
     text-underline-offset: 0.25em;
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
@@ -220,9 +223,9 @@
     padding-top: 3rem;
   }
   .lines h2 {
-    font-size: 1.5rem;
-    font-weight: var(--font-display-weight, 650);
-    letter-spacing: var(--tracking-display, -0.02em);
+    font-size: var(--fs-xl);
+    font-weight: var(--font-display-weight);
+    letter-spacing: var(--tracking-display);
     margin-bottom: 0.5rem;
   }
   .lines p {

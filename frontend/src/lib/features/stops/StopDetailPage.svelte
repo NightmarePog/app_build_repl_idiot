@@ -56,7 +56,7 @@
 </script>
 
 <svelte:head>
-  <title>{stop?.name ?? 'Detail zastávky'} | Think different Academy</title>
+  <title>{stop?.name ?? 'Detail zastávky'} · TdA</title>
 </svelte:head>
 
 <div class="back-link">
@@ -77,24 +77,3 @@
 {:else}
   <LoadingState label="Načítáme detail zastávky…" detail />
 {/if}
-
-<style>
-  /* Phones: the back button floats over the edge-to-edge photo, like a native detail screen. */
-  @media (max-width: 767px) {
-    .back-link {
-      position: relative;
-      z-index: 2;
-      height: 0;
-    }
-    .back-link :global(a) {
-      margin: 0;
-      transform: translateY(-1.25rem);
-      min-height: 2.75rem;
-      padding-inline: 0.875rem 1rem;
-      border-radius: 999px;
-      background: color-mix(in oklch, var(--background) 72%, transparent);
-      backdrop-filter: blur(12px) saturate(1.4);
-      box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
-    }
-  }
-</style>

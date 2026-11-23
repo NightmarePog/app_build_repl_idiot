@@ -1,10 +1,11 @@
 <script lang="ts" module>
+  import type { ResolvedPathname } from '$app/types';
   /** A search result; callers build `href` with resolve(). */
   export type PaletteItem = {
     key: string;
     label: string;
     sub: string;
-    href: string;
+    href: ResolvedPathname;
     /** Shown when the query is empty. */
     suggested?: boolean;
   };
@@ -130,7 +131,6 @@
       const item = results[active];
       choose(item);
       returnFocus = null;
-      // eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass resolved hrefs
       await goto(item.href);
     } else if (event.key === 'Tab') {
       // Keep focus inside the palette even where the browser lets Tab reach the chrome.
@@ -171,7 +171,7 @@
 >
   <div class="palette-inner">
     <label class="palette-search">
-      <Search size={18} aria-hidden="true" />
+      <Search size={20} aria-hidden="true" />
       <span class="sr-only">Hledat zastávku, linku nebo stránku</span>
       <input
         bind:this={input}
@@ -194,7 +194,6 @@
       <ul id="palette-results" role="listbox" aria-label="Výsledky">
         {#each results as item, index (item.key)}
           <li role="presentation">
-            <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass resolved hrefs -->
             <a
               id={`palette-item-${index}`}
               role="option"
@@ -216,7 +215,6 @@
                 <CornerDownLeft class="result-enter" size={14} aria-hidden="true" />
               {/if}
             </a>
-            <!-- eslint-enable svelte/no-navigation-without-resolve -->
           </li>
         {/each}
       </ul>
@@ -245,17 +243,17 @@
     overflow: hidden;
   }
   .palette[open] {
-    animation: palette-in 160ms var(--ease-spring-out) both;
+    animation: palette-in var(--motion-fast) var(--ease-spring-out) both;
   }
   .palette:global(.closing) {
-    animation: palette-out 140ms var(--ease-out) both;
+    animation: palette-out var(--motion-fast) var(--ease-out) both;
   }
   .palette::backdrop {
     background: oklch(0.2 0.01 70 / 0.28);
-    animation: backdrop-in 200ms var(--ease-out) both;
+    animation: backdrop-in var(--motion-normal) var(--ease-out) both;
   }
   .palette:global(.closing)::backdrop {
-    animation: backdrop-in 140ms var(--ease-out) reverse both;
+    animation: backdrop-in var(--motion-fast) var(--ease-out) reverse both;
   }
   @keyframes palette-out {
     to {
@@ -308,8 +306,8 @@
     border-radius: 999px;
     color: var(--primary);
     font: inherit;
-    font-size: 0.9375rem;
-    font-weight: 700;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
     transition:
       background-color var(--motion-fast) var(--ease-out),
       transform var(--motion-fast) var(--ease-out);
@@ -341,8 +339,8 @@
     background: transparent;
     color: var(--foreground);
     font: inherit;
-    font-size: 1.0625rem;
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
   }
   ul {
     flex: 1;
@@ -380,13 +378,13 @@
     min-width: 0;
   }
   .result-label {
-    font-weight: 600;
+    font-weight: var(--weight-strong);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .result-sub {
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
     color: var(--muted-foreground);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -404,7 +402,7 @@
     gap: 1rem;
     padding: 0.5rem 0.875rem;
     border-top: 1px solid var(--border);
-    font-size: 0.75rem;
+    font-size: var(--fs-xs);
     color: var(--muted-foreground);
   }
   .palette-hints span {
@@ -419,14 +417,14 @@
       max-height: min(85dvh, 40rem);
       margin: auto 0 0;
       border-width: 1px 0 0;
-      border-radius: 1.375rem 1.375rem 0 0;
+      border-radius: var(--radius-4xl) var(--radius-4xl) 0 0;
       padding-bottom: env(safe-area-inset-bottom);
     }
     .palette[open] {
-      animation: palette-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: palette-up var(--motion-slow) var(--ease-out) both;
     }
     .palette:global(.closing) {
-      animation: palette-up 180ms var(--ease-out) reverse both;
+      animation: palette-up var(--motion-normal) var(--ease-out) reverse both;
     }
     @keyframes palette-up {
       from {

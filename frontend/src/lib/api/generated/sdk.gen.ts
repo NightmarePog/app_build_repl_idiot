@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateLineData, CreateLineErrors, CreateLineResponses, CreateStopData, CreateStopErrors, CreateStopResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetLineData, GetLineErrors, GetLineResponses, GetLinesData, GetLinesResponses, GetStopData, GetStopErrors, GetStopLinesData, GetStopLinesErrors, GetStopLinesResponses, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
-import { zCreateLineBody, zCreateLineResponse, zCreateStopBody, zCreateStopResponse, zDeleteLinePath, zDeleteLineResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetLinePath, zGetLineResponse, zGetLinesResponse, zGetStopLinesPath, zGetStopLinesResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zUpdateLineBody, zUpdateLinePath, zUpdateLineResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
+import type { CreateLineData, CreateLineErrors, CreateLineResponses, CreateStopData, CreateStopErrors, CreateStopResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteStopData, DeleteStopErrors, DeleteStopResponses, GetHealthData, GetHealthResponses, GetLineData, GetLineErrors, GetLineResponses, GetLinesData, GetLinesResponses, GetStopData, GetStopErrors, GetStopLinesData, GetStopLinesErrors, GetStopLinesResponses, GetStopResponses, GetStopsData, GetStopsResponses, GetTeamData, GetTeamResponses, GetTripData, GetTripErrors, GetTripResponses, ListLineTripsData, ListLineTripsErrors, ListLineTripsResponses, ListStopDeparturesData, ListStopDeparturesErrors, ListStopDeparturesResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateStopData, UpdateStopErrors, UpdateStopResponses } from './types.gen';
+import { zCreateLineBody, zCreateLineResponse, zCreateStopBody, zCreateStopResponse, zDeleteLinePath, zDeleteLineResponse, zDeleteStopPath, zDeleteStopResponse, zGetHealthResponse, zGetLinePath, zGetLineResponse, zGetLinesResponse, zGetStopLinesPath, zGetStopLinesResponse, zGetStopPath, zGetStopResponse, zGetStopsResponse, zGetTeamResponse, zGetTripPath, zGetTripResponse, zListLineTripsPath, zListLineTripsResponse, zListStopDeparturesPath, zListStopDeparturesResponse, zUpdateLineBody, zUpdateLinePath, zUpdateLineResponse, zUpdateStopBody, zUpdateStopPath, zUpdateStopResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -121,6 +121,22 @@ export const updateLine = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
+ * List trips of a line
+ *
+ * Returns all scheduled trips of the requested line.
+ */
+export const listLineTrips = <ThrowOnError extends boolean = false>(options: Options<ListLineTripsData, ThrowOnError>): RequestResult<ListLineTripsResponses, ListLineTripsErrors, ThrowOnError> => (options.client ?? client).get<ListLineTripsResponses, ListLineTripsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zListLineTripsPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListLineTripsResponse.parseAsync(data),
+    url: '/lines/{lineId}/trips',
+    ...options
+});
+
+/**
  * List all stops
  */
 export const getStops = <ThrowOnError extends boolean = false>(options?: Options<GetStopsData, ThrowOnError>): RequestResult<GetStopsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetStopsResponses, unknown, ThrowOnError>({
@@ -220,6 +236,22 @@ export const getStopLines = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
+ * List departures from a stop
+ *
+ * Returns scheduled departures from the requested stop in ascending order by `departure_day_offset` and `departure_time`.
+ */
+export const listStopDepartures = <ThrowOnError extends boolean = false>(options: Options<ListStopDeparturesData, ThrowOnError>): RequestResult<ListStopDeparturesResponses, ListStopDeparturesErrors, ThrowOnError> => (options.client ?? client).get<ListStopDeparturesResponses, ListStopDeparturesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zListStopDeparturesPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListStopDeparturesResponse.parseAsync(data),
+    url: '/stops/{stopId}/departures',
+    ...options
+});
+
+/**
  * Get team detail
  */
 export const getTeam = <ThrowOnError extends boolean = false>(options?: Options<GetTeamData, ThrowOnError>): RequestResult<GetTeamResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTeamResponses, unknown, ThrowOnError>({
@@ -230,5 +262,21 @@ export const getTeam = <ThrowOnError extends boolean = false>(options?: Options<
     }).parseAsync(data),
     responseValidator: async (data) => await zGetTeamResponse.parseAsync(data),
     url: '/team',
+    ...options
+});
+
+/**
+ * Get trip detail and timetable
+ *
+ * Returns the line, direction and ordered timetable of one trip.
+ */
+export const getTrip = <ThrowOnError extends boolean = false>(options: Options<GetTripData, ThrowOnError>): RequestResult<GetTripResponses, GetTripErrors, ThrowOnError> => (options.client ?? client).get<GetTripResponses, GetTripErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetTripPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetTripResponse.parseAsync(data),
+    url: '/trips/{tripId}',
     ...options
 });

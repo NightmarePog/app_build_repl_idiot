@@ -3,12 +3,14 @@ package cloud.twoidiotz.app;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cloud.twoidiotz.app.v1.domain.line.LineRepository;
+import jakarta.persistence.EntityManagerFactory;
 import java.net.URI;
 import java.net.http.*;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,7 @@ import tools.jackson.databind.json.JsonMapper;
 class LineApiIntegrationTest {
   @LocalServerPort int port;
   @Autowired LineRepository lines;
+  @Autowired EntityManagerFactory entityManagerFactory;
 
   @Value("${app.admin-api-key}")
   String adminKey;
@@ -32,6 +35,20 @@ class LineApiIntegrationTest {
       """
       {"number":"42","name":"Campus Express","type":"bus","color":"#4F46E5"}
       """;
+
+  @Test
+  void lineReadsDoNotQueryPerRouteOrStop() throws Exception {
+    var stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+    for (var path : List.of("/lines/1", "/stops/9/lines", "/lines")) {
+      stats.clear();
+      var response = request("GET", path, null, false);
+      assertEquals(200, response.statusCode(), path);
+      // Line, routes (one batch), route stops with stations: a fixed handful, not one per row.
+      assertTrue(
+          stats.getPrepareStatementCount() <= 4,
+          path + " ran " + stats.getPrepareStatementCount() + " statements");
+    }
+  }
 
   @Test
   void createsReadsReplacesAndDeletesLines() throws Exception {

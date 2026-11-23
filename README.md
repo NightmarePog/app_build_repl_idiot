@@ -83,6 +83,32 @@ Compose zpřístupňuje aplikaci přes HTTP na portu `8080`; HTTPS zde není nas
 Konfigurace pro Tour de Cloud je v souboru [tourdeapp.yaml](tourdeapp.yaml)
 a používá tajnou proměnnou `POSTGRES_PASSWORD`.
 
+## Jízdní řády (fáze 4)
+
+- Spoj (`trip`) odkazuje jen na trasu (`route`); linku, směr a pořadí zastávek bere z ní.
+- `stop_time` odkazuje na konkrétní zastávku trasy (`route_stop_id`). Cizí klíč
+  `(route_stop_id, route_id)` a `(trip_id, route_id)` zaručuje, že zastávka patří trase spoje,
+  primární klíč `(trip_id, route_stop_id)` že je ve spoji nejvýš jednou, CHECK že příjezd
+  není po odjezdu. Odložený trigger při commitu hlídá, že spoj má aspoň dvě zastávky, vyjíždí
+  před 24:00 svého provozního dne a nejede zpátky v čase.
+- `stop_time.route_id` není duplicitní údaj: je to druhá polovina obou složených cizích klíčů
+  a vždy se rovná `trip.route_id` (vynucuje to cizí klíč na `trip`), takže se nemůže rozejít.
+  Deklarativní cizí klíč je zvolen místo triggeru, protože ho nejde obejít.
+- Externí reference mají CHECK formátu: linka `L001`, trasa `R00101`, spoj `T00101070001`.
+- Časy jsou PostgreSQL `INTERVAL` (doména `timetable_time`, 0 až 47:59, celé minuty) od
+  půlnoci provozního dne. `TIME` neumí 24:14, takže večerní spoj, který dojede v 00:14, by
+  potřeboval další sloupec; interval drží spoj pohromadě a API z něj vrací `HH:MM` a
+  `day_offset` vůči začátku spoje.
+- `GET /stops/{id}/departures` vrací jen odjezdy: konečná zastávka spoje (kde autobus jen
+  přijíždí) v seznamu není. Řazení je podle `(departure_day_offset, departure_time)`.
+- `GET /lines/{id}/trips` řadí spoje podle odjezdu z výchozí zastávky, oba směry dohromady;
+  směr nese každý spoj v poli `direction`.
+- Seed (V11) načte `trips.json` a `stop_times.json` beze změn. Reference `L001`/`R00101` přiřadí
+  linkám a trasám ze sítě fáze 3 výslovným seznamem (číslo linky, směr, reference); když některý spoj na existující
+  trasu nebo zastávku nesedí, nasazení selže.
+- Smazání zastávky (`DELETE /stops/{id}`) funguje jako ve fázi 3 (204): zmizí i její časy a
+  spoj, kterému zůstane méně než dvě zastávky.
+
 ## Lokální vývoj frontendu
 
 Potřebujete Node.js **22.22.2 nebo novější** a pnpm **10.34.5**.

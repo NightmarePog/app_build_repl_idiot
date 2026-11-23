@@ -1,11 +1,11 @@
 package cloud.twoidiotz.app.v1.domain.station;
 
+import cloud.twoidiotz.app.shared.web.PublicUrls;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Service
 @Transactional(readOnly = true)
@@ -52,21 +52,11 @@ public class StationService {
     station.setHasTicketMachine(input.hasTicketMachine());
   }
 
-  // Seeded images are stored as local paths; the public contract exposes absolute URIs.
-  private static String publicImageUrl(String imageUrl) {
-    if (imageUrl == null || !imageUrl.startsWith("/")) return imageUrl;
-    return ServletUriComponentsBuilder.fromCurrentRequestUri()
-        .replacePath(imageUrl)
-        .replaceQuery(null)
-        .build()
-        .toUriString();
-  }
-
   private static StationResponse toResponse(StationModel station) {
     return new StationResponse(
         station.getId(),
         station.getName(),
-        publicImageUrl(station.getImageUrl()),
+        PublicUrls.imageUrl(station.getImageUrl()),
         station.isWheelchairAccessible(),
         station.isHasShelter(),
         station.isHasTicketMachine());

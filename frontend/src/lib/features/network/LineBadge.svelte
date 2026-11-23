@@ -1,43 +1,14 @@
 <script lang="ts">
+  import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { LINES, type LineId } from './lines.svelte';
+  // Thin wrapper over LinePlate for places that only know the line id.
   let { id, size = 'sm' }: { id: LineId; size?: 'sm' | 'md' | 'lg' } = $props();
+  const plateSize = { sm: 'xs', md: 'sm', lg: 'md' } as const;
 </script>
 
-<span
-  class="line-badge tabular"
-  class:md={size === 'md'}
-  class:lg={size === 'lg'}
-  style:background={LINES[id]?.color ?? 'var(--muted-foreground)'}
-  style:color={LINES[id]?.ink ?? 'var(--background)'}
-  ><span aria-hidden="true">{id}</span><span class="sr-only">Linka {id}</span></span
->
-
-<style>
-  .line-badge {
-    display: inline-grid;
-    place-items: center;
-    width: 1.375rem;
-    min-width: 1.375rem;
-    height: 1.375rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 800;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-  }
-  .line-badge.md {
-    width: 1.875rem;
-    min-width: 1.875rem;
-    height: 1.875rem;
-    font-size: 0.9375rem;
-    border-radius: 0.3125rem;
-  }
-  .line-badge.lg {
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
-    font-size: 1.375rem;
-    border-radius: 0.375rem;
-  }
-</style>
+<LinePlate
+  number={id}
+  color={LINES[id]?.color ?? 'var(--foreground)'}
+  size={plateSize[size]}
+  label
+/>

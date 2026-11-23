@@ -6,3 +6,4 @@ playwright-report
 test-results
 
 src/lib/api/generated
+scripts/shot.mjs

@@ -11,8 +11,8 @@ export const zHealthResponse = z.object({
 });
 
 export const zLine = z.object({
-    color: z.string(),
-    id: z.int().readonly(),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    id: z.int().gte(1).readonly(),
     name: z.string().max(255),
     number: z.string().max(20),
     type: z.string().max(50)
@@ -64,16 +64,76 @@ export const zStopInput = z.object({
     wheelchair_accessible: z.boolean()
 }).strict();
 
+export const zStopSummary = z.object({
+    id: z.int().gte(1),
+    image_url: z.url().max(255).nullable(),
+    name: z.string().max(255)
+});
+
+export const zDeparture = z.object({
+    arrival_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    arrival_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    line: zLine,
+    trip_id: z.int().gte(1)
+});
+
 export const zTeamResponse = z.object({
     members: z.array(z.string().min(1)),
     name: z.string().min(1)
 });
 
+export const zTripStopTime = z.object({
+    arrival_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    arrival_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    stop: zStopSummary,
+    stop_order: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zTripDetail = z.object({
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    id: z.int().gte(1),
+    line: zLine,
+    origin: zStopSummary,
+    route_id: z.int(),
+    stops: z.array(zTripStopTime).min(1)
+});
+
+export const zTripSummary = z.object({
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    id: z.int().gte(1),
+    line: zLine,
+    origin: zStopSummary,
+    route_id: z.int().gte(1)
+});
+
 export const zLineWritable = z.object({
-    color: z.string(),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
     name: z.string().max(255),
     number: z.string().max(20),
     type: z.string().max(50)
+});
+
+export const zDepartureWritable = z.object({
+    arrival_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    arrival_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    line: zLineWritable,
+    trip_id: z.int().gte(1)
 });
 
 export const zLineDetailWritable = z.object({
@@ -91,6 +151,29 @@ export const zStopWritable = z.object({
     name: z.string().min(1).max(255),
     wheelchair_accessible: z.boolean()
 }).strict();
+
+export const zTripDetailWritable = z.object({
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    id: z.int().gte(1),
+    line: zLineWritable,
+    origin: zStopSummary,
+    route_id: z.int(),
+    stops: z.array(zTripStopTime).min(1)
+});
+
+export const zTripSummaryWritable = z.object({
+    departure_day_offset: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    departure_time: z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/),
+    destination: zStopSummary,
+    direction: z.enum(['outbound', 'inbound']),
+    id: z.int().gte(1),
+    line: zLineWritable,
+    origin: zStopSummary,
+    route_id: z.int().gte(1)
+});
 
 /**
  * Health detail
@@ -137,6 +220,15 @@ export const zUpdateLinePath = z.object({
  * Line updated successfully
  */
 export const zUpdateLineResponse = zLine;
+
+export const zListLineTripsPath = z.object({
+    lineId: z.int().gte(1)
+});
+
+/**
+ * OK
+ */
+export const zListLineTripsResponse = z.array(zTripSummary);
 
 /**
  * List of stops
@@ -188,7 +280,25 @@ export const zGetStopLinesPath = z.object({
  */
 export const zGetStopLinesResponse = z.array(zLine);
 
+export const zListStopDeparturesPath = z.object({
+    stopId: z.int().gte(1)
+});
+
+/**
+ * OK
+ */
+export const zListStopDeparturesResponse = z.array(zDeparture);
+
 /**
  * Team detail
  */
 export const zGetTeamResponse = zTeamResponse;
+
+export const zGetTripPath = z.object({
+    tripId: z.int().gte(1)
+});
+
+/**
+ * OK
+ */
+export const zGetTripResponse = zTripDetail;

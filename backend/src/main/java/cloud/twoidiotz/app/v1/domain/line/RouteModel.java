@@ -7,6 +7,8 @@ import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.ListIndexBase;
 import org.hibernate.type.SqlTypes;
@@ -28,8 +30,13 @@ public class RouteModel {
   @JdbcTypeCode(SqlTypes.NAMED_ENUM)
   private RouteDirection direction;
 
-  /** Stops in travel order; route_stop.position is 1-based. */
+  /**
+   * Stops in travel order; route_stop.position is 1-based. Read-only here: route_stop rows carry
+   * their own id that stop_time references, so the API never rewrites this list through JPA.
+   */
   @ManyToMany
+  @Immutable
+  @BatchSize(size = 16)
   @JoinTable(
       name = "route_stop",
       joinColumns = @JoinColumn(name = "route_id"),

@@ -597,6 +597,7 @@
   });
 
   const current = $derived(stops.find((stop) => stop.id === selected));
+  const unplaced = $derived(stops.filter((stop) => !POSITIONS[stop.name]));
 </script>
 
 <figure
@@ -624,6 +625,17 @@
       {/each}
     </ul>
   {/if}
+  {#if interactive && unplaced.length}
+    <!-- Stops added through the API after the map data was drawn have no position yet. -->
+    <div class="unplaced">
+      <span>Bez polohy na mapě:</span>
+      {#each unplaced as stop (stop.id)}
+        <button type="button" aria-pressed={stop.id === selected} onclick={() => onselect?.(stop)}
+          >{stop.name}</button
+        >
+      {/each}
+    </div>
+  {/if}
   <figcaption class="legend">
     {#each LINE_IDS as id (id)}
       <LineBadge {id} />
@@ -632,6 +644,33 @@
 </figure>
 
 <style>
+  .unplaced {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    top: 0.75rem;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    box-shadow: var(--shadow-pop);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+  }
+  .unplaced button {
+    min-height: 2.25rem;
+    padding-inline: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .unplaced button[aria-pressed='true'] {
+    background: var(--sign-marker);
+    color: var(--sign-marker-foreground);
+  }
   .network-map {
     position: relative;
     margin: 0;
@@ -649,7 +688,7 @@
     pointer-events: none;
   }
   .network-map :global(.maplibregl-ctrl-attrib) {
-    font-size: 0.625rem;
+    font-size: var(--fs-2xs);
     background: color-mix(in oklch, var(--background) 80%, transparent);
     color: var(--muted-foreground);
   }
@@ -701,8 +740,8 @@
     border-radius: 999px;
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   @media (prefers-reduced-motion: reduce) {
     .loading-grid {
@@ -734,7 +773,7 @@
     border: 1px solid var(--border);
     border-radius: calc(var(--radius-lg) - 4px);
     background: var(--background);
-    font-size: 0.8125rem;
+    font-size: var(--fs-sm);
   }
   .fallback button[aria-pressed='true'] {
     background: var(--foreground);
@@ -759,12 +798,10 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: 0.4rem;
+    border-radius: var(--radius-md);
     background: var(--pin);
     color: var(--pin-ink);
-    box-shadow:
-      0 0 0 1.5px var(--background),
-      0 1px 2px rgb(0 0 0 / 0.25);
+    box-shadow: var(--shadow-pop);
     transform-origin: 50% 100%;
     transition: transform var(--motion-fast) var(--ease-out);
   }
@@ -828,13 +865,13 @@
     left: 50%;
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--border);
-    border-radius: 0.375rem;
+    border-radius: var(--radius-md);
     background: var(--background);
     color: var(--foreground);
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
     white-space: nowrap;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+    box-shadow: var(--shadow-pop);
     opacity: 0;
     transform: translate(-50%, 4px);
     pointer-events: none;

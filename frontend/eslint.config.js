@@ -46,6 +46,16 @@ export default ts.config(
   },
   {
     files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-    languageOptions: { parserOptions: { parser: ts.parser, svelteConfig } }
+    // Type information lets no-navigation-without-resolve accept links typed ResolvedPathname
+    // (resolve() plus a query, search or fragment, see src/lib/links.ts).
+    languageOptions: {
+      parserOptions: {
+        parser: ts.parser,
+        svelteConfig,
+        projectService: true,
+        extraFileExtensions: ['.svelte'],
+        tsconfigRootDir: import.meta.dirname
+      }
+    }
   }
 );
