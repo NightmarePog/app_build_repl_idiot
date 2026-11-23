@@ -25,10 +25,8 @@
   );
 </script>
 
-<div class="page-state" role={error ? undefined : 'status'}>
-  <svelte:element this={headingLevel === 1 ? 'h1' : 'h2'} role={error ? 'alert' : undefined}
-    >{title}</svelte:element
-  >
+<div class="page-state" role={error ? 'alert' : 'status'}>
+  <svelte:element this={headingLevel === 1 ? 'h1' : 'h2'}>{title}</svelte:element>
   {#if text}<p>{text}</p>{/if}
   {#if onretry}
     <Button variant="outline" onclick={onretry}>Zkusit znovu</Button>

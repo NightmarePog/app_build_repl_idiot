@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { NAV_LABELS } from '$lib/links';
   import { onMount, type Snippet } from 'svelte';
   import { afterNavigate, onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -244,13 +245,13 @@
         <a
           href={resolve('/')}
           aria-current={onHome ? 'page' : undefined}
-          class={cn('nav-link', onHome && 'is-active')}>Domů</a
+          class={cn('nav-link', onHome && 'is-active')}>{NAV_LABELS.home}</a
         >
         <div class="nav-item">
           <a
             href={resolve('/stops')}
             aria-current={onStops ? 'page' : undefined}
-            class={cn('nav-link only-small', onStops && 'is-active')}>Zastávky</a
+            class={cn('nav-link only-small', onStops && 'is-active')}>{NAV_LABELS.stops}</a
           >
           <button
             type="button"
@@ -261,14 +262,14 @@
             onmouseenter={() => hoverMenu('stops')}
             onmouseleave={cancelHover}
             onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-            >Zastávky <ChevronDown class="size-4" aria-hidden="true" /></button
+            >{NAV_LABELS.stops} <ChevronDown class="size-4" aria-hidden="true" /></button
           >
           {#if menu === 'stops' && menus}
             {@render menus('stops', closeMenu)}
           {/if}
         </div>
         <div class="nav-item">
-          <a href={resolve('/lines')} class="nav-link only-small">Linky</a>
+          <a href={resolve('/lines')} class="nav-link only-small">{NAV_LABELS.lines}</a>
           <button
             type="button"
             class="nav-link only-large"
@@ -278,7 +279,7 @@
             onmouseenter={() => hoverMenu('lines')}
             onmouseleave={cancelHover}
             onkeydown={(event) => event.key === 'Escape' && closeMenu()}
-            >Linky <ChevronDown class="size-4" aria-hidden="true" /></button
+            >{NAV_LABELS.lines} <ChevronDown class="size-4" aria-hidden="true" /></button
           >
           {#if menu === 'lines' && menus}
             {@render menus('lines', closeMenu)}
@@ -328,7 +329,7 @@
     class:active={activeTab === 'home'}
     aria-current={activeTab === 'home' ? 'page' : undefined}
   >
-    <House aria-hidden="true" /><span>Úvod</span>
+    <House aria-hidden="true" /><span>{NAV_LABELS.home}</span>
   </a>
   <a
     href={resolve('/stops')}
@@ -336,7 +337,7 @@
     class:active={activeTab === 'map'}
     aria-current={activeTab === 'map' ? 'page' : undefined}
   >
-    <MapIcon aria-hidden="true" /><span>Mapa</span>
+    <MapIcon aria-hidden="true" /><span>{NAV_LABELS.stops}</span>
   </a>
   <a
     href={resolve('/lines')}
@@ -344,7 +345,7 @@
     class:active={activeTab === 'lines'}
     aria-current={page.url.pathname === '/lines' ? 'page' : undefined}
   >
-    <Route aria-hidden="true" /><span>Linky</span>
+    <Route aria-hidden="true" /><span>{NAV_LABELS.lines}</span>
   </a>
   <button
     type="button"
