@@ -571,7 +571,7 @@
       left: 50%;
       width: 3.5rem;
       height: 1.875rem;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: color-mix(in oklch, var(--primary) 18%, transparent);
       transform: translateX(-50%) scaleX(0.4);
       opacity: 0;

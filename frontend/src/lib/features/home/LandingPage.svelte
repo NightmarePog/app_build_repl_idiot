@@ -53,6 +53,7 @@
 <div class="landing">
   <section class="intro" aria-labelledby="home-title">
     <div class="intro-text">
+      <p class="kind-label">Přehled sítě</p>
       <h1 id="home-title">Autobusy po kampusu</h1>
       <p class="lede">
         <span class="tabular">{stopCount}</span> zastávek{#if networkReady()},
@@ -242,4 +243,5 @@
       transition: none;
     }
   }
+.kind-label{margin:0 0 0.5rem;font-size:0.75rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted-foreground);}
 </style>

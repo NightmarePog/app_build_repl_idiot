@@ -231,7 +231,7 @@
     fill: var(--scene-window);
   }
   .light {
-    fill: #ffe08a;
+    fill: var(--lamp);
   }
   @keyframes scroll {
     to {

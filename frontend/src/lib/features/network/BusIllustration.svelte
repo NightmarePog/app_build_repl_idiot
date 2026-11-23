@@ -38,7 +38,7 @@
       <rect x={x + w / 2 + 1} y="26" width={w / 2 - 4} height="52" rx="2" fill="#3a4349" />
     {/each}
     <path d="M264 22h10c8 0 13 5 14 13l2 29h-26z" fill="#22282d" />
-    <rect x="284" y="82" width="10" height="6" rx="2" fill="#ffe08a" />
+    <rect x="284" y="82" width="10" height="6" rx="2" style="fill: var(--lamp)" />
     <rect x="6" y="80" width="5" height="12" rx="1.5" fill="#d9483b" />
     <path d="M52 108a20 20 0 0 1 40 0zM216 108a20 20 0 0 1 40 0z" fill="#1d2226" />
   </g>
@@ -61,7 +61,7 @@
     height: auto;
   }
   .body {
-    animation: bob 0.7s ease-in-out var(--bus-delay, 0s) infinite;
+    animation: bob var(--loop-fast) var(--ease-in-out) var(--bus-delay, 0s) infinite;
   }
   .wheel {
     transform-box: fill-box;
