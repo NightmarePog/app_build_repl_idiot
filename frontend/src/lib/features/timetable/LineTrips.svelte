@@ -1,7 +1,7 @@
 <script lang="ts">
   import { czechCount } from '$lib/plural';
   import { Button } from '$lib/ui/button';
-  import { ArrowRight, ChevronDown, ChevronRight, MapPin, Moon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, MapPin } from '@lucide/svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { resolve } from '$app/paths';
   import type { Route } from '$lib/api/generated';
@@ -102,10 +102,9 @@
 <section class="trips" aria-labelledby={`trips-heading-${route.id}`}>
   <div class="sheet">
     <header class="sheet-head">
-      <span class="plate" aria-hidden="true">{lineNumber}</span>
       <div class="sheet-title">
         <h3 id={`trips-heading-${route.id}`} class="dir-title">
-          <span class="sr-only">Odjezdy linky {lineNumber} ze zastávky</span>
+          <span class="dir-lead">Odjezdy ze zastávky</span>
           {#if boardable.length > 1}
             <!-- The stop is the title itself: picking it here or on the route changes it. -->
             <label class="board-pick">
@@ -126,8 +125,9 @@
           {/if}
         </h3>
         <p class="toward tabular">
-          <span class="dir-to"><ArrowRight size={14} aria-hidden="true" /> {route.direction}</span>
-          {#if timetable.trips}· {czechCount(ofRoute.length, 'spoj', 'spoje', 'spojů')} denně{/if}
+          <span class="dir-to"
+            ><ArrowRight size={18} aria-hidden="true" /> směr {route.direction}</span
+          >
         </p>
       </div>
       {#if timetable.loading && timetable.trips}<span class="sr-only" role="status">Načítáme…</span
@@ -146,8 +146,7 @@
     {:else if ofRoute.length === 0}
       <p class="note">
         V tomto směru podle jízdního řádu žádný spoj nejede.
-        {#if (timetable.trips?.length ?? 0) > 0}Spoje linky jedou jen opačným směrem, přepněte směr
-          výše.{/if}
+        {#if (timetable.trips?.length ?? 0) > 0}Spoje linky jedou jen opačným směrem.{/if}
       </p>
     {:else if rows.length === 0 && waiting > failedHere}
       <div class="note">
@@ -188,97 +187,50 @@
         </a>
       {/if}
 
-      {#if rows.length === 1 && next}
-        <!-- One trip a day: the next-departure block above already is the whole timetable. -->
-        <p class="inline-note">Jediný spoj dne v tomto směru.</p>
-      {:else if rows.length <= 12}
-        <table class="list">
+      {#key selected?.id}
+        <table class="grid">
           <caption class="sr-only">
-            Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}.
+            Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
+            hodinách. Odkaz minuty otevře detail spoje.
           </caption>
-          <thead class="grid-head">
-            <tr>
-              <th scope="col">Odjezd</th>
-              <th scope="col">Příjezd do {route.stops.at(-1)?.name}</th>
-              <th scope="col"><span class="sr-only">Detail spoje</span></th>
-            </tr>
-          </thead>
           <tbody>
-            {#each rows as row, index (row.trip.id)}
-              {@const isNext = next?.row.trip.id === row.trip.id}
-              {@const gone = row.dep < nowOp && !next?.tomorrow}
-              <tr class:next-row-l={isNext} class:gone style:--row={index}>
-                <td class="t tabular"
-                  >{row.at.time}{#if row.dep >= 1440}
-                    <span class="moon"><Moon size={12} aria-hidden="true" />po půlnoci</span
-                    >{/if}</td
+            {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
+              {#if h.kind === 'gap'}
+                <tr class="gap" style:--row={index}>
+                  <th scope="row" class="hour tabular">{h.label}</th>
+                  <td><span class="gap-text">nic nejede</span></td>
+                </tr>
+              {:else}
+                {@const isNow = h.hour === currentHour}
+                <tr
+                  class:now={isNow}
+                  class:late={h.hour >= 24}
+                  aria-current={isNow ? 'time' : undefined}
+                  style:--row={index}
                 >
-                <td class="tabular"
-                  >{row.end?.time ?? '…'}{#if row.night}
-                    <span class="moon"><Moon size={12} aria-hidden="true" />po půlnoci</span
-                    >{/if}</td
-                >
-                <td class="r"
-                  ><a
-                    class="detail"
-                    href={tripHref(row.trip.id)}
-                    aria-label={`Detail spoje: ${label(row)}`}
-                    ><ChevronRight size={18} aria-hidden="true" /></a
-                  ></td
-                >
-              </tr>
+                  <th scope="row" class="hour tabular">{h.label}</th>
+                  <td>
+                    <ul class="mins">
+                      {#each h.trips as row (row.trip.id)}
+                        <li>
+                          <a
+                            class="min tabular"
+                            class:next-min={next?.row.trip.id === row.trip.id}
+                            class:gone={row.dep < nowOp && !next?.tomorrow}
+                            href={tripHref(row.trip.id)}
+                            title={label(row)}
+                            aria-label={label(row)}>{row.at.time.slice(3, 5)}</a
+                          >
+                        </li>
+                      {/each}
+                    </ul>
+                  </td>
+                </tr>
+              {/if}
             {/each}
           </tbody>
         </table>
-      {:else}
-        {#key selected?.id}
-          <table class="grid">
-            <caption class="sr-only">
-              Odjezdy linky {lineNumber} ze zastávky {selected?.name} směr {route.direction}, po
-              hodinách. Odkaz minuty otevře detail spoje.
-            </caption>
-            <thead class="grid-head">
-              <tr><th scope="col">Hod.</th><th scope="col">Odjezd (min.)</th></tr>
-            </thead>
-            <tbody>
-              {#each hours as h, index (h.kind === 'hour' ? h.hour : `gap-${h.from}`)}
-                {#if h.kind === 'gap'}
-                  <tr class="gap" style:--row={index}>
-                    <th scope="row" class="hour tabular">{h.label}</th>
-                    <td><span class="gap-text">nic nejede</span></td>
-                  </tr>
-                {:else}
-                  {@const isNow = h.hour === currentHour}
-                  <tr
-                    class:now={isNow}
-                    class:late={h.hour >= 24}
-                    aria-current={isNow ? 'time' : undefined}
-                    style:--row={index}
-                  >
-                    <th scope="row" class="hour tabular">{h.label}</th>
-                    <td>
-                      <ul class="mins">
-                        {#each h.trips as row (row.trip.id)}
-                          <li>
-                            <a
-                              class="min tabular"
-                              class:next-min={next?.row.trip.id === row.trip.id}
-                              class:gone={row.dep < nowOp && !next?.tomorrow}
-                              href={tripHref(row.trip.id)}
-                              title={label(row)}
-                              aria-label={label(row)}>{row.at.time.slice(3, 5)}</a
-                            >
-                          </li>
-                        {/each}
-                      </ul>
-                    </td>
-                  </tr>
-                {/if}
-              {/each}
-            </tbody>
-          </table>
-        {/key}
-      {/if}
+      {/key}
 
       {#if waiting > 0}
         <p class="note" role="status">
@@ -295,20 +247,6 @@
 </section>
 
 <style>
-  .grid-head th {
-    padding: 0.5rem 0.75rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    letter-spacing: var(--tracking-eyebrow);
-    text-align: left;
-    text-transform: uppercase;
-  }
-  .inline-note {
-    padding: 0.5rem 1rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-sm);
-  }
   .board-pick {
     position: relative;
     display: inline-flex;
@@ -317,7 +255,7 @@
     max-width: 100%;
     padding: 0.25rem 0.5rem;
     border: 1.5px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     cursor: pointer;
   }
   .board-pick:hover {
@@ -338,56 +276,9 @@
     cursor: pointer;
     outline: none;
   }
-  .list {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .list td,
-  .list th {
-    padding: 0.625rem 1rem;
-    text-align: left;
-  }
-  .list .r {
-    text-align: right;
-  }
-  .list tbody tr {
-    border-top: 1px solid var(--border);
-    animation: reflow var(--motion-slow) var(--ease-out) both;
-    animation-delay: calc(var(--row) * var(--motion-stagger));
-  }
-  /* The whole row opens the trip; the visible link is only the label. */
-  .list tbody tr {
-    position: relative;
-  }
-  .list tbody tr:hover {
-    background: var(--accent);
-  }
-  .detail::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-  }
-  .list th:first-child,
-  .list td:first-child {
-    width: 7rem;
-  }
-  .list .t {
-    font-size: var(--fs-lg);
-    font-weight: var(--font-display-weight);
-    font-variant-numeric: tabular-nums;
-  }
-  .list tr.gone {
-    color: var(--muted-foreground);
-  }
-  .list tr.next-row-l {
-    background: color-mix(in oklch, var(--sign-marker) 35%, transparent);
-  }
-  .detail {
-    display: inline-flex;
-    color: var(--muted-foreground);
-  }
-  tr:hover .detail {
-    color: var(--primary);
+
+  .trips + :global(.trips) {
+    margin-top: 1.5rem;
   }
   .trips {
     min-width: 0;
@@ -401,8 +292,7 @@
   /* The posted sheet: paper card, line-colour band on top like a stop timetable frame. */
   .sheet {
     border: 1px solid var(--border);
-    border-top: 6px solid var(--line, var(--primary));
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius);
     background: var(--card);
     /* clip, not hidden: hidden would stop the sheet header from sticking. */
     overflow: clip;
@@ -418,21 +308,7 @@
     padding: 1rem 1.25rem;
     border-bottom: 2px solid var(--foreground);
   }
-  .plate {
-    /* Morphs into the trip page's line plate (View Transitions, see +layout.svelte). */
-    view-transition-name: line-plate;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    min-width: 2.5rem;
-    height: 2.5rem;
-    padding-inline: 0.5rem;
-    border-radius: var(--radius-lg);
-    background: var(--line, var(--primary));
-    color: var(--line-ink, var(--primary-foreground));
-    font-size: var(--fs-xl);
-    font-weight: var(--font-display-weight);
-  }
+
   .sheet-title {
     display: grid;
     gap: 0.25rem;
@@ -447,11 +323,11 @@
     line-height: var(--lh-tight);
   }
   .next-gone {
-    color: var(--board-fg);
+    color: var(--foreground);
     font-weight: var(--weight-strong);
   }
-  .toward {
-    color: var(--muted-foreground);
+  .dir-lead {
+    font-weight: var(--weight-regular);
   }
 
   /* Day ribbon: the whole operating day on one axis, a tick per departure. */
@@ -480,12 +356,12 @@
     align-items: center;
     gap: 0.25rem 1rem;
     padding: 0.875rem 1.25rem;
-    background: var(--board-bg);
-    color: var(--board-fg);
+    background: var(--muted);
+    color: var(--foreground);
   }
   .next-tag {
     padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius);
     background: var(--sign-marker);
     color: var(--sign-marker-foreground);
     font-size: var(--fs-xs);
@@ -497,7 +373,7 @@
     font-size: var(--fs-2xl);
     font-weight: var(--font-display-weight);
     line-height: 1;
-    color: var(--board-led);
+    color: var(--foreground);
   }
   .next {
     flex-direction: column;
@@ -510,12 +386,11 @@
     gap: 0.5rem 0.75rem;
   }
   .next-cd {
-    color: var(--board-fg);
+    color: var(--foreground);
   }
   .next-info {
     display: block;
     max-width: 100%;
-    color: var(--board-muted);
     font-weight: var(--weight-strong);
   }
   .next:hover .next-time {
@@ -534,6 +409,7 @@
   }
   .hour {
     width: 3.5rem;
+    min-width: 3rem;
     padding: 0.5rem 0;
     background: var(--muted);
     border-right: 2px solid var(--foreground);
@@ -543,6 +419,7 @@
     vertical-align: top;
   }
   .grid td {
+    width: 100%;
     padding: 0.25rem 0.5rem;
   }
   tr.late .hour {
@@ -568,7 +445,7 @@
     min-width: 4.5rem;
     min-height: 3.25rem;
     padding-inline: 0.5rem;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     font-size: var(--fs-lg);
     font-weight: var(--weight-strong);
     color: var(--foreground);
@@ -587,16 +464,6 @@
     color: var(--sign-marker-foreground);
     font-weight: var(--font-display-weight);
     box-shadow: inset 0 0 0 2px var(--foreground);
-  }
-  .moon {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.1875rem;
-    margin-left: 0.25rem;
-    color: var(--muted-foreground);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-strong);
-    white-space: nowrap;
   }
   .dir-to {
     display: inline-flex;
@@ -636,10 +503,5 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .min,
-    .list tbody tr,
-    .grid tr {
-      animation: none;
-    }
   }
 </style>
