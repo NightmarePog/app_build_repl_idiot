@@ -74,7 +74,7 @@
   }
   .stop-row :global(.stop-row-image) {
     width: 4.5rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
   }
   .stop-row-body {
     display: flex;

@@ -78,7 +78,7 @@
     aspect-ratio: auto;
     min-height: 12rem;
     height: 100%;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
   }
   .summary-body {
     display: flex;
