@@ -32,6 +32,12 @@ class ConnectionRepository {
     this.jdbc = jdbc;
   }
 
+  /**
+   * Loads the whole timetable (one query) for each planner request. Scaling assumption: the
+   * network is a few dozen trips / a few hundred stop_times, so this costs well under a
+   * millisecond of DB time. If the timetable grows to thousands of trips, cache this snapshot and
+   * invalidate it on timetable writes instead of rebuilding it per request.
+   */
   Timetable timetable() {
     Map<Long, TripInfo> trips = new LinkedHashMap<>();
     Map<Long, Stop> stops = new LinkedHashMap<>();

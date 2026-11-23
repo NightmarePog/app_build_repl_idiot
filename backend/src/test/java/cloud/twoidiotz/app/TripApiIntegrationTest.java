@@ -34,6 +34,40 @@ class TripApiIntegrationTest {
   }
 
   @Test
+  void seedsTheBlockRefOfEveryTripFromTripsJson() throws Exception {
+    var json =
+        mapper.readTree(getClass().getResourceAsStream("/seed/v11/trips.json")).get("trips");
+    assertEquals(16, json.size());
+    assertEquals(16, count("SELECT count(DISTINCT block_ref) FROM trip WHERE source_ref ~ '^T'"));
+    try (var c = dataSource.getConnection();
+        var st = c.prepareStatement("SELECT block_ref FROM trip WHERE source_ref = ?")) {
+      for (var trip : json) {
+        st.setString(1, trip.get("source_trip_id").asString());
+        try (var rs = st.executeQuery()) {
+          assertTrue(rs.next());
+          assertEquals(trip.get("block_ref").asString(), rs.getString(1));
+        }
+      }
+    }
+  }
+
+  @Test
+  void rejectsAMalformedBlockRef() throws Exception {
+    try (var c = dataSource.getConnection()) {
+      c.setAutoCommit(false);
+      try (var st = c.createStatement()) {
+        var e =
+            assertThrows(
+                SQLException.class,
+                () -> st.executeUpdate("UPDATE trip SET block_ref = 'b01' WHERE id = 101001"));
+        assertTrue(e.getMessage().contains("trip_block_ref_format"));
+      } finally {
+        c.rollback();
+      }
+    }
+  }
+
+  @Test
   void listsTripsOfALineByDirection() throws Exception {
     var trips = get("/lines/2/trips");
     assertEquals(6, trips.size());

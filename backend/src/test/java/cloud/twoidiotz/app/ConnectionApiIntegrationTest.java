@@ -33,6 +33,7 @@ class ConnectionApiIntegrationTest {
       var leg = connection.get("legs").get(0);
       assertEquals("B", leg.get("line").get("number").asString());
       assertEquals("outbound", leg.get("direction").asString());
+      assertTrue(leg.get("block_ref").asString().matches("^B0[0-9]$"));
       assertEquals("Campus Gate", leg.get("destination").get("name").asString());
       assertTrue(leg.get("transfer_minutes").isNull());
     }
