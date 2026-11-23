@@ -1,0 +1,163 @@
+{
+  "from": {
+    "id": 9,
+    "name": "Syntax Square",
+    "image_url": "http://localhost:8080/api/v1/stops-images/syntaxSquare.png"
+  },
+  "to": {
+    "id": 15,
+    "name": "Quantum Commons",
+    "image_url": "http://localhost:8080/api/v1/stops-images/quantumCommons.png"
+  },
+  "time": "07:00",
+  "mode": "departure",
+  "min_transfer_minutes": 2,
+  "connections": [
+    {
+      "departure_time": "07:06",
+      "departure_day_offset": 0,
+      "arrival_time": "07:34",
+      "arrival_day_offset": 0,
+      "duration_minutes": 28,
+      "transfers": 1,
+      "legs": [
+        {
+          "trip_id": 202001,
+          "line": {
+            "id": 2,
+            "number": "B",
+            "name": "Hopper Hall – Campus Gate",
+            "type": "bus",
+            "color": "#91F5AD"
+          },
+          "direction": "inbound",
+          "destination": {
+            "id": 6,
+            "name": "Hopper Hall",
+            "image_url": "http://localhost:8080/api/v1/stops-images/hopperHall.png"
+          },
+          "from": {
+            "id": 9,
+            "name": "Syntax Square",
+            "image_url": "http://localhost:8080/api/v1/stops-images/syntaxSquare.png"
+          },
+          "to": {
+            "id": 8,
+            "name": "Kernel Hub",
+            "image_url": "http://localhost:8080/api/v1/stops-images/kernelHub.png"
+          },
+          "departure_time": "07:06",
+          "departure_day_offset": 0,
+          "arrival_time": "07:09",
+          "arrival_day_offset": 0,
+          "duration_minutes": 3,
+          "transfer_minutes": null,
+          "stops": [
+            {
+              "stop": {
+                "id": 9,
+                "name": "Syntax Square",
+                "image_url": "http://localhost:8080/api/v1/stops-images/syntaxSquare.png"
+              },
+              "arrival_time": "07:06",
+              "arrival_day_offset": 0,
+              "departure_time": "07:06",
+              "departure_day_offset": 0
+            },
+            {
+              "stop": {
+                "id": 8,
+                "name": "Kernel Hub",
+                "image_url": "http://localhost:8080/api/v1/stops-images/kernelHub.png"
+              },
+              "arrival_time": "07:09",
+              "arrival_day_offset": 0,
+              "departure_time": "07:09",
+              "departure_day_offset": 0
+            }
+          ],
+          "block_ref": "B02"
+        },
+        {
+          "trip_id": 301002,
+          "line": {
+            "id": 3,
+            "number": "C",
+            "name": "Edison East – Quantum Commons",
+            "type": "bus",
+            "color": "#49B3B4"
+          },
+          "direction": "outbound",
+          "destination": {
+            "id": 15,
+            "name": "Quantum Commons",
+            "image_url": "http://localhost:8080/api/v1/stops-images/quantumCommons.png"
+          },
+          "from": {
+            "id": 8,
+            "name": "Kernel Hub",
+            "image_url": "http://localhost:8080/api/v1/stops-images/kernelHub.png"
+          },
+          "to": {
+            "id": 15,
+            "name": "Quantum Commons",
+            "image_url": "http://localhost:8080/api/v1/stops-images/quantumCommons.png"
+          },
+          "departure_time": "07:20",
+          "departure_day_offset": 0,
+          "arrival_time": "07:34",
+          "arrival_day_offset": 0,
+          "duration_minutes": 14,
+          "transfer_minutes": 11,
+          "stops": [
+            {
+              "stop": {
+                "id": 8,
+                "name": "Kernel Hub",
+                "image_url": "http://localhost:8080/api/v1/stops-images/kernelHub.png"
+              },
+              "arrival_time": "07:20",
+              "arrival_day_offset": 0,
+              "departure_time": "07:20",
+              "departure_day_offset": 0
+            },
+            {
+              "stop": {
+                "id": 14,
+                "name": "Library Loop",
+                "image_url": "http://localhost:8080/api/v1/stops-images/libraryLoop.png"
+              },
+              "arrival_time": "07:24",
+              "arrival_day_offset": 0,
+              "departure_time": "07:25",
+              "departure_day_offset": 0
+            },
+            {
+              "stop": {
+                "id": 4,
+                "name": "Byte Square",
+                "image_url": "http://localhost:8080/api/v1/stops-images/byteSquare.png"
+              },
+              "arrival_time": "07:29",
+              "arrival_day_offset": 0,
+              "departure_time": "07:29",
+              "departure_day_offset": 0
+            },
+            {
+              "stop": {
+                "id": 15,
+                "name": "Quantum Commons",
+                "image_url": "http://localhost:8080/api/v1/stops-images/quantumCommons.png"
+              },
+              "arrival_time": "07:34",
+              "arrival_day_offset": 0,
+              "departure_time": "07:34",
+              "departure_day_offset": 0
+            }
+          ],
+          "block_ref": "C02"
+        }
+      ]
+    }
+  ]
+}

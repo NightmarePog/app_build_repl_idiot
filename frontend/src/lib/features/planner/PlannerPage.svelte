@@ -93,6 +93,17 @@
       )
   );
 
+  /** The in-flight "earlier"/"later" request; aborted when the search changes. */
+  let pageAbort: AbortController | null = null;
+  $effect(() => {
+    void searchKey;
+    return () => {
+      pageAbort?.abort();
+      pageAbort = null;
+      paging = null;
+    };
+  });
+
   async function more(direction: 'earlier' | 'later') {
     const list = connections;
     const { from, to } = query;
@@ -102,6 +113,10 @@
         ? absolute(list.at(-1)!.departure_time, list.at(-1)!.departure_day_offset) + 1
         : absolute(list[0].arrival_time, list[0].arrival_day_offset) - 1;
     const shift = Math.floor(edge / 1440);
+    const key = searchKey;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    pageAbort = controller;
     paging = direction;
     pageError = null;
     try {
@@ -109,18 +124,24 @@
         from,
         to,
         clockText(edge),
-        direction === 'later' ? 'departure' : 'arrival'
+        direction === 'later' ? 'departure' : 'arrival',
+        controller.signal
       );
+      // The query changed while this page was loading: it belongs to the old search.
+      if (key !== searchKey) return;
       const before = connections.length;
       extra = [...extra, ...data.connections.map((c) => shifted(c, shift))];
       if (connections.length === before) noMore = { ...noMore, [direction]: true };
       else
         pageNote = `Načteno ${connections.length - before} ${direction === 'later' ? 'pozdějších' : 'dřívějších'} spojení`;
-    } catch (error) {
-      console.error(`Planner: loading ${direction} connections failed`, error);
-      pageError = direction;
+    } catch {
+      if (key === searchKey) pageError = direction;
     } finally {
-      paging = null;
+      clearTimeout(timeout);
+      if (pageAbort === controller) {
+        pageAbort = null;
+        paging = null;
+      }
     }
   }
 
@@ -146,19 +167,28 @@
     });
   });
 
+  /** Fewer than a page came back: the day's service is over, the next one runs tomorrow. */
+  const endOfDay = $derived(
+    query.mode === 'departure' &&
+      !!search.data &&
+      search.data.connections.length < PAGE &&
+      connections.every((c) => c.departure_day_offset <= 0)
+  );
+
   const fastestMinutes = $derived(fastestDuration(connections));
 
-  /** "zítra · út 24. 11." for a day divider; the search day itself needs none. */
+  /**
+   * "zítra · úterý 24. 11." for a day divider, the same wording as the stop board. The day is
+   * today's Prague calendar date moved by `offset` (clock.now is minutes since midnight, not a date).
+   */
+  const pragueDay = new Intl.DateTimeFormat('cs-CZ', {
+    timeZone: 'Europe/Prague',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric'
+  });
   function dayLabel(offset: number) {
-    // Before the clock ticks (SSR, first render) it is 0, the epoch: fall back to the real date.
-    const base = new Date(clock.now || Date.now());
-    const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
-    const day = date.toLocaleDateString('cs-CZ', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'numeric'
-    });
-    return `${dayNote(offset)} · ${day}`;
+    return `${dayNote(offset)} · ${pragueDay.format(new Date(Date.now() + offset * 86_400_000))}`;
   }
 
   function toggle(key: string) {
@@ -219,9 +249,8 @@
   {#if ready}
     <section class="results" aria-labelledby="results-title" aria-busy={search.loading}>
       <h2 id="results-title" class="results-title">
-        Spojení{#if searchedTime}<span class="when-chip"
-            >{query.mode === 'arrival' ? 'příjezd do' : 'odjezd od'} {searchedTime}</span
-          >{/if}
+        {query.mode === 'arrival' ? 'Příjezd do' : 'Odjezd po'}
+        {searchedTime ?? 'teď'}{#if connections.length}{` · ${connections.length} spojení`}{/if}
       </h2>
       <p class="sr-only" aria-live="polite">{pageNote || `${connections.length} spojení`}</p>
 
@@ -282,9 +311,12 @@
           {#if noMore.later}
             <p class="pager-end" role="status">Žádná další pozdější spojení nejsou.</p>
           {:else}
+            {#if endOfDay}
+              <p class="day-divider end" aria-hidden="true"><span>Další spojení zítra</span></p>
+            {/if}
             <Button variant="outline" onclick={() => more('later')} disabled={!!paging}>
               <ChevronDown aria-hidden="true" />
-              {paging === 'later' ? 'Načítáme…' : 'Pozdější spojení'}
+              {paging === 'later' ? 'Načítáme…' : endOfDay ? 'Spojení zítra' : 'Pozdější spojení'}
             </Button>
           {/if}
           {#if pageError === 'later'}
@@ -300,8 +332,6 @@
   .planner-page {
     display: grid;
     gap: 1.5rem;
-    max-width: 60rem;
-    margin-inline: auto;
     width: 100%;
   }
   .planner-page :global(.page-header) {
@@ -315,16 +345,14 @@
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.5rem 0.75rem;
+    gap: 0.5rem;
     font-size: var(--fs-xl);
+    font-variant-numeric: tabular-nums;
     font-weight: var(--weight-strong);
   }
-  .when-chip {
-    padding: 0.125rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: var(--fs-base);
-    font-variant-numeric: tabular-nums;
+
+  .day-divider.end {
+    flex-basis: 100%;
   }
   .pager-end {
     font-size: var(--fs-sm);

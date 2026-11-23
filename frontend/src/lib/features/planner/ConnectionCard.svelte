@@ -1,9 +1,10 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { ArrowRight, Bus, ChevronDown, Hourglass, MoonStar } from '@lucide/svelte';
+  import { ArrowRight, Bus, ChevronDown, Hourglass, TriangleAlert } from '@lucide/svelte';
   import type { Connection, ConnectionLeg, ConnectionStopTime } from '$lib/api/generated';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
   import { duration } from '$lib/features/timetable/time';
+  import { inkFor } from '$lib/features/lines/line-style';
   import { lineDirectionHref, withQuery } from '$lib/links';
   import {
     dayNote,
@@ -53,8 +54,10 @@
 
   const bar = $derived(journeyBar(connection));
   const maxWait = $derived(longestWait(connection));
-  /** "13 h" for the break glyph of a long wait. */
-  const hours = (minutes: number) => `${Math.round(minutes / 60)} h`;
+  /** "+1" / "−1" next to a time on another day than the search day. */
+  const dayMark = (offset: number) => (offset > 0 ? `+${offset}` : offset < 0 ? `−${-offset}` : '');
+  /** The one vehicle name used on every page: "Bus B03". */
+  const vehicle = (leg: ConnectionLeg) => vehicleLabel(leg.block_ref) ?? `Linka ${leg.line.number}`;
 
   const spoken = $derived(
     `Odjezd ${dayNote(connection.departure_day_offset)} ${connection.departure_time} ze zastávky ${first.from.name}, příjezd ` +
@@ -76,50 +79,68 @@
   >
     <span class="sr-only">{spoken}</span>
     <span class="times" aria-hidden="true">
-      <span class="time">{connection.departure_time}</span>
+      <span class="time"
+        >{connection.departure_time}{#if dayMark(connection.departure_day_offset)}<sup
+            class="day-mark">{dayMark(connection.departure_day_offset)}</sup
+          >{/if}</span
+      >
       <ArrowRight class="size-5 arrow" />
-      <span class="time">{connection.arrival_time}</span>
+      <span class="time"
+        >{connection.arrival_time}{#if dayMark(connection.arrival_day_offset)}<sup class="day-mark"
+            >{dayMark(connection.arrival_day_offset)}</sup
+          >{/if}</span
+      >
     </span>
     <span class="facts" aria-hidden="true">
       {#if fastest}<span class="fastest">Nejrychlejší</span>{/if}
       {#if maxWait >= LONG_WAIT}
         <span class="long-wait"
-          ><MoonStar class="size-4" aria-hidden="true" /> čekání {duration(maxWait)}</span
+          ><TriangleAlert class="size-4" aria-hidden="true" /> dlouhé čekání {duration(
+            maxWait
+          )}</span
         >
       {/if}
       {#if countdown}<span class="countdown">{countdown}</span>{/if}
-      <span><strong>{duration(connection.duration_minutes)}</strong></span>
-      <span class:direct={connection.transfers === 0}>{transfersLabel(connection.transfers)}</span>
+      <span class="duration-chip"
+        >{duration(connection.duration_minutes)} · {transfersLabel(connection.transfers)}</span
+      >
     </span>
     <span class="bar" aria-hidden="true">
       {#each bar as part, index (index)}
         {#if part.kind === 'ride'}
-          <span
-            class="bar-ride"
-            style:--line={part.leg.line.color}
-            style:flex-grow={Math.max(part.share, 0.12)}
-          >
-            <span class="bar-tick dep">{part.leg.departure_time}</span>
-            <span class="bar-badge"
-              >{part.leg.line.number}{#if part.leg.block_ref}<span class="bar-vehicle"
-                  >{part.leg.block_ref}</span
-                >{/if}</span
+          <span class="bar-leg" style:flex-grow={Math.max(part.share, 0.12)}>
+            <span
+              class="bar-ride"
+              style:--line={part.leg.line.color}
+              style:--line-ink={inkFor(part.leg.line.color)}
             >
-            <span class="bar-tick arr-tick">{part.leg.arrival_time}</span>
+              <LinePlate number={part.leg.line.number} color={part.leg.line.color} size="xs" />
+              <span class="bar-vehicle">{vehicle(part.leg)}</span>
+            </span>
+            <span class="bar-times">
+              <span
+                >{part.leg.departure_time}<sup class="day-mark"
+                  >{dayMark(part.leg.departure_day_offset)}</sup
+                ></span
+              >
+              <span
+                >{part.leg.arrival_time}<sup class="day-mark"
+                  >{dayMark(part.leg.arrival_day_offset)}</sup
+                ></span
+              >
+            </span>
           </span>
         {:else}
-          <span
-            class="bar-wait"
-            class:long={part.long}
-            style:flex-grow={Math.max(part.share, 0.08)}
-          >
-            {#if part.long}
-              <span class="bar-break" aria-hidden="true">//</span>
-              <span class="bar-wait-label">{hours(part.minutes)}</span>
-            {:else}
-              <span class="bar-wait-label">{duration(part.minutes)}</span>
-            {/if}
-            <span class="bar-node"></span>
+          {@const at = connection.legs[bar.slice(0, index).filter((p) => p.kind === 'ride').length]}
+          <span class="bar-wait" class:long={part.long} style:flex-grow={Math.max(part.share, 0.1)}>
+            <span class="bar-gap">
+              {#if part.long}<span class="bar-break">//</span>{/if}
+            </span>
+            <span class="bar-wait-label">
+              {#if part.long}<TriangleAlert class="size-3.5 warn" />{/if}
+              <span class="bar-stop">{at.from.name}</span>
+              <span>{duration(part.minutes)}</span>
+            </span>
           </span>
         {/if}
       {/each}
@@ -135,7 +156,11 @@
       {#each connection.legs as leg, index (index)}
         {#if index > 0}
           <p class="transfer" class:long={(leg.transfer_minutes ?? 0) >= LONG_WAIT}>
-            <Hourglass class="size-4" aria-hidden="true" />
+            {#if (leg.transfer_minutes ?? 0) >= LONG_WAIT}
+              <TriangleAlert class="size-4 warn" aria-hidden="true" />
+            {:else}
+              <Hourglass class="size-4" aria-hidden="true" />
+            {/if}
             <span>
               Přestup <strong>{duration(leg.transfer_minutes ?? 0)}</strong> na zastávce
               <a href={stopHref(leg.from.id)}>{leg.from.name}</a>
@@ -151,9 +176,7 @@
         <section class="leg" aria-label={`Úsek ${index + 1}: linka ${leg.line.number}`}>
           <header class="leg-head">
             <LinePlate number={leg.line.number} color={leg.line.color} size="md" label />
-            {#if leg.block_ref}<span class="leg-vehicle"
-                ><Bus class="size-4" aria-hidden="true" />{vehicleLabel(leg.block_ref)}</span
-              >{/if}
+            <span class="leg-vehicle"><Bus class="size-4" aria-hidden="true" />{vehicle(leg)}</span>
             <p class="leg-name">
               <ArrowRight class="size-4 leg-arrow" aria-hidden="true" />
               <span class="sr-only">směr</span>
@@ -163,7 +186,7 @@
             <nav class="leg-links" aria-label={`Odkazy úseku ${index + 1}`}>
               <a href={tripHref(leg)}
                 ><Bus class="size-4" aria-hidden="true" />
-                {leg.block_ref ? `Spoj ${vehicleLabel(leg.block_ref)}` : 'Spoj'}</a
+                Spoj {vehicle(leg)}</a
               >
               <a href={lineDirectionHref(leg.line.id, leg.direction, leg.from.id)}
                 ><LinePlate number={leg.line.number} color={leg.line.color} size="sm" /> Linka {leg
@@ -177,10 +200,14 @@
               {@const alight = at === leg.stops.length - 1}
               <li class:edge={board || alight}>
                 <span class="call-time tabular">
-                  {#if !alight && waits(call)}
-                    <span class="arr">příj. {call.arrival_time}</span>
-                    <span class="sr-only">odj.</span>
-                    <span class:main={board}>{call.departure_time}</span>
+                  {#if !alight && !board && waits(call)}
+                    <span class="pair"
+                      ><span class="sr-only">příjezd</span>{call.arrival_time}<span
+                        aria-hidden="true"
+                      >
+                        –
+                      </span><span class="sr-only">odjezd</span>{call.departure_time}</span
+                    >
                   {:else}
                     <span class="main">{alight ? call.arrival_time : call.departure_time}</span>
                   {/if}
@@ -263,14 +290,6 @@
     color: var(--foreground);
     font-size: var(--fs-sm);
   }
-  .facts strong {
-    color: var(--foreground);
-    font-size: var(--fs-base);
-  }
-  .direct {
-    color: var(--foreground);
-    font-weight: var(--weight-strong);
-  }
   .fastest {
     padding: 0.125rem 0.5rem;
     border-radius: var(--radius);
@@ -278,15 +297,36 @@
     color: var(--primary-foreground);
     font-weight: var(--weight-strong);
   }
+  .duration-chip {
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--fs-base);
+    font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
   .long-wait {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     padding: 0.125rem 0.5rem;
+    border: 1px solid var(--destructive);
     border-radius: var(--radius);
-    background: color-mix(in oklch, var(--destructive) 14%, var(--background));
     color: var(--foreground);
     font-weight: var(--weight-strong);
+  }
+  .day-mark {
+    margin-left: 0.125rem;
+    font-size: 0.6em;
+    font-weight: var(--weight-strong);
+    vertical-align: super;
+  }
+  .day-mark:empty {
+    display: none;
+  }
+  .conn :global(.warn) {
+    flex-shrink: 0;
+    color: var(--destructive);
   }
   .countdown {
     padding: 0.125rem 0.5rem;
@@ -295,82 +335,84 @@
     color: var(--foreground);
     font-weight: var(--weight-strong);
   }
-  /* The journey bar: one segment per ride in its line colour, waits dashed grey. */
+  /* The journey bar: one segment per ride in its line colour, times always under its two ends. */
   .bar {
     grid-area: bar;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 3px;
-    min-height: 1.75rem;
+  }
+  .bar-leg {
+    display: grid;
+    gap: 0.25rem;
+    flex-basis: 0;
+    min-width: 6.5rem;
   }
   .bar-ride {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.25rem;
-    flex-basis: 0;
-    min-width: 7rem;
+    gap: 0.375rem;
     height: 2.25rem;
-    padding: 0 0.5rem;
+    padding: 0 0.375rem;
+    overflow: hidden;
     border-radius: var(--radius);
     background: var(--line);
-    color: var(--primary-foreground);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-strong);
-    font-variant-numeric: tabular-nums;
+    color: var(--line-ink);
     transform-origin: left;
     animation: bar-in var(--motion-normal) var(--ease-out) both;
   }
-  .bar-badge {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.25rem;
-    font-size: var(--fs-base);
-    font-weight: var(--font-display-weight);
-  }
   .bar-vehicle {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-times {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.25rem;
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-wait {
+    display: grid;
+    gap: 0.25rem;
+    flex-basis: 0;
+    min-width: 5rem;
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-gap {
+    display: grid;
+    place-items: center;
+    height: 2.25rem;
+    background: linear-gradient(var(--border), var(--border)) center / 100% 2px no-repeat;
+  }
+  .bar-wait.long .bar-gap {
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--destructive) 0 4px,
+      transparent 4px 8px
+    );
   }
   .bar-break {
-    position: relative;
     padding: 0 0.125rem;
     background: var(--card);
     color: var(--foreground);
     font-weight: var(--weight-strong);
     line-height: 1;
   }
-  .bar-wait {
-    display: flex;
-    justify-content: center;
-    flex-basis: 0;
-    min-width: 3.5rem;
-    position: relative;
-    align-items: center;
-    height: 0.625rem;
-    border-radius: var(--radius);
-    background: repeating-linear-gradient(135deg, var(--muted) 0 4px, var(--border) 4px 6px);
-    margin-top: 1.25rem;
-    font-size: var(--fs-xs);
-    font-variant-numeric: tabular-nums;
-  }
   .bar-wait-label {
-    position: absolute;
-    bottom: 100%;
-    white-space: nowrap;
-    color: var(--muted-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0 0.25rem;
+    text-align: center;
+    color: var(--foreground);
   }
-  /* The transfer stop: a node where the wait meets the next ride. */
-  .bar-node {
-    position: absolute;
-    right: -0.5rem;
-    width: 0.75rem;
-    height: 0.75rem;
-    border: 2.5px solid var(--foreground);
-    border-radius: 50%;
-    background: var(--background);
-  }
-  .bar-wait.long {
+  .bar-stop {
     font-weight: var(--weight-strong);
   }
   @keyframes bar-in {
@@ -470,7 +512,7 @@
   .calls li {
     position: relative;
     display: grid;
-    grid-template-columns: 4.5rem 1.25rem minmax(0, 1fr);
+    grid-template-columns: 7rem 1.25rem minmax(0, 1fr);
     align-items: center;
     gap: 0.625rem;
     min-height: 2.5rem;
@@ -481,7 +523,7 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    left: calc(4.5rem + 0.625rem + 0.625rem - 3px);
+    left: calc(7rem + 0.625rem + 0.625rem - 3px);
     width: 6px;
     background: var(--line);
   }
@@ -514,8 +556,8 @@
     font-size: var(--fs-lg);
     font-weight: var(--font-display-weight);
   }
-  .call-time .arr {
-    font-size: var(--fs-sm);
+  .call-time .pair {
+    white-space: nowrap;
   }
   .day-sub {
     font-size: var(--fs-xs);
@@ -539,7 +581,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-left: 5.75rem;
+    margin-left: 8.25rem;
     padding: 0.5rem 0.75rem;
     border-radius: var(--radius);
     background: var(--muted);
@@ -566,12 +608,11 @@
     .facts {
       justify-content: flex-start;
     }
-    /* Narrow: the boarding time and the line stay, the arrival tick goes. */
-    .arr-tick {
-      display: none;
+    .bar-leg {
+      min-width: 6.75rem;
     }
-    .bar-ride {
-      min-width: 5.5rem;
+    .bar-wait {
+      min-width: 3.5rem;
     }
     .toggle {
       justify-self: start;
@@ -580,10 +621,10 @@
       padding-inline: 1rem;
     }
     .calls li {
-      grid-template-columns: 4.75rem 1.25rem minmax(0, 1fr);
+      grid-template-columns: 7rem 1.25rem minmax(0, 1fr);
     }
     .calls li::before {
-      left: calc(4.75rem + 0.625rem + 0.625rem - 3px);
+      left: calc(7rem + 0.625rem + 0.625rem - 3px);
     }
     .transfer {
       margin-left: 0;
