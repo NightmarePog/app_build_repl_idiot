@@ -30,3 +30,72 @@ export function tripPosition(stops: TimedCall[], now: number): Position | null {
   }
   return null;
 }
+
+type Call = {
+  arrival_time: string;
+  arrival_day_offset: number;
+  departure_time: string;
+  departure_day_offset: number;
+  stop: { id: number };
+};
+type Departs = {
+  id: number;
+  route_id: number;
+  departure_time: string;
+  departure_day_offset: number;
+};
+
+const minutesOf = (time: string, dayOffset: number) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return dayOffset * 1440 + hours * 60 + minutes;
+};
+
+/** Each call with operating-day minutes, its dwell, the gap from the previous call and midnight. */
+export function timedStops<T extends Call>(timetable: T[]) {
+  let previous: number | null = null;
+  return timetable.map((stop, index) => {
+    const arr = minutesOf(stop.arrival_time, stop.arrival_day_offset);
+    const dep = minutesOf(stop.departure_time, stop.departure_day_offset);
+    const gap = previous === null ? 0 : arr - previous;
+    const crossesMidnight =
+      index > 0 && stop.arrival_day_offset > timetable[index - 1].departure_day_offset;
+    previous = dep;
+    return { ...stop, arr, dep, dwell: dep - arr, gap, crossesMidnight };
+  });
+}
+
+/**
+ * Where the passenger boards: the ?od= stop, or the origin when there is none. `missing` is true
+ * when ?od= names a stop this trip does not call at; the page then starts from the origin.
+ */
+export function boarding(stops: { stop: { id: number } }[], fromId: number | null) {
+  const found = fromId === null ? 0 : stops.findIndex((s) => s.stop.id === fromId);
+  return { index: Math.max(0, found), missing: fromId !== null && stops.length > 0 && found < 0 };
+}
+
+/** Ride length from boarding to the end, and where midnight falls on it in percent (or null). */
+export function ribbon(
+  board: { dep: number; departure_day_offset: number },
+  last: { arr: number }
+) {
+  const total = Math.max(1, last.arr - board.dep);
+  const midnight = 1440 * (board.departure_day_offset + 1);
+  const crosses = last.arr >= midnight && board.dep < midnight;
+  return { total, night: crosses ? ((midnight - board.dep) / total) * 100 : null };
+}
+
+/** The next trip on the same route; after the day's last one it wraps to tomorrow's first. */
+export function nextTrip<T extends Departs>(trips: T[], trip: Departs) {
+  const same = trips
+    .filter((t) => t.route_id === trip.route_id)
+    .sort(
+      (a, b) =>
+        minutesOf(a.departure_time, a.departure_day_offset) -
+        minutesOf(b.departure_time, b.departure_day_offset)
+    );
+  const index = same.findIndex((t) => t.id === trip.id);
+  if (index < 0) return null;
+  const next = same[index + 1] ?? same[0];
+  if (next.id === trip.id) return null;
+  return { trip: next, tomorrow: index + 1 >= same.length };
+}

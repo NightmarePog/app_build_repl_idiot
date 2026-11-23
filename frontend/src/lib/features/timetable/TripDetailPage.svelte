@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { ArrowLeft, ArrowRight, ChevronDown, Ticket as TicketIcon } from '@lucide/svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { listLineTrips, type TripDetail, type TripSummary } from '$lib/api/generated';
+  import { listLineTrips, type TripDetail } from '$lib/api/generated';
   import { createResource, ResourceError, unwrap } from '$lib/api/resource.svelte';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
@@ -14,8 +14,14 @@
   import FlapTime from './FlapTime.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
-  import { duration, minutesOf, spokenTime } from './time';
-  import { tripPosition } from './trip-position';
+  import { duration, spokenTime } from './time';
+  import {
+    boarding,
+    nextTrip as nextTripOf,
+    ribbon as ribbonOf,
+    timedStops,
+    tripPosition
+  } from './trip-position';
   import { lineDirectionHref, tripDetail, withQuery } from './trips';
 
   let { id }: { id: string } = $props();
@@ -49,24 +55,12 @@
 
   const fromId = $derived(idOf(page.url.searchParams.get('od')));
 
-  const stops = $derived.by(() => {
-    const timetable = trip?.stops ?? [];
-    let previous: number | null = null;
-    return timetable.map((stop, index) => {
-      const arr = minutesOf(stop.arrival_time, stop.arrival_day_offset);
-      const dep = minutesOf(stop.departure_time, stop.departure_day_offset);
-      const gap = previous === null ? 0 : arr - previous;
-      const crossesMidnight =
-        index > 0 && stop.arrival_day_offset > timetable[index - 1].departure_day_offset;
-      previous = dep;
-      return { ...stop, arr, dep, dwell: dep - arr, gap, crossesMidnight };
-    });
-  });
+  const stops = $derived(timedStops(trip?.stops ?? []));
 
-  const fromFound = $derived(fromId ? stops.findIndex((stop) => stop.stop.id === fromId) : 0);
+  const from = $derived(boarding(stops, fromId));
   /** ?od= named a stop this trip does not call at: say so and start from the origin. */
-  const fromMissing = $derived(fromId !== null && stops.length > 0 && fromFound < 0);
-  const fromIndex = $derived(Math.max(0, fromFound));
+  const fromMissing = $derived(from.missing);
+  const fromIndex = $derived(from.index);
   const board = $derived(stops[fromIndex]);
   const last = $derived(stops.at(-1));
   const hidden = $derived(fromId && !showEarlier ? fromIndex : 0);
@@ -83,13 +77,7 @@
   );
 
   /** Ticket ribbon: the trip's span with the night band where midnight falls, if it does. */
-  const ribbon = $derived.by(() => {
-    if (!board || !last) return null;
-    const total = Math.max(1, last.arr - board.dep);
-    const midnight = 1440 * (board.departure_day_offset + 1);
-    const crosses = last.arr >= midnight && board.dep < midnight;
-    return { total, night: crosses ? ((midnight - board.dep) / total) * 100 : null };
-  });
+  const ribbon = $derived(board && last ? ribbonOf(board, last) : null);
 
   // The next trip on the same route after this one, for the end of the page.
   const lineTrips = createResource(
@@ -99,19 +87,7 @@
     },
     () => trip?.line.id
   );
-  const nextTrip = $derived.by<TripSummary | null>(() => {
-    if (!trip) return null;
-    const same = (lineTrips.data ?? []).filter((t) => t.route_id === trip.route_id);
-    const index = same.findIndex((t) => t.id === trip.id);
-    return index >= 0 ? (same[index + 1] ?? same[0] ?? null) : null;
-  });
-  const nextIsTomorrow = $derived.by(() => {
-    if (!trip || !nextTrip) return false;
-    return (
-      minutesOf(nextTrip.departure_time, nextTrip.departure_day_offset) <=
-      minutesOf(trip.departure_time, trip.departure_day_offset)
-    );
-  });
+  const next = $derived(trip ? nextTripOf(lineTrips.data ?? [], trip) : null);
 
   /** Lines to change to at the terminus. */
   const transfers = $derived(
@@ -179,7 +155,7 @@
       color={trip.line.color}
     >
       {#snippet meta()}<span
-          >Linka {trip.line.number} · jízda {duration(ribbon.total)} · {czechCount(
+          >Spoj linky {trip.line.number} · {czechCount(
             trip.stops.length,
             'zastávka',
             'zastávky',
@@ -378,23 +354,28 @@
               </ul>
             </div>
           {/if}
-          {#if nextTrip && nextTrip.id !== trip.id}
+          {#if next}
             <div class="onward-block">
               <h3>Další spoj této trasy</h3>
               <a
                 class="next-trip"
-                href={withQuery(resolve('/trips/[id]', { id: String(nextTrip.id) }), {
+                href={withQuery(resolve('/trips/[id]', { id: String(next.trip.id) }), {
                   od: fromId
                 })}
               >
-                <span class="next-trip-time tabular">{nextTrip.departure_time}</span>
+                <span class="next-trip-time tabular">{next.trip.departure_time}</span>
                 <span
-                  >{nextIsTomorrow ? 'zítra · ' : ''}z {nextTrip.origin.name} do {nextTrip
+                  >{next.tomorrow ? 'zítra · ' : ''}z {next.trip.origin.name} do {next.trip
                     .destination.name}</span
                 >
                 <ArrowRight aria-hidden="true" class="size-4" />
               </a>
             </div>
+          {:else if lineTrips.error}
+            <p class="muted-note">
+              Další spoj této trasy se nepodařilo načíst.
+              <button type="button" class="retry" onclick={lineTrips.retry}>Zkusit znovu</button>
+            </p>
           {/if}
         </section>
       </div>
@@ -836,19 +817,42 @@
       box-shadow: 0 0 0 10px transparent;
     }
   }
+  .muted-note {
+    margin-top: 1rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+  }
+  .retry {
+    margin-left: 0.25rem;
+    color: var(--primary);
+    font-weight: var(--weight-strong);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  /* Phones: a compact one-row ticket so the stop list starts near the top of the screen. */
   @media (max-width: 639px) {
+    .ticket {
+      padding: 1rem;
+    }
+    .ticket-line {
+      min-height: 0;
+      padding-bottom: 0.75rem;
+    }
+    .dest {
+      font-size: var(--fs-lg);
+    }
     .ticket-times {
-      grid-template-columns: 1fr;
-      gap: 1.25rem;
+      gap: 0.5rem;
+      margin-top: 0.875rem;
     }
-    .to {
-      text-align: left;
+    .ticket-times :global(.flap.lg) {
+      font-size: var(--fs-lg);
     }
-    .to dd {
-      justify-items: start;
+    .place {
+      font-size: var(--fs-sm);
     }
     .ribbon {
-      margin: 1.25rem 0 1.5rem;
+      margin-bottom: 1.5rem;
     }
     .timeline {
       --rail-x: 5rem;
