@@ -5,11 +5,17 @@ export type ClientOptions = {
 };
 
 export type Departure = {
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     arrival_day_offset: number;
     /**
      * Arrival at this stop.
      */
     arrival_time: string;
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     departure_day_offset: number;
     /**
      * Departure from this stop.
@@ -19,6 +25,9 @@ export type Departure = {
      * Final stop of the trip.
      */
     destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
     direction: 'outbound' | 'inbound';
     line: Line;
     trip_id: number;
@@ -113,42 +122,66 @@ export type TeamResponse = {
 };
 
 export type TripDetail = {
+    /**
+     * Always 0: a trip starts on its operating day.
+     */
     departure_day_offset: number;
     departure_time: string;
     destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
     direction: 'outbound' | 'inbound';
     id: number;
     line: Line;
     origin: StopSummary;
     route_id: number;
+    /**
+     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.
+     */
     stops: Array<TripStopTime>;
 };
 
 export type TripStopTime = {
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     arrival_day_offset: number;
     arrival_time: string;
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     departure_day_offset: number;
     departure_time: string;
     stop: StopSummary;
     /**
-     * 1-based order on the route
+     * 1-based position of the stop on the route, as in GET /lines/{id}.
      */
     stop_order: number;
 };
 
 export type TripSummary = {
+    /**
+     * Always 0: a trip starts on its operating day.
+     */
     departure_day_offset: number;
     /**
-     * Departure from the origin.
+     * Departure from the origin, the trip's first timetabled stop.
      */
     departure_time: string;
+    /**
+     * Last timetabled stop of the trip.
+     */
     destination: StopSummary;
     /**
-     * Outbound leaves the line's first stop, inbound returns to it.
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
      */
     direction: 'outbound' | 'inbound';
     id: number;
     line: Line;
+    /**
+     * First timetabled stop of the trip.
+     */
     origin: StopSummary;
     /**
      * ID of the route the trip follows, as listed in the line's routes.
@@ -157,11 +190,17 @@ export type TripSummary = {
 };
 
 export type DepartureWritable = {
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     arrival_day_offset: number;
     /**
      * Arrival at this stop.
      */
     arrival_time: string;
+    /**
+     * Calendar days after the day the trip starts (0 or 1). Times past midnight are shown modulo 24 h with offset 1, so 24:14 in the source is 00:14 with offset 1.
+     */
     departure_day_offset: number;
     /**
      * Departure from this stop.
@@ -171,6 +210,9 @@ export type DepartureWritable = {
      * Final stop of the trip.
      */
     destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
     direction: 'outbound' | 'inbound';
     line: LineWritable;
     trip_id: number;
@@ -200,30 +242,48 @@ export type StopWritable = {
 };
 
 export type TripDetailWritable = {
+    /**
+     * Always 0: a trip starts on its operating day.
+     */
     departure_day_offset: number;
     departure_time: string;
     destination: StopSummary;
+    /**
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
+     */
     direction: 'outbound' | 'inbound';
     id: number;
     line: LineWritable;
     origin: StopSummary;
     route_id: number;
+    /**
+     * Timetabled stops in route order (ascending `stop_order`). A trip has at least two stops.
+     */
     stops: Array<TripStopTime>;
 };
 
 export type TripSummaryWritable = {
+    /**
+     * Always 0: a trip starts on its operating day.
+     */
     departure_day_offset: number;
     /**
-     * Departure from the origin.
+     * Departure from the origin, the trip's first timetabled stop.
      */
     departure_time: string;
+    /**
+     * Last timetabled stop of the trip.
+     */
     destination: StopSummary;
     /**
-     * Outbound leaves the line's first stop, inbound returns to it.
+     * `outbound` travels away from the line's starting stop; `inbound` travels back towards it.
      */
     direction: 'outbound' | 'inbound';
     id: number;
     line: LineWritable;
+    /**
+     * First timetabled stop of the trip.
+     */
     origin: StopSummary;
     /**
      * ID of the route the trip follows, as listed in the line's routes.
@@ -413,11 +473,11 @@ export type ListLineTripsData = {
 
 export type ListLineTripsErrors = {
     /**
-     * Invalid identifier
+     * Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`.
      */
     400: Error;
     /**
-     * Line not found
+     * Line not found (`{"error": "Line not found"}`).
      */
     404: Error;
 };
@@ -633,11 +693,11 @@ export type ListStopDeparturesData = {
 
 export type ListStopDeparturesErrors = {
     /**
-     * Invalid identifier
+     * Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`.
      */
     400: Error;
     /**
-     * Stop not found
+     * Stop not found (`{"error": "Stop not found"}`).
      */
     404: Error;
 };
@@ -680,11 +740,11 @@ export type GetTripData = {
 
 export type GetTripErrors = {
     /**
-     * Invalid identifier
+     * Invalid identifier: the path id must be a plain integer of at least 1 (no sign, spaces or decimals). The body names the parameter, e.g. `Invalid trip ID`.
      */
     400: Error;
     /**
-     * Trip not found
+     * Trip not found (`{"error": "Trip not found"}`).
      */
     404: Error;
 };

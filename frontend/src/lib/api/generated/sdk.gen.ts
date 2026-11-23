@@ -123,7 +123,7 @@ export const updateLine = <ThrowOnError extends boolean = false>(options: Option
 /**
  * List trips of a line
  *
- * Returns all scheduled trips of the requested line.
+ * Returns all scheduled trips of the requested line, both directions, in ascending order by `departure_day_offset` and `departure_time` of the trip's start; trips leaving in the same minute are ordered outbound before inbound, then by `id`. A line without trips returns an empty array.
  */
 export const listLineTrips = <ThrowOnError extends boolean = false>(options: Options<ListLineTripsData, ThrowOnError>): RequestResult<ListLineTripsResponses, ListLineTripsErrors, ThrowOnError> => (options.client ?? client).get<ListLineTripsResponses, ListLineTripsErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -238,7 +238,7 @@ export const getStopLines = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * List departures from a stop
  *
- * Returns scheduled departures from the requested stop in ascending order by `departure_day_offset` and `departure_time`.
+ * Returns scheduled departures from the requested stop in ascending order by `departure_day_offset` and `departure_time`; departures in the same minute are ordered by line number, then `trip_id`. A trip's last stop is only an arrival, so trips ending at this stop are not listed. The whole day's timetable is returned (there is no date parameter); a stop no trip leaves from returns an empty array.
  */
 export const listStopDepartures = <ThrowOnError extends boolean = false>(options: Options<ListStopDeparturesData, ThrowOnError>): RequestResult<ListStopDeparturesResponses, ListStopDeparturesErrors, ThrowOnError> => (options.client ?? client).get<ListStopDeparturesResponses, ListStopDeparturesErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({
@@ -268,7 +268,7 @@ export const getTeam = <ThrowOnError extends boolean = false>(options?: Options<
 /**
  * Get trip detail and timetable
  *
- * Returns the line, direction and ordered timetable of one trip.
+ * Returns the line, direction and ordered timetable of one trip. `stops` follow the route's stop order; day offsets count from the day the trip starts, so a stop reached after midnight has offset 1.
  */
 export const getTrip = <ThrowOnError extends boolean = false>(options: Options<GetTripData, ThrowOnError>): RequestResult<GetTripResponses, GetTripErrors, ThrowOnError> => (options.client ?? client).get<GetTripResponses, GetTripErrors, ThrowOnError>({
     requestValidator: async (data) => await z.object({

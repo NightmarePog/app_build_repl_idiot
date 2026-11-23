@@ -26,10 +26,20 @@ public record TripSummaryResponse(
             description = "ID of the route the trip follows, as listed in the line's routes.")
         long routeId,
     LineResponse line,
-    @Schema(description = "Outbound leaves the line's first stop, inbound returns to it.")
+    @Schema(
+            description =
+                "`outbound` travels away from the line's starting stop; `inbound` travels back"
+                    + " towards it.")
         RouteDirection direction,
-    StopSummaryResponse origin,
-    StopSummaryResponse destination,
-    @Schema(pattern = Clock.PATTERN, example = "07:00", description = "Departure from the origin.")
+    @Schema(description = "First timetabled stop of the trip.") StopSummaryResponse origin,
+    @Schema(description = "Last timetabled stop of the trip.") StopSummaryResponse destination,
+    @Schema(
+            pattern = Clock.PATTERN,
+            example = "07:00",
+            description = "Departure from the origin, the trip's first timetabled stop.")
         String departureTime,
-    @Schema(minimum = "0", example = "0") int departureDayOffset) {}
+    @Schema(
+            minimum = "0",
+            example = "0",
+            description = "Always 0: a trip starts on its operating day.")
+        int departureDayOffset) {}
