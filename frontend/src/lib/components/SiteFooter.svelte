@@ -123,7 +123,11 @@
   }
   .brand-mark {
     display: block;
+<<<<<<< HEAD
     border-radius: var(--radius-sm);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
   }
   .logo {
     display: block;
@@ -212,7 +216,11 @@
   a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+<<<<<<< HEAD
     border-radius: var(--radius-sm);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
   }
 
   @media (max-width: 979px) {

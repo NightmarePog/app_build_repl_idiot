@@ -655,7 +655,7 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: var(--shadow-pop);
     font-size: var(--fs-sm);
@@ -675,7 +675,7 @@
     position: relative;
     margin: 0;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius);
     background: #f4f2ee;
     overflow: hidden;
     aspect-ratio: 600 / 440;
@@ -737,7 +737,11 @@
   .loading-label {
     position: relative;
     padding: 0.375rem 0.75rem;
+<<<<<<< HEAD
     border-radius: var(--radius-full);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
@@ -771,7 +775,7 @@
     min-height: 2.75rem;
     padding: 0 0.75rem;
     border: 1px solid var(--border);
-    border-radius: calc(var(--radius-lg) - 4px);
+    border-radius: var(--radius);
     background: var(--background);
     font-size: var(--fs-sm);
   }
@@ -798,7 +802,11 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: var(--radius-md);
+<<<<<<< HEAD
+    border-radius: var(--radius);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
     background: var(--pin);
     color: var(--pin-ink);
     box-shadow: var(--shadow-pop);
@@ -865,7 +873,11 @@
     left: 50%;
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+<<<<<<< HEAD
+    border-radius: var(--radius);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
     background: var(--background);
     color: var(--foreground);
     font-size: var(--fs-sm);
@@ -888,7 +900,7 @@
 
   /* Navigation control in the app's look. */
   .network-map :global(.maplibregl-ctrl-group) {
-    border-radius: calc(var(--radius-lg) - 4px);
+    border-radius: var(--radius);
     background: var(--background);
     box-shadow: 0 0 0 1px var(--border);
   }

@@ -210,7 +210,11 @@
     height: 15.5rem;
     padding: 1.25rem;
     overflow: hidden;
+<<<<<<< HEAD
     border-radius: var(--radius-2xl);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
     background: var(--card-bg);
     color: var(--card-ink);
     transition: transform var(--motion-normal) var(--ease-out);
@@ -288,7 +292,11 @@
     place-items: center;
     width: 2.75rem;
     height: 2.75rem;
+<<<<<<< HEAD
     border-radius: var(--radius-xl);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
     background: var(--letter-bg);
     color: var(--letter-ink);
     font-size: var(--fs-xl);
@@ -312,10 +320,17 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
+<<<<<<< HEAD
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-pop);
     font-size: var(--fs-xs);
     font-weight: var(--font-display-weight);
+=======
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.18);
+    font-size: 0.75rem;
+    font-weight: 800;
+>>>>>>> fix/r3-shared
     line-height: 1;
   }
   .route {
@@ -352,7 +367,11 @@
     row-gap: 0.375rem;
     height: 6.75rem;
     padding: 0.75rem 0.875rem 1.375rem;
+<<<<<<< HEAD
     border-radius: var(--radius-xl);
+=======
+    border-radius: var(--radius);
+>>>>>>> fix/r3-shared
   }
   .compact .card:hover {
     transform: none;
