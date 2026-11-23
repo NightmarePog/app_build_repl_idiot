@@ -737,11 +737,7 @@
   .loading-label {
     position: relative;
     padding: 0.375rem 0.75rem;
-<<<<<<< HEAD
     border-radius: var(--radius-full);
-=======
-    border-radius: var(--radius);
->>>>>>> fix/r3-shared
     background: color-mix(in oklch, var(--background) 85%, transparent);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
@@ -802,11 +798,7 @@
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-<<<<<<< HEAD
     border-radius: var(--radius);
-=======
-    border-radius: var(--radius);
->>>>>>> fix/r3-shared
     background: var(--pin);
     color: var(--pin-ink);
     box-shadow: var(--shadow-pop);
@@ -873,11 +865,7 @@
     left: 50%;
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--border);
-<<<<<<< HEAD
     border-radius: var(--radius);
-=======
-    border-radius: var(--radius);
->>>>>>> fix/r3-shared
     background: var(--background);
     color: var(--foreground);
     font-size: var(--fs-sm);

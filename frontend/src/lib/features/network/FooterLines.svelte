@@ -24,20 +24,6 @@
   .line-link {
     gap: 0.5rem;
   }
-<<<<<<< HEAD
-=======
-  .badge {
-    display: inline-grid;
-    place-items: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    flex-shrink: 0;
-    border-radius: var(--radius);
-    font-size: 0.6875rem;
-    font-weight: 800;
-    line-height: 1;
-  }
->>>>>>> fix/r3-shared
   .route {
     display: inline-flex;
     flex-wrap: wrap;

@@ -7,11 +7,7 @@
 
 {#if detail}
   <div class="grid gap-8 py-2 lg:grid-cols-[1.55fr_1fr]" aria-hidden="true">
-<<<<<<< HEAD
     <Skeleton class="aspect-[3/2] w-full rounded-[var(--radius)]" />
-=======
-    <Skeleton class="aspect-[3/2] w-full" />
->>>>>>> fix/r3-shared
     <div class="flex flex-col gap-6">
       <Skeleton class="h-10 w-2/3" />
       {#each [0, 1, 2] as item (item)}

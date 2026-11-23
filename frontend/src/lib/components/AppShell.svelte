@@ -337,11 +337,7 @@
     display: flex;
     align-items: center;
     min-height: 2.75rem;
-<<<<<<< HEAD
     border-radius: var(--radius-sm);
-=======
-    border-radius: var(--radius);
->>>>>>> fix/r3-shared
     flex-shrink: 0;
   }
   .brand-logo {
@@ -497,11 +493,7 @@
       justify-content: center;
       gap: 0.1875rem;
       min-height: 3rem;
-<<<<<<< HEAD
       border-radius: var(--radius-2xl);
-=======
-      border-radius: var(--radius);
->>>>>>> fix/r3-shared
       color: var(--muted-foreground);
       font-size: var(--fs-2xs);
       font-weight: var(--weight-strong);
@@ -523,11 +515,7 @@
       left: 50%;
       width: 3.5rem;
       height: 1.875rem;
-<<<<<<< HEAD
       border-radius: var(--radius-full);
-=======
-      border-radius: var(--radius);
->>>>>>> fix/r3-shared
       background: color-mix(in oklch, var(--primary) 18%, transparent);
       transform: translateX(-50%) scaleX(0.4);
       opacity: 0;
