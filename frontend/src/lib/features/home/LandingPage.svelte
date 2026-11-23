@@ -91,7 +91,6 @@
   <section id="lines" class="lines" aria-labelledby="lines-title">
     <div {@attach reveal()}>
       <h2 id="lines-title" class="section-title">Linky</h2>
-      <p>Vyberte linku a ukážeme vám ji na mapě i se všemi zastávkami.</p>
     </div>
     <LineCards highlight={highlightLines} />
   </section>
