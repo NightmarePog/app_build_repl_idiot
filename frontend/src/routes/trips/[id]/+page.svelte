@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/state';
+  import type { PageProps } from './$types';
   import TripDetailPage from '$lib/features/timetable/TripDetailPage.svelte';
+
+  let { params }: PageProps = $props();
 </script>
 
-<TripDetailPage id={page.params.id!} />
+<TripDetailPage id={params.id} />

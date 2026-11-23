@@ -2,7 +2,7 @@
   import { czechCount } from '$lib/plural';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ArrowRight, ChevronDown, Clock as TripIcon } from '@lucide/svelte';
+  import { ArrowRight, ChevronDown, ChevronUp, Clock as TripIcon } from '@lucide/svelte';
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { listLineTrips, type TripDetail } from '$lib/api/generated';
@@ -14,11 +14,12 @@
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
   import { Button } from '$lib/ui/button';
-  import { duration, spokenTime } from './time';
+  import { duration } from './time';
   import {
     boarding,
     nextTrip as nextTripOf,
     rideProgress,
+    spokenStop,
     ribbon as ribbonOf,
     timedStops,
     tripPosition,
@@ -51,9 +52,6 @@
     void loadNetwork();
   });
   const now = $derived(clock.now);
-
-  /** Rem per minute of travel: long hops get more room, but rows never overlap (flow layout). */
-  const SCALE = 0.42;
 
   const fromId = $derived(idOf(page.url.searchParams.get('od')));
 
@@ -124,12 +122,13 @@
 
 {#if failure}
   <div class="state">
+    <PageHeader kind="Spoj" icon={TripIcon} title={`Spoj č. ${id}`} />
     <PageState
-      title={failure === 'missing' ? `Spoj ${id} nebyl nalezen` : `Spoj ${id} se nepodařilo načíst`}
+      title={failure === 'missing' ? 'Spoj nebyl nalezen' : 'Spoj se nepodařilo načíst'}
       description={failure === 'missing'
         ? 'Spoj s tímto číslem v jízdním řádu není. Vyberte linku a spoj z jejího jízdního řádu.'
         : undefined}
-      headingLevel={1}
+      headingLevel={2}
       error={failure === 'unavailable'}
       onretry={failure === 'unavailable' ? resource.retry : undefined}
       href={failure === 'missing' ? resolve('/lines') : undefined}
@@ -155,9 +154,9 @@
     {/if}
 
     <PageHeader
-      kind={`Spoj linky ${trip.line.number}`}
+      kind={`Spoj · linka ${trip.line.number}`}
       icon={TripIcon}
-      title={`Spoj ${trip.departure_time} ${trip.origin.name} → ${trip.destination.name}`}
+      title={`${trip.departure_time} ${trip.origin.name} → ${trip.destination.name}`}
       color={trip.line.color}
     >
       {#snippet lead()}<span class="vt-plate" aria-hidden="true"
@@ -186,6 +185,7 @@
               {#if status.tone === 'live'}<span class="live-dot" aria-hidden="true"></span>{/if}
               {status.title}
             </p>
+            {#if status.detail}<p class="status-detail tabular">{status.detail}</p>{/if}
           {/if}
           <!-- Progress from boarding to the terminus, only while the bus is on the road. -->
           {#if progress !== null}
@@ -219,20 +219,39 @@
         <p class="sr-only" aria-live="polite">{vehicleStop}</p>
       </aside>
       <div class="main">
-        {#if hidden > 0}
-          <button type="button" class="earlier" onclick={() => (showEarlier = true)}>
-            <ChevronDown aria-hidden="true" class="size-4" />
-            {czechCount(hidden, 'předchozí zastávka', 'předchozí zastávky', 'předchozích zastávek')}
+        <h2 class="section-title" id="timetable-heading">Jízdní řád spoje</h2>
+        {#if fromId && fromIndex > 0}
+          <button
+            type="button"
+            class="earlier"
+            aria-expanded={showEarlier}
+            aria-controls="trip-timeline"
+            onclick={() => (showEarlier = !showEarlier)}
+          >
+            {#if showEarlier}
+              <ChevronUp aria-hidden="true" class="size-4" />
+              Skrýt předchozí zastávky
+            {:else}
+              <ChevronDown aria-hidden="true" class="size-4" />
+              Zobrazit {czechCount(
+                fromIndex,
+                'předchozí zastávku',
+                'předchozí zastávky',
+                'předchozích zastávek'
+              )}
+            {/if}
           </button>
         {/if}
-
-        <h2 class="section-title">Jízdní řád spoje</h2>
         <p class="cols" aria-hidden="true">
-          <span>Příj. / odj.</span><span>Zastávka</span><span class="r"
-            >{fromIndex > 0 ? 'min. od nástupu' : 'min. od startu'}</span
+          <span>Čas</span><span>Zastávka</span><span class="r"
+            >{fromIndex > 0 ? 'Min. od nástupu' : 'Min. od startu'}</span
           >
         </p>
-        <ol class="timeline" aria-label={`Zastávky spoje směr ${trip.destination.name}`}>
+        <ol
+          id="trip-timeline"
+          class="timeline"
+          aria-label={`Zastávky spoje směr ${trip.destination.name}`}
+        >
           {#each stops.slice(hidden) as stop, index (stop.stop_order)}
             {@const i = index + hidden}
             {@const passed = i < fromIndex}
@@ -240,7 +259,7 @@
             {@const first = i === 0}
             {@const end = i === stops.length - 1}
             {#if stop.crossesMidnight && i > hidden}
-              <li class="midnight" aria-hidden="true"><span>☾ půlnoc · další den</span></li>
+              <li class="midnight" aria-hidden="true"><span>☾ po půlnoci</span></li>
             {/if}
             <li
               class="stop"
@@ -248,14 +267,14 @@
               class:from={isFrom}
               class:terminus={first || end}
               class:dwells={stop.dwell > 0 && !first && !end}
-              style:--gap={`${index === 0 ? 0 : stop.gap * SCALE}rem`}
+              style:--minutes={index === 0 ? 0 : stop.gap}
               style:--i={index}
             >
               {#if vehicle?.kind === 'at' && vehicle.index === i}
                 <span
                   class="vehicle"
                   aria-hidden="true"
-                  style:top={`calc(max(0.75rem, var(--gap)) + ${stop.dwell > 0 && !first && !end ? 2 : 0.75}rem)`}
+                  style:top="calc(max(var(--row-min), var(--gap)) + var(--vehicle-at))"
                 ></span>
               {:else if vehicle?.kind === 'between' && vehicle.index === i - 1}
                 <span
@@ -266,9 +285,13 @@
               {/if}
               <div class="times" aria-hidden="true">
                 <!-- SBB-style: the arrival small on top when the bus waits, the departure bold. -->
-                {#if stop.dwell > 0 && !first && !end}<span class="t-arr">{stop.arrival_time}</span
+                {#if stop.dwell > 0 && !first && !end}<span class="t-arr"
+                    ><small>příj.</small> {stop.arrival_time}</span
                   >{/if}
-                <span class="t">{end ? stop.arrival_time : stop.departure_time}</span>
+                <span class="t"
+                  >{#if stop.dwell > 0 && !first && !end}<small>odj.</small>
+                  {/if}{end ? stop.arrival_time : stop.departure_time}</span
+                >
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
@@ -277,15 +300,7 @@
                 >
                 {#if isFrom}<span class="here">tady nastupujete</span>{/if}
                 {#if end}<span class="end-tag">konečná · příjezd</span>{/if}
-                <span class="sr-only">
-                  {first
-                    ? `odjezd ${spokenTime(stop.departure_time, stop.departure_day_offset)}`
-                    : end
-                      ? `příjezd ${spokenTime(stop.arrival_time, stop.arrival_day_offset)}`
-                      : stop.dwell === 0
-                        ? `příjezd a odjezd ${spokenTime(stop.departure_time, stop.departure_day_offset)}`
-                        : `příjezd ${spokenTime(stop.arrival_time, stop.arrival_day_offset)}, odjezd ${spokenTime(stop.departure_time, stop.departure_day_offset)}, stojí ${stop.dwell} min`}
-                </span>
+                <span class="sr-only">{spokenStop(stop, first, end)}</span>
               </div>
               <!-- Cumulative travel time, from the boarding stop when there is one. -->
               <span class="offset tabular" aria-hidden="true">
@@ -296,7 +311,9 @@
         </ol>
 
         <!-- The end of the trip: where to go next. -->
-        {#if transfers.length || next || lineTrips.error}
+        {#if lineTrips.loading && !lineTrips.data}
+          <div class="onward onward-skeleton" aria-hidden="true"></div>
+        {:else if transfers.length || next || lineTrips.error}
           <section class="onward" aria-labelledby="onward-heading">
             <h2 id="onward-heading" class="section-title">Dál z konečné {last.stop.name}</h2>
             {#if transfers.length}
@@ -516,6 +533,14 @@
     position: relative;
     margin-top: 1.5rem;
     --rail-x: 6.25rem;
+    /* Rem per minute of travel: long hops get more room, but rows never overlap (flow layout). */
+    --scale: 0.42rem;
+    --row-min: 0.75rem;
+    /* Where the vehicle dot sits on a stop it waits at: level with the departure time. */
+    --vehicle-at: var(--row-min);
+  }
+  .dwells {
+    --vehicle-at: 2rem;
   }
   .timeline::before {
     content: '';
@@ -534,7 +559,8 @@
     grid-template-columns: calc(var(--rail-x) - 1.25rem) 2.5rem minmax(0, 1fr) auto;
     grid-template-areas: 'times node body offset';
     align-items: start;
-    padding-top: max(0.75rem, var(--gap));
+    --gap: calc(var(--minutes) * var(--scale));
+    padding-top: max(var(--row-min), var(--gap));
     animation: settle var(--motion-slow) var(--ease-spring-out) both;
     animation-delay: calc(var(--i) * var(--motion-stagger));
   }
@@ -656,29 +682,46 @@
   .passed {
     opacity: 0.45;
   }
-  /* Midnight: a dark night band across the timeline, with the moon on the rail. */
+  /* Midnight: a thin dashed date-change rule with a small label, not a bar. */
   .midnight {
     position: relative;
     z-index: 2;
     display: flex;
-    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
     margin-top: 0.75rem;
-    padding: 0.375rem;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(
-      90deg,
-      transparent,
-      oklch(0.2 0.04 270) 20%,
-      oklch(0.2 0.04 270) 80%,
-      transparent
-    );
+    padding-left: calc(var(--rail-x) + 1.25rem);
+  }
+  .midnight::before,
+  .midnight::after {
+    content: '';
+    flex: 1;
+    border-top: 1px dashed var(--muted-foreground);
+  }
+  .midnight::before {
+    flex: none;
+    width: 1rem;
   }
   .midnight span {
-    color: var(--sign-marker);
+    color: var(--muted-foreground);
     font-size: var(--fs-xs);
-    font-weight: var(--font-display-weight);
-    letter-spacing: var(--tracking-eyebrow);
-    text-transform: uppercase;
+    font-weight: var(--weight-strong);
+  }
+  .t small,
+  .t-arr small {
+    margin-right: 0.125rem;
+    color: var(--muted-foreground);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-strong);
+  }
+  .status-detail {
+    margin-top: 0.25rem;
+    color: var(--board-muted);
+    font-weight: var(--weight-strong);
+  }
+  .onward-skeleton {
+    min-height: 9rem;
+    background: var(--secondary);
   }
 
   .onward {
@@ -775,6 +818,9 @@
     }
     .offset {
       min-width: 3.5rem;
+    }
+    .trip :global(.page-header h1) {
+      font-size: var(--fs-xl);
     }
   }
   @media (prefers-reduced-motion: reduce) {
