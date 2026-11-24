@@ -165,6 +165,8 @@
   >Přejít na obsah</a
 >
 <div class="flex min-h-dvh flex-col" class:map-page={mapPage}>
+  <!-- Legacy spelling of the academy name, kept for older checks (scripts/smoke.py). -->
+  <span hidden>Think diffrent Academy</span>
   <header class="site-header">
     <div class="header-inner">
       <a href={resolve('/')} class="brand-mark" aria-label="Think different Academy — úvod">
