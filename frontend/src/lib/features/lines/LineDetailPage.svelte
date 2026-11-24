@@ -2,14 +2,15 @@
   import BackLink from '$lib/components/BackLink.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { resolve } from '$app/paths';
+  import { linesHref } from '$lib/links';
   import { page } from '$app/state';
   import { ArrowRight, BusFront, ChevronRight, Clock, MapPin, TramFront } from '@lucide/svelte';
   import { getLine, type LineDetail, type Route } from '$lib/api/generated';
   import PageState from '$lib/components/PageState.svelte';
   import LoadingState from '$lib/components/LoadingState.svelte';
   import { goto } from '$app/navigation';
-  import { LINES, busAt, linePath, linesOf } from '$lib/features/network/lines.svelte';
-  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { LINES, busAt, lineDetail, linePath, linesOf } from '$lib/features/network/lines.svelte';
+  import { focusMap } from '$lib/map-focus.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import Isa from './Isa.svelte';
   import LinePlate from '$lib/features/timetable/LinePlate.svelte';
@@ -31,7 +32,8 @@
   $effect(() => {
     const lineId = Number(id);
     void attempt;
-    line = null;
+    // Known from the network load: show it now, the request below refreshes it.
+    line = lineDetail(lineId);
     failure = null;
     if (!Number.isSafeInteger(lineId) || lineId < 1) {
       failure = 'missing';
@@ -162,10 +164,24 @@
 
   function pickStop(stopId: number) {
     boardStop = stopId;
-    // Stacked on phones: bring the timetable into view so the tap visibly does something.
-    if (window.matchMedia('(max-width: 63.99rem)').matches)
-      document.getElementById('schedule-heading')?.scrollIntoView({ block: 'start' });
+    // The timetable sits below the route: bring it into view so the tap visibly does something.
+    document.getElementById('schedule-heading')?.scrollIntoView({ block: 'start' });
   }
+
+  // The map page's big map draws the route and the bus under way on it.
+  $effect(() => {
+    if (!line || !route) return;
+    return focusMap({
+      stops: stopsList() ?? [],
+      focusLines: [line.number],
+      focusStops: route.stops.map((s) => s.id),
+      paths: mapPaths,
+      bus: mapBus?.at ? { ...mapBus, at: mapBus.at } : null,
+      fit: mapPaths[0]?.coords ?? null,
+      selected: boardStop,
+      onselect: (stop) => goto(resolve('/(map)/stops/[id]', { id: String(stop.id) }))
+    });
+  });
 
   /** Other lines at the stop, linked straight to that stop on their own diagram. */
   function transfersAt(stopName: string) {
@@ -193,14 +209,14 @@
       headingLevel={1}
       error={failure === 'unavailable'}
       onretry={failure === 'unavailable' ? () => attempt++ : undefined}
-      href={failure === 'missing' ? resolve('/lines') : undefined}
+      href={failure === 'missing' ? linesHref() : undefined}
       linkLabel="Přehled linek"
     />
   </div>
 {:else if !line}
   <LoadingState label="Načítáme detail linky…" detail />
 {:else}
-  <BackLink href={resolve('/lines')} label="Všechny linky" />
+  <BackLink href={linesHref()} label="Všechny linky" />
   <article
     class="line"
     class:line-cased={isPale(line.color)}
@@ -233,8 +249,8 @@
             {#each line.routes as option (option.id)}
               <a
                 href={option.bound === 'inbound'
-                  ? resolve('/lines/[id]?smer=inbound', { id })
-                  : resolve('/lines/[id]?smer=outbound', { id })}
+                  ? resolve('/(map)/lines/[id]?smer=inbound', { id })
+                  : resolve('/(map)/lines/[id]?smer=outbound', { id })}
                 aria-current={option.id === route.id ? 'page' : undefined}
                 data-sveltekit-replacestate
                 data-sveltekit-noscroll
@@ -282,21 +298,6 @@
               </div>
             {/if}
           </dl>
-          <div class="route-map">
-            <TransitMap
-              compact
-              label={`Mapa linky ${line.number}`}
-              stops={stopsList() ?? []}
-              focusLines={[line.number]}
-              focusStops={route.stops.map((s) => s.id)}
-              paths={mapPaths}
-              bus={mapBus?.at ? { ...mapBus, at: mapBus.at } : null}
-              fit={mapPaths[0]?.coords ?? null}
-              selected={boardStop}
-              legend={false}
-              onselect={(stop) => goto(resolve('/stops/[id]', { id: String(stop.id) }))}
-            />
-          </div>
           <div class="route-head">
             <h2 id="route-heading" class="heading">Trasa linky</h2>
             <span class="leg-head"><Clock size={16} aria-hidden="true" />Jízdní doba</span>
@@ -318,7 +319,7 @@
                 {#if bus && bus.index === index}
                   <a
                     class="bus"
-                    href={resolve('/trips/[id]', { id: String(bus.tripId) })}
+                    href={resolve('/(map)/trips/[id]', { id: String(bus.tripId) })}
                     style:--share={bus.share}
                     aria-label="Spoj, který teď jede v tomto směru"
                     ><BusIllustration stripe={line.color} /></a
@@ -337,7 +338,7 @@
                 {/if}
                 <div class="stop">
                   <span class="stop-main">
-                    <a class="name" href={resolve('/stops/[id]', { id: String(stop.id) })}
+                    <a class="name" href={resolve('/(map)/stops/[id]', { id: String(stop.id) })}
                       >{stop.name}<ChevronRight size={16} aria-hidden="true" /></a
                     >
                     {#if first || last}<span class="sr-only">konečná</span>{/if}
@@ -346,7 +347,7 @@
                         {#each others as other (other.number)}
                           <a
                             class="badge tabular"
-                            href={resolve(`/lines/[id]#stop-${stop.id}`, {
+                            href={resolve(`/(map)/lines/[id]#stop-${stop.id}`, {
                               id: String(other.apiId)
                             })}
                             style:background={other.color}
@@ -369,7 +370,7 @@
                       />{/if}
                   </span>
                   <span class="leg tabular"
-                    >{#if leg !== undefined && !first}+{leg} min<span class="sr-only">
+                    >{#if first}0 min{:else if leg !== undefined}{leg} min<span class="sr-only">
                         od zastávky {route.stops[0]?.name}</span
                       >{/if}</span
                   >
@@ -460,10 +461,6 @@
     border-radius: var(--radius);
     background: var(--card);
   }
-  .route-map {
-    max-width: 44rem;
-    margin-top: 1rem;
-  }
   .infobox div {
     display: grid;
     grid-template-columns: 6rem minmax(0, 1fr);
@@ -505,7 +502,7 @@
     display: grid;
     gap: 0 3rem;
   }
-  @media (min-width: 64rem) {
+  @container (min-width: 64rem) {
     .line-body {
       grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
       align-items: start;
@@ -696,7 +693,7 @@
   .line {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
-  @media (min-width: 64rem) {
+  @container (min-width: 64rem) {
     .line {
       padding-bottom: 0;
     }
@@ -720,7 +717,7 @@
     border-radius: var(--radius);
   }
 
-  @media (max-width: 639px) {
+  @container (max-width: 639px) {
     .directions {
       grid-auto-flow: row;
     }

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { createStop } from './fixtures/stops';
 import { mockBrandAssets } from './fixtures/assets';
@@ -20,6 +20,24 @@ const stops = [
     has_ticket_machine: true
   })
 ];
+
+/** The search menu (Hledat, Ctrl K) holds the map's search text, views and filters. */
+async function openMenu(page: Page) {
+  const menu = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
+  if (!(await menu.isVisible()))
+    await page
+      .getByRole('banner')
+      .getByRole('button', { name: /^Hledat/ })
+      .click();
+  await expect(menu).toBeVisible();
+  return menu;
+}
+async function closeMenu(page: Page) {
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Hledat v aplikaci' })).toBeHidden();
+}
+const searchBox = (page: Page) =>
+  page.getByRole('dialog', { name: 'Hledat v aplikaci' }).getByRole('combobox');
 
 test.beforeEach(async ({ page }) => {
   await mockBrandAssets(page);
@@ -45,12 +63,6 @@ test('lists stops with images and opens a real detail page', async ({ page }, te
   await expect(
     page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
   ).toHaveCount(2);
-  // The transfer stop is preselected; it has no photo.
-  await expect(
-    page
-      .getByRole('article', { name: 'Vybraná zastávka Ada Exchange' })
-      .getByText('Obrázek zastávky není k dispozici')
-  ).toBeVisible();
   await page
     .getByRole('list', { name: 'Seznam zastávek' })
     .getByRole('button', { name: 'Cejl' })
@@ -94,9 +106,9 @@ test('map finder selects stops from the list, keyboard and map', async ({ page }
   await page.goto('/stops');
   const list = page.getByRole('list', { name: 'Seznam zastávek' });
   await expect(list.getByRole('listitem')).toHaveCount(2);
-  // A transfer stop is preselected; its place card shows plain-language amenities.
+  // The map preselects a transfer stop; the list opens a stop's summary only when it is picked.
   const summary = page.getByRole('article', { name: 'Vybraná zastávka Ada Exchange' });
-  await expect(summary.getByText('Jízdenky na místě')).toBeVisible();
+  await expect(summary).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Vybrat zastávku Ada Exchange' })).toHaveAttribute(
     'aria-pressed',
     'true'
@@ -105,39 +117,42 @@ test('map finder selects stops from the list, keyboard and map', async ({ page }
   await list.getByRole('button', { name: 'Cejl' }).click();
   await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
   await expect(page).toHaveURL(/\?stop=12$/);
-  await page.keyboard.press('j');
-  await expect(summary).toBeVisible();
-  await expect(page).toHaveURL(/\?stop=13$/);
+  // Transfer stops lead the list, so Ada Exchange sits above Cejl.
   await page.keyboard.press('k');
+  await expect(summary.getByText('Jízdenky na místě')).toBeVisible();
+  await expect(page).toHaveURL(/\?stop=13$/);
+  await page.keyboard.press('j');
   await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('article', { name: 'Vybraná zastávka Cejl' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Linka A', exact: true }).click();
+  const menu = await openMenu(page);
+  await menu.getByRole('button', { name: 'Linka A', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(1);
   await expect(page).toHaveURL(/line=A/);
-  await page.getByRole('button', { name: 'Linka A', exact: true }).click();
-  await page.getByRole('button', { name: 'Jízdenky na místě', exact: true }).click();
+  await menu.getByRole('button', { name: 'Linka A', exact: true }).click();
+  await menu.getByRole('button', { name: 'Jízdenky na místě', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(1);
-  await page.getByRole('searchbox', { name: 'Hledat zastávku' }).fill('cejl');
+  await searchBox(page).fill('cejl');
   await expect(page.getByRole('heading', { name: 'Takovou zastávku tu nemáme' })).toBeVisible();
+  await closeMenu(page);
   await page.getByRole('button', { name: 'Zobrazit všechny zastávky' }).click();
   await expect(list.getByRole('listitem')).toHaveCount(2);
 
   await page.getByRole('button', { name: 'Vybrat zastávku Ada Exchange' }).click();
   await expect(summary).toBeVisible();
   await expect(page).toHaveURL(/stop=13/);
-  await page.getByRole('link', { name: 'Podrobnosti zastávky' }).click();
-  await expect(page).toHaveURL(/\/stops\/13$/);
+  await summary.getByRole('link', { name: /Více/ }).click();
+  await expect(page).toHaveURL(/\/stops\/13/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Ada Exchange');
 });
 
 test('shows an understandable empty state', async ({ page }) => {
   await page.route('**/api/v1/stops', (route) => route.fulfill({ json: [] }));
   await page.goto('/stops');
-  await expect(page.getByRole('main').getByRole('status')).toContainText(
-    'Zatím tu nejsou žádné zastávky'
-  );
+  await expect(
+    page.getByRole('main').getByRole('status').filter({ hasNotText: 'Status:' })
+  ).toContainText('Zatím tu nejsou žádné zastávky');
   await expect(page.getByRole('list', { name: 'Seznam zastávek' })).toHaveCount(0);
 });
 
@@ -169,7 +184,9 @@ test('shows loading feedback while waiting for the API', async ({ page }) => {
     await route.fulfill({ json: stops });
   });
   await page.goto('/stops');
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Načítáme zastávky…');
+  await expect(
+    page.getByRole('main').getByRole('status').filter({ hasNotText: 'Status:' })
+  ).toHaveText('Načítáme zastávky…');
   release();
   await expect(page.getByRole('link', { name: 'Detail zastávky Cejl' })).toBeVisible();
 });
@@ -228,85 +245,90 @@ test('search ignores accents and filter combinations work from the keyboard', as
     })
   );
   await page.goto('/stops');
-  const search = page.getByRole('searchbox', { name: 'Hledat zastávku' });
   const list = page.getByRole('list', { name: 'Seznam zastávek' });
   await expect(list.getByRole('listitem')).toHaveCount(3);
 
-  await search.focus();
+  const menu = await openMenu(page);
   await page.keyboard.type('ziz');
   await expect(page.getByRole('link', { name: 'Detail zastávky Žižkova' })).toBeVisible();
   await expect(list.getByRole('listitem')).toHaveCount(1);
   await expect(page).toHaveURL(/q=ziz/);
 
-  await search.fill('');
-  const accessible = page.getByRole('button', { name: 'Nástup bez schodů', exact: true });
+  await searchBox(page).fill('');
+  const accessible = menu.getByRole('button', { name: 'Nástup bez schodů', exact: true });
   await accessible.focus();
   await page.keyboard.press('Space');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
   await expect(list.getByRole('listitem')).toHaveCount(2);
 
-  const shelter = page.getByRole('button', { name: 'Střecha nad hlavou', exact: true });
+  const shelter = menu.getByRole('button', { name: 'Střecha nad hlavou', exact: true });
   await shelter.focus();
   await page.keyboard.press('Space');
   await expect(shelter).toHaveAttribute('aria-pressed', 'true');
   await expect(list.getByRole('listitem')).toHaveCount(1);
   await expect(page.getByRole('link', { name: 'Detail zastávky Cejl' })).toBeVisible();
 
-  await search.fill('cejl');
+  await searchBox(page).fill('cejl');
+  await closeMenu(page);
   const detailLink = page.getByRole('link', { name: 'Detail zastávky Cejl' });
   await expect(detailLink).toHaveAttribute('href', /q=cejl/);
   await detailLink.click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
-  await expect(search).toHaveValue('cejl');
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await openMenu(page);
+  await expect(searchBox(page)).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
   await expect(shelter).toHaveAttribute('aria-pressed', 'true');
-  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await closeMenu(page);
 
   await detailLink.click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.goBack();
-  await expect(search).toHaveValue('cejl');
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await openMenu(page);
+  await expect(searchBox(page)).toHaveValue('cejl');
   await expect(accessible).toHaveAttribute('aria-pressed', 'true');
   await expect(shelter).toHaveAttribute('aria-pressed', 'true');
-  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await closeMenu(page);
 
   const reset = page.getByRole('button', { name: 'Zrušit filtry', exact: true });
   await reset.focus();
   await page.keyboard.press('Enter');
   await expect(list.getByRole('listitem')).toHaveCount(3);
-  await expect(search).toHaveValue('');
-  await expect(search).toBeFocused();
+  await expect(page).toHaveURL(/\/stops$/);
+  await openMenu(page);
+  await expect(searchBox(page)).toHaveValue('');
   await expect(accessible).toHaveAttribute('aria-pressed', 'false');
   await expect(shelter).toHaveAttribute('aria-pressed', 'false');
-  await expect(page).toHaveURL(/\/stops$/);
 });
 
 test('deep-linked filters survive reload and detail navigation', async ({ page }) => {
   await page.route('**/api/v1/stops/12', (route) => route.fulfill({ json: stops[0] }));
   await page.goto('/stops?q=cejl&filter=accessible%2Cshelter');
-  const search = page.getByRole('searchbox', { name: 'Hledat zastávku' });
-  const accessible = page.getByRole('button', { name: 'Nástup bez schodů', exact: true });
-  await expect(search).toHaveValue('cejl');
-  await expect(accessible).toHaveAttribute('aria-pressed', 'true');
+  const list = page.getByRole('list', { name: 'Seznam zastávek' });
+  const menu = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
+  const accessible = menu.getByRole('button', { name: 'Nástup bez schodů', exact: true });
+  const check = async () => {
+    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await openMenu(page);
+    await expect(searchBox(page)).toHaveValue('cejl');
+    await expect(accessible).toHaveAttribute('aria-pressed', 'true');
+    await closeMenu(page);
+  };
+  await check();
   await page.reload();
-  await expect(search).toHaveValue('cejl');
-  await expect(accessible).toHaveAttribute('aria-pressed', 'true');
+  await check();
 
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.getByRole('link', { name: 'Všechny zastávky' }).click();
-  await expect(search).toHaveValue('cejl');
-  await expect(accessible).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
-  ).toHaveCount(1);
+  await check();
 
   await page.getByRole('link', { name: 'Detail zastávky Cejl' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávka: Cejl');
   await page.goBack();
-  await expect(search).toHaveValue('cejl');
-  await expect(accessible).toHaveAttribute('aria-pressed', 'true');
+  await check();
 });
 
 test('detail keeps the selected image while validating the stop and removes a stale preview on 404', async ({
@@ -348,7 +370,9 @@ test('unmatched searches can be reset without losing unrelated URL parameters', 
   await expect(page.getByRole('heading', { name: 'Takovou zastávku tu nemáme' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Seznam zastávek' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Zrušit filtry', exact: true }).click();
-  await expect(page.getByRole('searchbox', { name: 'Hledat zastávku' })).toHaveValue('');
+  await openMenu(page);
+  await expect(searchBox(page)).toHaveValue('');
+  await closeMenu(page);
   await expect(
     page.getByRole('list', { name: 'Seznam zastávek' }).getByRole('listitem')
   ).toHaveCount(2);

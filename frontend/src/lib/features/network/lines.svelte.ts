@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { getLine, getLines, type LineDetail, type Route, type Stop } from '$lib/api/generated';
+import { getLine, getLines, type LineDetail, type Route } from '$lib/api/generated';
 import { inkFor } from '$lib/features/lines/line-style';
 import { ROUTE_COORDS, STOP_COORDS, type LngLat } from './routes.geo';
 import { pathThrough, pointAlong } from './map-geometry';
@@ -44,7 +44,16 @@ function outbound(line: LineDetail) {
   return line.routes.find((route) => route.bound === 'outbound') ?? line.routes[0];
 }
 
+/** Full line details from the network load, so a line page can open without waiting. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- filled once with LINES, which is the reactive part.
+const DETAILS = new Map<number, LineDetail>();
+export function lineDetail(id: number): LineDetail | null {
+  return DETAILS.get(id) ?? null;
+}
+
 function apply(details: LineDetail[]) {
+  DETAILS.clear();
+  for (const line of details) DETAILS.set(line.id, line);
   for (const key of Object.keys(LINES)) delete LINES[key];
   const middle = (details.length - 1) / 2;
   details.forEach((line, index) => {
@@ -95,14 +104,6 @@ export function loadNetwork(force = false) {
   return pending;
 }
 
-export function lineByNumber(number: string | null | undefined) {
-  return number ? (LINES[number] ?? null) : null;
-}
-
-export function lineById(id: number) {
-  return Object.values(LINES).find((line) => line.apiId === id) ?? null;
-}
-
 /** Bus-stop positions as [lng, lat] at the kerb of real Dejvice streets. */
 export const POSITIONS: Record<string, LngLat> = STOP_COORDS;
 
@@ -147,21 +148,6 @@ export function neighboursOf(name: string) {
   }
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local lookup, not state.
   return [...new Set(result)];
-}
-
-/** Stops grouped by line in route order, plus any API stop not on a known line. */
-export function routesFrom(stops: Stop[]) {
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local lookup, not state.
-  const byName = new Map(stops.map((stop) => [stop.name, stop]));
-  const routes = LINE_IDS.map((id) => ({
-    ...LINES[id],
-    id,
-    stops: LINES[id].stops.map((name) => byName.get(name)).filter((stop): stop is Stop => !!stop)
-  }));
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local lookup, not state.
-  const known = new Set(LINE_IDS.flatMap((id) => LINES[id].stops));
-  const other = stops.filter((stop) => !known.has(stop.name));
-  return { routes, other };
 }
 
 /** Street path of a line through the named stops, in their order (so direction arrows point right). */

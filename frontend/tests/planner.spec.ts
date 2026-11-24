@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 
 test('lists connections with a transfer and opens the detail', async ({ page }) => {
   await page.route('**/api/v1/connections?*', (r) => r.fulfill({ json: search }));
-  await page.goto('/spojeni?z=9&do=15&cas=07:00');
+  await page.goto('/connections?z=9&do=15&cas=07:00');
 
   await expect(page.getByRole('heading', { level: 2, name: /Odjezd po 07:00/ })).toBeVisible();
   const card = page.locator(`[id="c-${key}-summary"]`);
@@ -49,7 +49,7 @@ test('shows the empty state', async ({ page }) => {
   await page.route('**/api/v1/connections?*', (r) =>
     r.fulfill({ json: { ...search, connections: [] } })
   );
-  await page.goto('/spojeni?z=9&do=15');
+  await page.goto('/connections?z=9&do=15');
   await expect(page.getByRole('heading', { name: 'Žádné spojení' })).toBeVisible();
 });
 
@@ -57,6 +57,6 @@ test('reports a failed search', async ({ page }) => {
   await page.route('**/api/v1/connections?*', (r) =>
     r.fulfill({ status: 500, json: { error: 'boom' } })
   );
-  await page.goto('/spojeni?z=9&do=15');
+  await page.goto('/connections?z=9&do=15');
   await expect(page.getByRole('heading', { name: 'Spojení se nepodařilo vyhledat' })).toBeVisible();
 });

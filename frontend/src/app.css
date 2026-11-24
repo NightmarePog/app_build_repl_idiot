@@ -73,10 +73,10 @@
   --font-display-weight: 800;
   --tracking-display: -0.025em;
   /* Type scale: the only font sizes used in the app. */
-  --fs-2xs: 0.6875rem;
-  --fs-xs: 0.75rem;
-  --fs-sm: 0.875rem;
-  --fs-base: 1rem;
+  --fs-2xs: 0.75rem;
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-base: 1.0625rem;
   --fs-lg: 1.25rem;
   --fs-xl: 1.625rem;
   --fs-2xl: 2rem;
@@ -174,6 +174,9 @@
 
 @theme inline {
   --text-2xs: var(--fs-2xs);
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-base: var(--fs-base);
   --text-h2: var(--fs-h2);
   --text-h1: var(--fs-h1);
   --font-sans: 'Dosis', sans-serif;
@@ -388,12 +391,6 @@ html {
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
     color: var(--eyebrow);
-  }
-  .page-title {
-    font-size: var(--fs-h1);
-    font-weight: var(--font-display-weight);
-    letter-spacing: var(--tracking-display);
-    line-height: var(--lh-tight);
   }
 }
 

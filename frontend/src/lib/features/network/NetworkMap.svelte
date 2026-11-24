@@ -99,9 +99,17 @@
 
   const PITCH = 45;
   const BEARING = -18;
+  /**
+   * Tilt for framing a route or the campus. A tall, narrow map (a phone) at full tilt shows half a
+   * screen of empty sky above the route, so it tilts less there.
+   */
+  function pitchFor() {
+    return typeof window !== 'undefined' && matchMedia('(max-width: 767px)').matches ? 28 : PITCH;
+  }
   const PADDING = { top: 56, bottom: 48, left: 40, right: 40 };
   const DRIFT_DEG_PER_S = 2;
-  const FIT_PADDING = { top: 64, bottom: 36, left: 72, right: 72 };
+  // Wide enough at the sides for an end stop's name label, which is centred on its pin.
+  const FIT_PADDING = { top: 64, bottom: 36, left: 100, right: 100 };
   const COOPERATIVE_TEXT = {
     'CooperativeGesturesHandler.WindowsHelpText': 'Mapu přiblížíte kolečkem se stisknutým Ctrl',
     'CooperativeGesturesHandler.MacHelpText': 'Mapu přiblížíte kolečkem se stisknutým ⌘',
@@ -552,9 +560,10 @@
             cooperativeGestures: untrack(() => cooperative),
             locale: COOPERATIVE_TEXT,
             maxBounds: MAX_BOUNDS,
-            pitch: PITCH,
+            pitch: pitchFor(),
             bearing: BEARING,
-            minZoom: 14,
+            // Small embedded maps need one more level out to fit a whole route with its end labels.
+            minZoom: untrack(() => cooperative) ? 13 : 14,
             maxZoom: 19,
             maxPitch: 65,
             interactive: live,
@@ -693,14 +702,23 @@
 
   // Camera: fly to the selected stop, back to the whole campus when cleared.
   let lastCamera: number | null | undefined = undefined;
+  /** Whether the previous camera state was a detail page's framing. */
+  let wasFramed = false;
   $effect(() => {
     const m = map;
     const id = selected;
+    const framed = !!fit;
     if (!m || !focus) return;
     untrack(() => {
+      const leaving = wasFramed && !framed;
+      wasFramed = framed;
       if (id === lastCamera) return;
       const first = lastCamera === undefined;
       lastCamera = id;
+      // A detail page frames its own points (the fit effect below); two moves would fight.
+      if (framed && !first) return;
+      // Leaving a detail: stay where the camera is instead of diving to a stop nobody picked.
+      if (leaving) return;
       const stop = stops.find((item) => item.id === id);
       const instant = prefersReducedMotion();
       if (stop && POSITIONS[stop.name]) {
@@ -716,7 +734,7 @@
       } else if (!first) {
         m.fitBounds(BOUNDS, {
           padding: 24,
-          pitch: PITCH,
+          pitch: pitchFor(),
           bearing: BEARING,
           duration: instant ? 0 : 1000
         });
@@ -760,6 +778,7 @@
   $effect(() => {
     const m = map;
     const key = JSON.stringify(fit);
+    if (!fit) lastFit = undefined;
     if (!m || !fit) return;
     untrack(() => {
       if (key === lastFit) return;
@@ -769,7 +788,7 @@
         m.fitBounds(bounds, {
           padding: fitPadding(),
           maxZoom: 16.5,
-          pitch: PITCH,
+          pitch: pitchFor(),
           bearing: BEARING,
           duration: prefersReducedMotion() ? 0 : 800
         });
@@ -783,7 +802,7 @@
       map.fitBounds(bounds, {
         padding: fitPadding(),
         maxZoom: 16.5,
-        pitch: PITCH,
+        pitch: pitchFor(),
         bearing: BEARING,
         duration: 0
       });
@@ -1155,6 +1174,12 @@
   }
   :global(.dark) .network-map :global(.maplibregl-ctrl-icon) {
     filter: invert(1);
+  }
+  /* Phones: pinch zooms and two fingers tilt; the buttons would only sit under the sheet. */
+  @media (max-width: 767px) {
+    .network-map :global(.maplibregl-ctrl-group) {
+      display: none;
+    }
   }
   @media (pointer: coarse) {
     .network-map :global(.stop-pin) {

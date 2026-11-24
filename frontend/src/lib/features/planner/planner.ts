@@ -7,7 +7,7 @@ export * from './planner-core';
 
 /** The planner URL; a null time means "now". */
 export function plannerHref(query: Partial<Query>, detail?: string | null): ResolvedPathname {
-  return withQuery(resolve('/spojeni'), {
+  return withQuery(resolve('/connections'), {
     z: query.from,
     do: query.to,
     cas: query.time,

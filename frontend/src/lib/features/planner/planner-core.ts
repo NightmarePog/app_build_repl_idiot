@@ -2,7 +2,7 @@ import type { Connection, ConnectionLeg } from '$lib/api/generated';
 
 export type Mode = 'departure' | 'arrival';
 
-/** A search as it lives in the URL: /spojeni?z=2&do=11&cas=07:00&podle=prijezd. */
+/** A search as it lives in the URL: /connections?z=2&do=11&cas=07:00&podle=prijezd. */
 export type Query = { from: number | null; to: number | null; time: string | null; mode: Mode };
 
 const TIME = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;

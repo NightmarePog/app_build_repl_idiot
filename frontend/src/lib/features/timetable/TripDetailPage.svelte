@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { linesHref } from '$lib/links';
   import { page } from '$app/state';
   import {
     ArrowRight,
@@ -21,7 +22,7 @@
   import { inkFor, isPale } from '$lib/features/lines/line-style';
   import { goto } from '$app/navigation';
   import { LINES, busAt, linePath, linesOf, loadNetwork } from '$lib/features/network/lines.svelte';
-  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { focusMap } from '$lib/map-focus.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import LinePlate from './LinePlate.svelte';
   import { clock } from './clock.svelte';
@@ -36,7 +37,7 @@
     tripPosition,
     tripStatus
   } from './trip-position';
-  import { lineDirectionHref, tripDetail } from './trips';
+  import { knownTrip, lineDirectionHref, tripDetail } from './trips';
 
   let { id }: { id: string } = $props();
 
@@ -55,7 +56,7 @@
     },
     () => id
   );
-  const trip = $derived(resource.data);
+  const trip = $derived(resource.data ?? knownTrip(idOf(id)));
   const failure = $derived(resource.error);
 
   /** The line's trips, only to tell whether this is the first or last service of the day. */
@@ -165,6 +166,23 @@
     })
   );
 
+  // The map page's big map shows this ride and where the bus is now.
+  $effect(() => {
+    if (!trip || !board || !alight) return;
+    return focusMap({
+      stops: stopsList() ?? [],
+      focusLines: [trip.line.number],
+      focusStops: stops.slice(part.from, part.to + 1).map((s) => s.stop.id),
+      paths: mapPaths,
+      marks: { [board.stop.id]: 'board', [alight.stop.id]: 'alight' },
+      bus: busPoint
+        ? { at: busPoint, color: trip.line.color, label: vehicleStop || 'Poloha spoje' }
+        : null,
+      fit: mine,
+      onselect: (stop) => goto(resolve('/(map)/stops/[id]', { id: String(stop.id) }))
+    });
+  });
+
   function lineHref(trip: TripDetail) {
     return lineDirectionHref(trip.line.id, trip.direction);
   }
@@ -189,7 +207,7 @@
       headingLevel={2}
       error={failure === 'unavailable'}
       onretry={failure === 'unavailable' ? resource.retry : undefined}
-      href={failure === 'missing' ? resolve('/lines') : undefined}
+      href={failure === 'missing' ? linesHref() : undefined}
       linkLabel="Přehled linek"
     />
   </div>
@@ -292,7 +310,7 @@
               </div>
               <span class="node" aria-hidden="true"></span>
               <div class="body">
-                <a class="name" href={resolve('/stops/[id]', { id: String(stop.stop.id) })}
+                <a class="name" href={resolve('/(map)/stops/[id]', { id: String(stop.stop.id) })}
                   >{stop.stop.name}<ChevronRight
                     aria-hidden="true"
                     class="name-chevron size-4"
@@ -300,7 +318,7 @@
                 >
                 {#each otherLines(stop.stop.name) as other (other.number)}<a
                     class="stop-line"
-                    href={resolve('/lines/[id]', { id: String(other.apiId) })}
+                    href={resolve('/(map)/lines/[id]', { id: String(other.apiId) })}
                     aria-label={`Přestup na linku ${other.number}`}
                     ><LinePlate number={other.number} color={other.color} size="sm" /></a
                   >{/each}
@@ -325,23 +343,6 @@
         </ol>
       </div>
 
-      <div class="trip-map">
-        <TransitMap
-          compact
-          label="Mapa spoje"
-          stops={stopsList() ?? []}
-          focusLines={[trip.line.number]}
-          focusStops={stops.slice(part.from, part.to + 1).map((s) => s.stop.id)}
-          paths={mapPaths}
-          marks={{ [board.stop.id]: 'board', [alight.stop.id]: 'alight' }}
-          bus={busPoint
-            ? { at: busPoint, color: trip.line.color, label: vehicleStop || 'Poloha spoje' }
-            : null}
-          fit={mine}
-          legend={false}
-          onselect={(stop) => goto(resolve('/stops/[id]', { id: String(stop.id) }))}
-        />
-      </div>
       <aside class="infobox" aria-label="Další cesta">
         <a class="change-link" href={lineHref(trip)}>
           <LinePlate number={trip.line.number} color={trip.line.color} />
@@ -354,7 +355,10 @@
             <ul class="change">
               {#each transfers as other (other.number)}
                 <li>
-                  <a href={resolve('/lines/[id]', { id: String(other.apiId) })} class="change-link">
+                  <a
+                    href={resolve('/(map)/lines/[id]', { id: String(other.apiId) })}
+                    class="change-link"
+                  >
                     <LinePlate number={other.number} color={other.color} />
                     <span>{other.name}</span>
                     <ArrowRight aria-hidden="true" class="size-4" />
@@ -445,32 +449,6 @@
     display: grid;
     gap: 2rem;
     margin-top: 0.5rem;
-  }
-  @media (min-width: 960px) {
-    .trip-grid {
-      grid-template-columns: minmax(0, 1fr) 22rem;
-      grid-template-rows: auto 1fr;
-      align-items: start;
-    }
-    .main {
-      grid-row: 1 / 3;
-    }
-    .trip-map {
-      grid-column: 2;
-      grid-row: 1;
-    }
-    .infobox {
-      grid-column: 2;
-      grid-row: 2;
-      position: sticky;
-      top: calc(var(--header-h, 4rem) + 1rem);
-    }
-  }
-  @media (max-width: 959px) {
-    .trip-map {
-      order: -1;
-      --map-ratio: 16 / 10;
-    }
   }
   /* Countdown is the one thing to read first: filled in the line colour, larger. */
   .meta-row .countdown {
@@ -711,7 +689,7 @@
       box-shadow: 0 0 0 10px transparent;
     }
   }
-  @media (max-width: 639px) {
+  @container (max-width: 639px) {
     .trip :global(.page-header h1) {
       font-size: var(--fs-xl);
     }

@@ -33,7 +33,7 @@ export function lineDirectionHref(
   bound: 'outbound' | 'inbound',
   stopId?: number
 ): ResolvedPathname {
-  const path = withQuery(resolve('/lines/[id]', { id: String(lineId) }), {
+  const path = withQuery(resolve('/(map)/lines/[id]', { id: String(lineId) }), {
     smer: bound === 'inbound' ? 'inbound' : null
   });
   return withHash(path, stopId === undefined ? null : `stop-${stopId}`);
@@ -44,10 +44,22 @@ export function withSearch(path: ResolvedPathname, search: string): ResolvedPath
   return `${path}${search}` as ResolvedPathname;
 }
 
-/** One label per destination, shared by the header, tab bar, footer and command palette. */
-export const NAV_LABELS = {
-  home: 'Úvod',
-  connections: 'Spojení',
-  stops: 'Zastávky',
-  lines: 'Linky'
-} as const;
+/** The line list: the map page's line view. */
+export function linesHref(): ResolvedPathname {
+  return resolve('/lines');
+}
+
+/**
+ * Paths that are views of the one map page (lists, the planner, and stop/line/trip details in its
+ * panel); moving between them is not a page change.
+ */
+const MAP_VIEW = /^\/(?:(?:stops|lines|connections)(?:\/[^/]+)?|trips\/[^/]+)?\/?$/;
+export function isMapView(pathname: string | undefined) {
+  return pathname !== undefined && MAP_VIEW.test(pathname);
+}
+
+/** A stop, line or trip page: shown in the map panel instead of a list. */
+const DETAIL = /^\/(?:stops|lines|trips)\/[^/]+\/?$/;
+export function isDetailView(pathname: string | undefined) {
+  return pathname !== undefined && DETAIL.test(pathname);
+}

@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ArrowDownUp, Clock3, Search } from '@lucide/svelte';
+  import { ArrowDownUp, Clock3, MapPin, Search } from '@lucide/svelte';
   import { Button } from '$lib/ui/button';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import { loadNetwork } from '$lib/features/network/lines.svelte';
@@ -14,8 +14,15 @@
   let {
     query = { from: null, to: null, time: null, mode: 'departure' },
     compact = false,
-    headingId
-  }: { query?: Query; compact?: boolean; headingId?: string } = $props();
+    headingId,
+    onchange
+  }: {
+    query?: Query;
+    compact?: boolean;
+    headingId?: string;
+    /** The stops as picked right now, before searching: the map follows them live. */
+    onchange?: (picked: { from: number | null; to: number | null }) => void;
+  } = $props();
 
   let from = $state<number | null>(untrack(() => query.from));
   let to = $state<number | null>(untrack(() => query.to));
@@ -34,6 +41,8 @@
     errors = {};
   });
 
+  $effect(() => onchange?.({ from, to }));
+
   $effect(() => {
     void loadStops();
     void loadNetwork();
@@ -43,8 +52,11 @@
     [...(stopsList() ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
   );
 
+  /** The swap button turns half a turn per press, always the same way. */
+  let turns = $state(0);
   function swap() {
     [from, to] = [to, from];
+    turns += 1;
     errors = {};
   }
 
@@ -53,6 +65,15 @@
     mode = 'departure';
     errors.time = undefined;
   }
+
+  /** "+15 min", "+1 h": moves the chosen time (or now), wrapping past midnight. */
+  function later(minutes: number) {
+    const picked = normalizeTime(time) ?? clock(nowMinutes());
+    const [h, m] = picked.split(':').map(Number);
+    time = clock((((h * 60 + m + minutes) % 1440) + 1440) % 1440);
+    errors.time = undefined;
+  }
+  const isNow = $derived(mode === 'departure' && normalizeTime(time) === clock(nowMinutes()));
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -77,52 +98,64 @@
 
 <form
   class="planner"
-  class:compact
   method="GET"
-  action={resolve('/spojeni')}
+  action={resolve('/connections')}
   onsubmit={submit}
   aria-labelledby={headingId}
   novalidate
 >
-  <div class="places">
-    <StopPicker
-      id={`${idBase}-from`}
-      name="z"
-      label="Odkud"
-      placeholder="Výchozí zastávka"
-      {stops}
-      bind:value={from}
-      error={errors.from}
-      onpick={() => {
-        errors.from = undefined;
-        if (to === null) toPicker?.focus();
-      }}
-    />
+  <!-- Route card: start ring, dashed rail, destination pin; swap sits on the seam. -->
+  <div class="route" class:invalid={errors.from || errors.to}>
+    <div class="rail" aria-hidden="true">
+      <span class="start"></span>
+      <span class="dash"></span>
+      <MapPin class="end" size={18} strokeWidth={2.5} />
+    </div>
+    <div class="fields">
+      <StopPicker
+        id={`${idBase}-from`}
+        name="z"
+        label="Odkud"
+        placeholder="Výchozí zastávka"
+        inline
+        {stops}
+        bind:value={from}
+        error={errors.from}
+        onpick={() => {
+          errors.from = undefined;
+          if (to === null) toPicker?.focus();
+        }}
+      />
+      <div class="seam"></div>
+      <StopPicker
+        bind:this={toPicker}
+        id={`${idBase}-to`}
+        name="do"
+        label="Kam"
+        placeholder="Cílová zastávka"
+        inline
+        {stops}
+        bind:value={to}
+        error={errors.to}
+        onpick={() => (errors.to = undefined)}
+      />
+    </div>
     <button
       type="button"
       class="swap"
       onclick={swap}
       aria-label="Prohodit odkud a kam"
       title="Prohodit odkud a kam"
+      style:rotate={`${turns * 180}deg`}
     >
-      <ArrowDownUp class="size-5" aria-hidden="true" />
+      <ArrowDownUp size={18} aria-hidden="true" />
     </button>
-    <StopPicker
-      bind:this={toPicker}
-      id={`${idBase}-to`}
-      name="do"
-      label="Kam"
-      placeholder="Cílová zastávka"
-      {stops}
-      bind:value={to}
-      error={errors.to}
-      onpick={() => (errors.to = undefined)}
-    />
   </div>
 
   <div class="when">
     <fieldset class="mode">
       <legend class="sr-only">Čas platí pro</legend>
+      <span class="mode-pill" class:arrival={mode === 'arrival'} aria-hidden="true"></span>
       <label class:checked={mode === 'departure'}>
         <input type="radio" name="podle" value="departure" bind:group={mode} />
         <span>Odjezd</span>
@@ -132,9 +165,9 @@
         <span>Příjezd</span>
       </label>
     </fieldset>
-    <label class="time">
+    <label class="time" class:invalid={!!errors.time}>
       <span class="sr-only">Čas {mode === 'arrival' ? 'příjezdu' : 'odjezdu'}</span>
-      <Clock3 class="size-4" aria-hidden="true" />
+      <Clock3 size={16} aria-hidden="true" />
       <input
         id={`${idBase}-time`}
         type="text"
@@ -150,11 +183,15 @@
         oninput={() => (errors.time = undefined)}
       />
     </label>
-    <Button type="button" variant="outline" class="now" onclick={now}>Teď</Button>
-    {#if errors.time}
-      <span id={`${idBase}-time-error`} class="time-error" role="alert">{errors.time}</span>
-    {/if}
   </div>
+  <div class="chips" role="group" aria-label="Rychlá volba času">
+    <button type="button" class="chip" aria-pressed={isNow} onclick={now}>Teď</button>
+    <button type="button" class="chip" onclick={() => later(15)}>+15 min</button>
+    <button type="button" class="chip" onclick={() => later(60)}>+1 h</button>
+  </div>
+  {#if errors.time}
+    <p id={`${idBase}-time-error`} class="time-error" role="alert">{errors.time}</p>
+  {/if}
 
   <Button type="submit" size="lg" class="submit">
     <Search aria-hidden="true" /> Vyhledat spojení
@@ -164,96 +201,163 @@
 <style>
   .planner {
     display: grid;
-    gap: 1rem;
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-    box-shadow: var(--shadow-sm);
-  }
-  .places {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: start;
     gap: 0.75rem;
   }
+
+  /* --- Route card --- */
+  .route {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) + 2px);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    transition:
+      border-color var(--motion-fast) var(--ease-out),
+      box-shadow var(--motion-fast) var(--ease-out);
+  }
+  .route:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 22%, transparent);
+  }
+  .route.invalid {
+    border-color: var(--destructive);
+  }
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.6rem 0 1.45rem 0.75rem;
+  }
+  .start {
+    flex: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2.5px solid var(--foreground);
+    border-radius: 50%;
+  }
+  .dash {
+    flex: 1;
+    width: 0;
+    margin: 0.3rem 0;
+    border-left: 2px dashed var(--muted-foreground);
+  }
+  .rail :global(.end) {
+    flex: none;
+    color: var(--primary);
+  }
+  /* The right edge is the swap button's column: fields, clear buttons and lists end before it. */
+  .fields {
+    display: grid;
+    min-width: 0;
+    margin-right: 3.5rem;
+  }
+  .seam {
+    height: 1px;
+    background: var(--border);
+  }
   .swap {
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
     display: grid;
     place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    margin-top: 1.5rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-top: -1.25rem;
+    border: 1px solid var(--input);
+    border-radius: 50%;
     background: var(--background);
     color: var(--foreground);
+    box-shadow: var(--shadow-sm);
     cursor: pointer;
-    transition: transform var(--motion-normal) var(--ease-spring-out);
-  }
-  .swap :global(svg) {
-    transform: rotate(90deg);
+    transition:
+      rotate var(--motion-slow) var(--ease-spring-out, var(--ease-out)),
+      border-color var(--motion-fast) var(--ease-out),
+      background-color var(--motion-fast) var(--ease-out);
   }
   .swap:hover {
-    border-color: var(--input);
-  }
-  .swap:active {
-    transform: rotate(180deg);
+    border-color: var(--ring);
+    background: var(--muted);
   }
   .swap:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+
+  /* --- When --- */
   .when {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
   }
   .mode {
-    display: inline-flex;
-    padding: 0.2rem;
-    border: 1px solid var(--border);
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0.25rem;
     border-radius: var(--radius);
     background: var(--muted);
   }
+  .mode-pill {
+    position: absolute;
+    inset: 0.25rem auto 0.25rem 0.25rem;
+    width: calc(50% - 0.25rem);
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--background);
+    box-shadow: var(--shadow-sm);
+    transition: translate var(--motion-normal) var(--ease-out);
+  }
+  .mode-pill.arrival {
+    translate: 100% 0;
+  }
   .mode label {
     position: relative;
-    display: inline-flex;
-    align-items: center;
+    display: grid;
+    place-items: center;
     min-height: 2.5rem;
-    padding: 0 0.875rem;
-    border-radius: calc(var(--radius) - 2px);
+    padding: 0 0.75rem;
     color: var(--muted-foreground);
     font-weight: var(--weight-strong);
     cursor: pointer;
+    transition: color var(--motion-fast) var(--ease-out);
   }
   .mode label.checked {
-    background: var(--background);
     color: var(--foreground);
-    box-shadow: var(--shadow-sm);
   }
   .mode input {
     position: absolute;
-    opacity: 0;
     inset: 0;
+    opacity: 0;
     cursor: pointer;
   }
   .mode label:has(input:focus-visible) {
+    border-radius: calc(var(--radius) - 2px);
     outline: 2px solid var(--ring);
-    outline-offset: 1px;
   }
   .time {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    min-height: 2.75rem;
-    padding: 0 0.75rem;
+    min-height: 3rem;
+    padding: 0 0.875rem;
     border: 1px solid var(--input);
     border-radius: var(--radius);
-    background: var(--background);
+    background: var(--card);
     color: var(--muted-foreground);
+    cursor: text;
+    transition: border-color var(--motion-fast) var(--ease-out);
+  }
+  .time:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 22%, transparent);
+  }
+  .time.invalid {
+    border-color: var(--destructive);
   }
   .time input {
+    width: 4.5ch;
     border: 0;
     background: transparent;
     color: var(--foreground);
@@ -262,86 +366,56 @@
     font-weight: var(--weight-strong);
     font-variant-numeric: tabular-nums;
   }
-  .time:focus-within {
-    outline: 2px solid var(--ring);
-    outline-offset: 1px;
-  }
   .time input:focus {
     outline: none;
   }
-  .when :global(.now) {
-    min-height: 2.75rem;
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
   }
-  .time input {
-    width: 4.5ch;
+  .chip {
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out),
+      color var(--motion-fast) var(--ease-out);
+  }
+  .chip:hover {
+    border-color: var(--input);
+    color: var(--foreground);
+  }
+  .chip[aria-pressed='true'] {
+    border-color: color-mix(in oklch, var(--primary) 45%, transparent);
+    background: color-mix(in oklch, var(--primary) 14%, transparent);
+    color: var(--foreground);
+  }
+  .chip:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .time-error {
-    flex-basis: 100%;
     color: var(--destructive);
     font-size: var(--fs-sm);
+    font-weight: var(--weight-strong);
   }
   .planner :global(.submit) {
-    justify-self: start;
+    width: 100%;
+    min-height: 3rem;
+    margin-top: 0.25rem;
   }
-  @media (max-width: 639px) {
-    .planner {
-      padding: 1rem;
+  @media (prefers-reduced-motion: reduce) {
+    .swap,
+    .mode-pill {
+      transition: none;
     }
-    .places {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'from swap' 'to swap';
-      column-gap: 0.5rem;
-    }
-    .places > :global(:first-child) {
-      grid-area: from;
-    }
-    .places > :global(:last-child) {
-      grid-area: to;
-    }
-    .swap {
-      grid-area: swap;
-      align-self: center;
-      margin-top: 1.25rem;
-    }
-    .swap :global(svg) {
-      transform: none;
-    }
-    .planner :global(.submit) {
-      justify-self: stretch;
-    }
-    .when {
-      gap: 0.375rem;
-    }
-    .mode label {
-      padding: 0 0.5rem;
-    }
-    .time {
-      padding: 0 0.5rem;
-    }
-    .when :global(.now) {
-      padding-inline: 0.625rem;
-    }
-  }
-  .compact {
-    padding: 1rem;
-  }
-  .compact .places {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'from swap' 'to swap';
-    column-gap: 0.5rem;
-  }
-  .compact .places > :global(:first-child) {
-    grid-area: from;
-  }
-  .compact .places > :global(:last-child) {
-    grid-area: to;
-  }
-  .compact .swap {
-    grid-area: swap;
-    align-self: center;
-    margin-top: 1.25rem;
-  }
-  .compact .swap :global(svg) {
-    transform: none;
   }
 </style>

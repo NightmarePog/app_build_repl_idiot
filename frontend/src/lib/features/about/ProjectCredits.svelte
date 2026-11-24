@@ -5,6 +5,8 @@
   let teamError = $state(false);
 
   let status = $state('ověřujeme…');
+  /** The assignment's exact wording: the health response is shown as "Status: OK". */
+  const DOWN = 'nedostupné';
 
   onMount(() => {
     const controller = new AbortController();
@@ -18,9 +20,9 @@
           throwOnError: true
         });
         // Anything but the documented "ok" means the API is not healthy.
-        status = data.status === 'ok' ? 'v provozu' : 'nedostupná';
+        status = data.status === 'ok' ? 'OK' : DOWN;
       } catch {
-        status = 'nedostupná';
+        status = DOWN;
       }
     }
 
@@ -56,8 +58,8 @@
       <p>Načítáme údaje o týmu…</p>
     {/if}
   </div>
-  <p role="status" class="system-status" class:down={status === 'nedostupná'}>
-    <span class="dot" aria-hidden="true"></span>Data jízdních řádů: {status}
+  <p role="status" class="system-status" class:down={status === DOWN}>
+    <span class="dot" aria-hidden="true"></span>Status: {status}
   </p>
 </div>
 

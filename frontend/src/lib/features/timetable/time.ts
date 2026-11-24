@@ -55,8 +55,6 @@ export function dayLabel(dayOffset: number) {
   return dayOffset === 1 ? 'po půlnoci' : dayOffset > 1 ? `+${dayOffset} dny` : '';
 }
 
-export const DIRECTION_LABEL = { outbound: 'tam', inbound: 'zpět' } as const;
-
 /** Relative time for any distance: "odjíždí", "za 12 min", "za 2 h 35 min". */
 export function relative(minutes: number | null) {
   if (minutes === null) return null;

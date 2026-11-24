@@ -8,6 +8,8 @@
     href: ResolvedPathname;
     /** Shown when the query is empty. */
     suggested?: boolean;
+    /** Always listed first, whatever the query (e.g. a parsed "from → to" search). */
+    pinned?: boolean;
   };
 
   /** Diacritics- and case-insensitive form used for matching. */
@@ -55,7 +57,10 @@
     items,
     onopen,
     onchoose,
-    icon
+    icon,
+    tools,
+    initialQuery = '',
+    onquery
   }: {
     open?: boolean;
     items: PaletteItem[];
@@ -64,6 +69,12 @@
     onchoose?: (item: PaletteItem) => void;
     /** Leading visual for a result (line badges, page icon). Decorative. */
     icon?: Snippet<[item: PaletteItem]>;
+    /** Extra controls under the search field, e.g. the map's view switch and filters. */
+    tools?: Snippet;
+    /** Text the field starts with when it opens (the map keeps its current search). */
+    initialQuery?: string;
+    /** Called as the text changes, so a page can filter its own list with it. */
+    onquery?: (query: string) => void;
   } = $props();
 
   let dialog: HTMLDialogElement | undefined = $state();
@@ -73,13 +84,17 @@
   let returnFocus: HTMLElement | null = null;
 
   const results = $derived.by(() => {
-    if (!query.trim()) return items.filter((item) => item.suggested);
-    return items
+    const pinned = items.filter((item) => item.pinned);
+    if (!query.trim())
+      return [...pinned, ...items.filter((item) => item.suggested && !item.pinned)];
+    const found = items
+      .filter((item) => !item.pinned)
       .map((item) => ({ item, score: fuzzyScore(`${item.label} ${item.sub}`, query) }))
       .filter((entry): entry is { item: PaletteItem; score: number } => entry.score !== null)
       .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label, 'cs'))
       .slice(0, 12)
       .map((entry) => entry.item);
+    return [...pinned, ...found];
   });
 
   $effect(() => {
@@ -91,7 +106,7 @@
     if (!dialog) return;
     if (open && !dialog.open) {
       returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      query = '';
+      query = initialQuery;
       onopen?.();
       dialog.showModal();
       void tick().then(() => input?.focus());
@@ -118,12 +133,28 @@
     open = false;
   }
 
+  /** ← → move between the options of one tool group (views, lines, amenities). */
+  function moveInGroup(event: KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    const group = target.closest('.palette-tools [role="group"], .palette-tools nav');
+    if (!group || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return false;
+    const options = [...group.querySelectorAll<HTMLElement>('button, a[href]')];
+    const index = options.indexOf(target.closest('button, a[href]') as HTMLElement);
+    if (index < 0) return false;
+    event.preventDefault();
+    const step = event.key === 'ArrowRight' ? 1 : -1;
+    options[(index + step + options.length) % options.length].focus();
+    return true;
+  }
+
   async function onkeydown(event: KeyboardEvent) {
+    if (moveInGroup(event)) return;
     const count = results.length;
-    if (event.key === 'ArrowDown' && count) {
+    const inSearch = event.target === input;
+    if (event.key === 'ArrowDown' && count && inSearch) {
       event.preventDefault();
       active = (active + 1) % count;
-    } else if (event.key === 'ArrowUp' && count) {
+    } else if (event.key === 'ArrowUp' && count && inSearch) {
       event.preventDefault();
       active = (active - 1 + count) % count;
     } else if (event.key === 'Enter' && event.target === input && results[active]) {
@@ -176,6 +207,7 @@
       <input
         bind:this={input}
         bind:value={query}
+        oninput={() => onquery?.(query)}
         type="text"
         role="combobox"
         aria-expanded="true"
@@ -190,6 +222,7 @@
       <!-- Touch screens have no Escape key: a real close button instead of the hint. -->
       <button type="button" class="palette-close" onclick={() => (open = false)}>Zavřít</button>
     </label>
+    {#if tools}<div class="palette-tools">{@render tools()}</div>{/if}
     {#if results.length}
       <ul id="palette-results" role="listbox" aria-label="Výsledky">
         {#each results as item, index (item.key)}
@@ -223,6 +256,11 @@
     {/if}
     <p class="palette-hints" aria-hidden="true">
       <span><kbd>↑</kbd><kbd>↓</kbd> výběr</span>
+      {#if tools}
+        <span><kbd>Tab</kbd> filtry</span>
+        <span><kbd>←</kbd><kbd>→</kbd> volba</span>
+        <span><kbd>Alt</kbd><kbd>1–4</kbd> zobrazení</span>
+      {/if}
       <span><kbd>↵</kbd> otevřít</span>
       <span><kbd>Esc</kbd> zavřít</span>
     </p>
@@ -282,6 +320,12 @@
     .palette::backdrop {
       animation: none;
     }
+  }
+  .palette-tools {
+    display: grid;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
   }
   .palette-inner {
     display: flex;

@@ -1,5 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import { X } from '@lucide/svelte';
+  import { motionMs } from '$lib/motion';
   import type { Stop } from '$lib/api/generated';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { linesOf } from '$lib/features/network/lines.svelte';
@@ -18,6 +21,7 @@
     stops,
     value = $bindable(null),
     error = null,
+    inline = false,
     onpick
   }: {
     id: string;
@@ -27,6 +31,8 @@
     stops: Stop[];
     value?: number | null;
     error?: string | null;
+    /** Borderless, caption inside the field: for a form that draws the box (the route card). */
+    inline?: boolean;
     onpick?: () => void;
   } = $props();
 
@@ -98,12 +104,19 @@
     document.getElementById(`${id}-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
   });
 
+  function clear() {
+    value = null;
+    text = '';
+    typed = false;
+    input?.focus();
+  }
+
   export function focus() {
     input?.focus();
   }
 </script>
 
-<div class="picker" class:invalid={!!error}>
+<div class="picker" class:inline class:invalid={!!error}>
   <label for={id} class="picker-label">{label}</label>
   <input
     bind:this={input}
@@ -143,8 +156,24 @@
     onkeydown={keydown}
   />
   <input type="hidden" {name} value={value ?? ''} />
+  {#if inline && text}
+    <button
+      type="button"
+      class="clear"
+      aria-label={`Vymazat: ${label}`}
+      onpointerdown={(event) => event.preventDefault()}
+      onclick={clear}><X size={16} aria-hidden="true" /></button
+    >
+  {/if}
   {#if open}
-    <ul class="options" id={`${id}-list`} role="listbox" aria-label={label}>
+    <ul
+      class="options"
+      transition:fly={{ y: -4, duration: motionMs(140) }}
+      id={`${id}-list`}
+      role="listbox"
+      aria-label={label}
+      tabindex="-1"
+    >
       {#each matches as stop, index (stop.id)}
         <li
           id={`${id}-opt-${index}`}
@@ -213,6 +242,58 @@
     color: var(--destructive);
     font-size: var(--fs-sm);
     font-weight: var(--weight-strong);
+  }
+  /* Inline: the card around the form is the field box; the caption sits inside, top left. */
+  .inline {
+    gap: 0;
+  }
+  .inline .picker-label {
+    position: absolute;
+    top: 0.55rem;
+    left: 0.875rem;
+    pointer-events: none;
+    font-size: 0.6875rem;
+  }
+  .inline input[type='text'] {
+    min-height: 3.75rem;
+    padding: 1.35rem 2.5rem 0.4rem 0.875rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-overflow: ellipsis;
+  }
+  .inline input[type='text']:focus-visible {
+    outline: none;
+  }
+  .inline:focus-within .picker-label {
+    color: var(--primary);
+  }
+  .inline .error {
+    padding: 0 0.875rem 0.5rem;
+  }
+  .clear {
+    position: absolute;
+    /* Centred on the 3.75rem field, not the whole picker (an error line may follow). */
+    top: 1.875rem;
+    right: 0.25rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    translate: 0 -50%;
+    border-radius: 50%;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      color var(--motion-fast) var(--ease-out);
+  }
+  .clear:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+  .clear:focus-visible {
+    outline: 2px solid var(--ring);
   }
   .options {
     position: absolute;

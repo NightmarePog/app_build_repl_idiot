@@ -26,8 +26,8 @@
       title={amenity.label}
       onclick={() => toggle(amenity.value)}
     >
-      <!-- Icon-only so the filter stays one row; the name is in the tooltip and for screen readers. -->
-      <amenity.icon aria-hidden="true" size={20} strokeWidth={1.75} />
+      <amenity.icon aria-hidden="true" size={18} strokeWidth={1.75} />
+      <span aria-hidden="true">{amenity.short}</span>
       <span class="sr-only">{amenity.label}</span>
     </button>
   {/each}
@@ -44,13 +44,14 @@
     min-height: 2.75rem;
     align-items: center;
     gap: 0.5rem;
-    padding: 0 0.875rem;
+    padding: 0 0.75rem;
+    white-space: nowrap;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--background);
     color: var(--muted-foreground);
     font-size: var(--fs-sm);
-    font-weight: var(--weight-regular);
+    font-weight: var(--weight-strong);
     cursor: pointer;
     transition:
       background-color var(--motion-fast) var(--ease-out),

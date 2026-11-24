@@ -8,9 +8,8 @@ const featuredStop = createStop(42, {
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
-/** The footer line that reports whether the timetable API is healthy. */
-const dataStatus = (page: Page) =>
-  page.getByRole('status').filter({ hasText: /^Data jízdních řádů:/ });
+/** The map panel's line that reports whether the timetable API is healthy. */
+const dataStatus = (page: Page) => page.getByRole('status').filter({ hasText: /^Status:/ });
 
 test.beforeEach(async ({ page }) => {
   await mockBrandAssets(page);
@@ -35,16 +34,10 @@ test.beforeEach(async ({ page }) => {
 
 test('homepage fetches health and displays OK', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
-  await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toHaveAttribute(
-    'href',
-    '/stops'
-  );
-  await expect(page.getByRole('link', { name: 'Seznam linek' })).toHaveAttribute('href', '/#lines');
-  await expect(
-    page.getByRole('main').getByRole('heading', { level: 2, name: 'Linky' })
-  ).toBeVisible();
+  // The map is the home page: it opens on everything, lines and stops together.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mapa: Autobusy po kampusu');
+  await expect(page.getByRole('img', { name: 'Think different Academy' }).first()).toBeVisible();
+  await expect(dataStatus(page)).toHaveText('Status: OK');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: `/tmp/tda-home-${testInfo.project.name}.png`,
@@ -62,13 +55,13 @@ test('system theme is the default and keyboard theme choice persists', async ({
   const root = page.locator('html');
   await expect(root).not.toHaveClass(/dark/);
 
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
+  await expect(dataStatus(page)).toHaveText('Status: OK');
   const darkSwitch = page.getByRole('button', { name: 'Přepnout na tmavý režim' });
   await darkSwitch.focus();
   await page.keyboard.press('Enter');
   await expect(root).toHaveClass(/dark/);
   await expect(page.getByRole('button', { name: 'Přepnout na světlý režim' })).toBeVisible();
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
+  await expect(dataStatus(page)).toHaveText('Status: OK');
   await page.reload();
   await expect(root).toHaveClass(/dark/);
 
@@ -96,7 +89,7 @@ test('command palette finds a stop by keyboard', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
   // The status is fetched client-side, so it also signals that the page is hydrated.
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
+  await expect(dataStatus(page)).toHaveText('Status: OK');
   await page.keyboard.press('ControlOrMeta+k');
   const dialog = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
   await expect(dialog).toBeVisible();
@@ -113,7 +106,7 @@ test('reduced motion keeps the small-screen homepage readable and keyboard acces
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
+  await expect(dataStatus(page)).toHaveText('Status: OK');
   await expect(page.getByLabel('Autoři')).toContainText('Žofie · Jan');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(
@@ -149,7 +142,7 @@ for (const failure of ['http', 'invalid', 'wrong-value', 'network']) {
           })
     );
     await page.goto('/');
-    await expect(dataStatus(page)).toHaveText('Data jízdních řádů: nedostupná');
+    await expect(dataStatus(page)).toHaveText('Status: nedostupné');
   });
 }
 
@@ -178,69 +171,90 @@ for (const invalid of [false, true]) {
   });
 }
 
-test('landing planner sends the chosen stops and time to the connection search', async ({
-  page
-}) => {
+test('planner sends the chosen stops and time to the connection search', async ({ page }) => {
   const target = createStop(43, { name: 'Quantum Commons' });
   await page.route('**/api/v1/stops', (route) => route.fulfill({ json: [featuredStop, target] }));
-  await page.goto('/');
-  const form = page.getByRole('form', { name: 'Vyhledat spojení' });
+  await page.goto('/connections');
+  const form = page.getByRole('main').getByRole('form');
   await form.getByRole('combobox', { name: 'Odkud' }).fill(featuredStop.name.slice(0, 4));
   await form.getByRole('option', { name: featuredStop.name }).click();
   await form.getByRole('combobox', { name: 'Kam' }).fill('Quantum');
   await form.getByRole('option', { name: 'Quantum Commons' }).click();
   await form.getByLabel('Čas odjezdu').fill('07:30');
   await form.getByRole('button', { name: 'Vyhledat spojení' }).click();
-  await expect(page).toHaveURL(/\/spojeni\?/);
+  await expect(page).toHaveURL(/\/connections\?/);
   const params = new URL(page.url()).searchParams;
   expect(Object.fromEntries(params)).toEqual({ z: '42', do: '43', cas: '07:30' });
 });
 
-test('landing map preview and primary action lead to the stop map', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/');
-  await page.getByRole('link', { name: 'Otevřít mapu zastávek' }).click();
-  await expect(page).toHaveURL(/\/stops$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
-  await page.getByRole('link', { name: 'Úvod' }).first().click();
-  await page.getByRole('link', { name: 'Otevřít mapu', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Zastávky: Všechny zastávky');
-});
-
-test('landing stays usable when stops fail to load', async ({ page }) => {
+test('home stays usable when stops fail to load', async ({ page }) => {
   await page.route('**/api/v1/stops', (route) => route.fulfill({ status: 503, json: [] }));
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autobusy po kampusu');
-  await expect(page.getByRole('link', { name: 'Otevřít mapu', exact: true })).toBeVisible();
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
+  await expect(page.getByText('Zastávky se nepodařilo načíst')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zkusit znovu' })).toBeVisible();
+  await expect(dataStatus(page)).toHaveText('Status: OK');
 });
 
-test('header links go straight to stops and lines', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+test('the search menu switches between all, stops, lines and connections', async ({ page }) => {
   await page.goto('/');
-  const nav = page.getByRole('navigation', { name: 'Hlavní navigace' });
-  await expect(nav.getByRole('button')).toHaveCount(0);
-  await nav.getByRole('link', { name: 'Linky', exact: true }).click();
+  const pick = async (name: string) => {
+    const menu = page.getByRole('dialog', { name: 'Hledat v aplikaci' });
+    if (!(await menu.isVisible()))
+      await page
+        .getByRole('banner')
+        .getByRole('button', { name: /^Hledat/ })
+        .click();
+    await menu.getByRole('button', { name, exact: true }).click();
+  };
+  await pick('Spojení');
+  await expect(page).toHaveURL(/\/connections$/);
+  await expect(page.getByRole('heading', { level: 1, name: /Kam pojedete/ })).toBeVisible();
+  await pick('Linky');
   await expect(page).toHaveURL(/\/lines$/);
-  await nav.getByRole('link', { name: 'Zastávky', exact: true }).click();
+  await pick('Zastávky');
+  await expect(page).toHaveURL(/\/stops$/);
+  await pick('Vše');
+  await expect(page).toHaveURL(/127\.0\.0\.1:3301\/$/);
+});
+
+test('old /spojeni links redirect to /connections with their search', async ({ page }) => {
+  await page.goto('/spojeni?z=9&do=15');
+  await expect(page).toHaveURL(/\/connections\?z=9&do=15$/);
+});
+
+test('lines and stops are two views of one map page', async ({ page }) => {
+  await page.goto('/lines');
+  await expect(page).toHaveURL(/\/lines$/);
+  await expect(page.getByRole('heading', { level: 1, name: /Všechny linky/ })).toBeVisible();
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: /^Hledat/ })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Hledat v aplikaci' })
+    .getByRole('button', { name: 'Zastávky', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: /Všechny zastávky/ })).toBeVisible();
   await expect(page).toHaveURL(/\/stops$/);
 });
 
-test('footer links open contact and terms', async ({ page }, testInfo) => {
+test('project links open contact and terms', async ({ page }) => {
   await page.goto('/');
-  await expect(dataStatus(page)).toHaveText('Data jízdních řádů: v provozu');
-  const footer = page.getByRole('contentinfo', { name: 'Patička webu' });
+  await expect(dataStatus(page)).toHaveText('Status: OK');
+  // No site footer: the project links sit at the bottom of the map panel.
+  await expect(page.getByRole('contentinfo')).toHaveCount(0);
+  const footer = page.getByRole('navigation', { name: 'Odkazy projektu' });
   await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
     'href',
     'https://github.com/NightmarePog/2idiotz'
   );
-  await footer.screenshot({ path: `/tmp/tda-footer-${testInfo.project.name}.png` });
   await footer.getByRole('link', { name: 'Kontakt' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt: Kontakt na tým');
   await expect(page.getByRole('link', { name: 'Napsat týmu' })).toHaveAttribute(
     'href',
     'https://github.com/NightmarePog/2idiotz/issues/new'
   );
+  await page.goBack();
   await footer.getByRole('link', { name: 'Podmínky používání' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Podmínky: Podmínky používání');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

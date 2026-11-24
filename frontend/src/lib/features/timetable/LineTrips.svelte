@@ -98,7 +98,7 @@
     (h.kind === 'gap' ? currentHour >= h.from && currentHour <= h.to : h.hour === currentHour);
 
   function tripHref(tripId: number) {
-    return withQuery(resolve('/trips/[id]', { id: String(tripId) }), { od: selected?.id });
+    return withQuery(resolve('/(map)/trips/[id]', { id: String(tripId) }), { od: selected?.id });
   }
 
   /** "Bus B03", or the line number when the trip has no vehicle assigned. */
@@ -204,7 +204,7 @@
         <thead>
           <tr>
             <th scope="col" class="col-head">Hodina</th>
-            <th scope="col" class="col-head">Minuta odjezdu · bus</th>
+            <th scope="col" class="col-head">Minuta odjezdu · směr {route.direction}</th>
           </tr>
         </thead>
         <tbody>
@@ -508,7 +508,7 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  @media (max-width: 639px) {
+  @container (max-width: 639px) {
     .next {
       grid-template-columns: auto minmax(0, 1fr);
     }

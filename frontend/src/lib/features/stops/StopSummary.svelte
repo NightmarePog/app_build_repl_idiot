@@ -48,7 +48,7 @@
         <p class="sub">Sousední: {neighbours.join(', ')}</p>
       {/if}
       <Button
-        href={resolve('/stops/[id]', { id: String(stop.id) })}
+        href={resolve('/(map)/stops/[id]', { id: String(stop.id) })}
         onclick={() => rememberStop(stop)}
         class="self-start"
       >

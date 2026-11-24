@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { NAV_LABELS } from '$lib/links';
   import '../app.css';
   import { resolve } from '$app/paths';
-  import { FileText } from '@lucide/svelte';
+  import { Navigation } from '@lucide/svelte';
   import AppShell from '$lib/components/AppShell.svelte';
-  import CommandPalette, { type PaletteItem } from '$lib/components/CommandPalette.svelte';
-  import ProjectCredits from '$lib/features/about/ProjectCredits.svelte';
-  import FooterLines from '$lib/features/network/FooterLines.svelte';
+  import CommandPalette, {
+    fuzzyScore,
+    type PaletteItem
+  } from '$lib/components/CommandPalette.svelte';
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { onMount } from 'svelte';
   import { onNavigate } from '$app/navigation';
@@ -19,8 +19,11 @@
     type LineId
   } from '$lib/features/network/lines.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
+  import { listLineTrips, type TripSummary } from '$lib/api/generated';
+  import { plannerHref } from '$lib/features/planner/planner';
   import { rememberStop } from '$lib/features/stops/selected-stop';
-  import { withQuery } from '$lib/links';
+  import { isMapView } from '$lib/links';
+  import { mapSearch } from '$lib/map-search.svelte';
   let { children } = $props();
 
   let paletteOpen = $state(false);
@@ -34,7 +37,8 @@
     if (
       !document.startViewTransition ||
       matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      navigation.from?.url.pathname === navigation.to?.url.pathname
+      navigation.from?.url.pathname === navigation.to?.url.pathname ||
+      (isMapView(navigation.from?.url.pathname) && isMapView(navigation.to?.url.pathname))
     )
       return;
     return new Promise((done) => {
@@ -45,25 +49,11 @@
     });
   });
 
-  type Item = PaletteItem & { lines: LineId[]; page?: boolean };
+  /** A palette result: a stop, a line, a trip, or a connection search. */
+  type Item = PaletteItem & { lines: LineId[]; route?: boolean };
 
-  const pages: Item[] = (
-    [
-      [NAV_LABELS.home, 'Úvodní stránka', resolve('/')],
-      [NAV_LABELS.stops, 'Zastávky na mapě s vyhledáváním a filtry', resolve('/stops')],
-      [NAV_LABELS.lines, 'Přehled všech linek', resolve('/lines')],
-      ['Kontakt', 'Napište týmu', resolve('/contact')],
-      ['Podmínky', 'Podmínky používání', resolve('/terms')]
-    ] as const
-  ).map(([label, sub, href]) => ({
-    key: `page-${href}`,
-    label,
-    sub,
-    href,
-    lines: [],
-    page: true,
-    suggested: true
-  }));
+  /** The palette's current text, for reading a "from → to" search out of it. */
+  let paletteText = $state('');
 
   const lineItems = $derived<Item[]>(
     LINE_IDS.map((id) => {
@@ -74,25 +64,92 @@
         sub: stops.length
           ? `${stops[0]} → ${stops[stops.length - 1]}, ${stops.length} zastávek`
           : LINES[id].name,
-        href: withQuery(resolve('/stops'), { line: id }),
+        href: resolve('/(map)/lines/[id]', { id: String(LINES[id].apiId) }),
         lines: [id],
         suggested: true
       };
     })
   );
 
+  /** Every trip (spoj) of every line, loaded the first time the palette opens. */
+  let trips = $state<TripSummary[]>([]);
+  let tripsLoading = false;
+  async function loadTrips() {
+    if (tripsLoading || trips.length) return;
+    tripsLoading = true;
+    await loadNetwork();
+    const lists = await Promise.all(
+      LINE_IDS.map((id) =>
+        listLineTrips({ path: { lineId: LINES[id].apiId } })
+          .then(({ data }) => data ?? [])
+          .catch(() => [])
+      )
+    );
+    trips = lists.flat();
+    tripsLoading = false;
+  }
+  const tripItems = $derived<Item[]>(
+    trips.map((trip) => ({
+      key: `trip-${trip.id}`,
+      label: `Spoj ${trip.line.number} · ${trip.origin.name} ${trip.departure_time}`,
+      sub: `→ ${trip.destination.name}`,
+      href: resolve('/(map)/trips/[id]', { id: String(trip.id) }),
+      lines: [trip.line.number]
+    }))
+  );
+
   const stops = $derived(stopsList() ?? []);
+
+  /** The best-matching stop for one side of a "from → to" search. */
+  function bestStop(text: string) {
+    let best: { stop: (typeof stops)[number]; score: number } | null = null;
+    for (const stop of stops) {
+      const score = fuzzyScore(stop.name, text);
+      if (score !== null && (!best || score > best.score)) best = { stop, score };
+    }
+    return best?.stop ?? null;
+  }
+  /** "ada > campus", "ada → campus", "ada - campus" or "z ada do campus". */
+  const routeItem = $derived.by<Item>(() => {
+    const text = paletteText.trim();
+    const parts =
+      text.match(/^z\s+(.+?)\s+do\s+(.+)$/i)?.slice(1) ??
+      text.split(/\s*(?:->|→|>|–|—|\s-\s)\s*/).filter(Boolean);
+    const from = parts.length === 2 ? bestStop(parts[0]) : null;
+    const to = parts.length === 2 ? bestStop(parts[1]) : null;
+    if (from && to && from.id !== to.id)
+      return {
+        key: 'route-found',
+        label: `${from.name} → ${to.name}`,
+        sub: 'Vyhledat spojení',
+        href: plannerHref({ from: from.id, to: to.id }),
+        lines: [],
+        route: true,
+        pinned: true
+      };
+    return {
+      key: 'route',
+      label: 'Spojení odkud → kam',
+      sub: 'Napište třeba „ada > campus“',
+      href: resolve('/connections'),
+      lines: [],
+      route: true,
+      pinned: !text
+    };
+  });
+
   const paletteItems = $derived<Item[]>([
+    routeItem,
     ...stops.map((stop, index) => ({
       key: `stop-${stop.id}`,
       label: stop.name,
       sub: describeStop(stop.name),
-      href: resolve('/stops/[id]', { id: String(stop.id) }),
+      href: resolve('/(map)/stops/[id]', { id: String(stop.id) }),
       lines: linesOf(stop.name),
       suggested: index < 6
     })),
     ...lineItems,
-    ...pages
+    ...tripItems
   ]);
 
   function choose(item: PaletteItem) {
@@ -101,18 +158,10 @@
   }
 </script>
 
-{#snippet footerCredits()}
-  <ProjectCredits />
-{/snippet}
-
-{#snippet footerLines()}
-  <FooterLines />
-{/snippet}
-
 {#snippet paletteIcon(item: PaletteItem)}
   {@const entry = paletteItems.find((candidate) => candidate.key === item.key)}
-  {#if entry?.page}
-    <FileText size={16} />
+  {#if entry?.route}
+    <Navigation size={16} />
   {:else if entry?.lines.length}
     <span class="flex gap-0.5">
       {#each entry.lines as id (id)}<LineBadge {id} />{/each}
@@ -122,11 +171,23 @@
   {/if}
 {/snippet}
 
-<AppShell {footerCredits} {footerLines} bind:paletteOpen>{@render children()}</AppShell>
+<AppShell bind:paletteOpen>{@render children()}</AppShell>
+
+<!-- The palette is the app's menu: views, the map's filters, and search across stops, lines and pages. -->
 <CommandPalette
   bind:open={paletteOpen}
   items={paletteItems}
-  onopen={() => void loadStops()}
+  onopen={() => {
+    void loadStops();
+    void loadTrips();
+  }}
   onchoose={choose}
   icon={paletteIcon}
+  tools={mapSearch.active ? mapSearch.tools : undefined}
+  initialQuery={mapSearch.active ? mapSearch.query : ''}
+  onquery={(text) => {
+    paletteText = text;
+    // A "from → to" search is not a filter for the map's lists.
+    if (mapSearch.active && routeItem.key !== 'route-found') mapSearch.query = text;
+  }}
 />

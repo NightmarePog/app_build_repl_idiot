@@ -18,10 +18,6 @@ function known(type: Line['type']) {
   return key in TYPES ? TYPES[key as KnownType] : null;
 }
 
-export function typeLabel(type: Line['type']) {
-  return known(type)?.label ?? type;
-}
-
 /** Short mode label for compact meta lines ("autobus"), falling back to the raw API value. */
 export function typeNoun(type: Line['type']) {
   return known(type)?.noun ?? type;
@@ -50,15 +46,4 @@ export function inkFor(hex: string) {
  */
 export function isPale(hex: string) {
   return 1.05 / (luminance(hex) + 0.05) < 3;
-}
-
-/**
- * Czech "z"/"ze" before a number: "ze" when the spoken numeral starts with s/š
- * (šest, sedm, šestnáct, sedmnáct, šedesát…, sedmdesát…, sto…).
- */
-export function zOrZe(count: number) {
-  const n = Math.abs(Math.trunc(count));
-  if (n >= 100 && n < 200) return 'ze';
-  if (n >= 60 && n < 80) return 'ze';
-  return [6, 7, 16, 17].includes(n) ? 'ze' : 'z';
 }

@@ -7,7 +7,7 @@
   import LineBadge from '$lib/features/network/LineBadge.svelte';
   import { goto } from '$app/navigation';
   import { LINES, POSITIONS, linesOf, neighboursOf } from '$lib/features/network/lines.svelte';
-  import TransitMap from '$lib/features/network/TransitMap.svelte';
+  import { focusMap } from '$lib/map-focus.svelte';
   import { loadStops, stopsList } from '$lib/features/network/stops-store.svelte';
   import StopImage from './StopImage.svelte';
   import DepartureBoard from '$lib/features/timetable/DepartureBoard.svelte';
@@ -19,6 +19,19 @@
   $effect(() => void loadStops());
   const near = $derived([stop.name, ...neighboursOf(stop.name)]);
   const mapStops = $derived(stopsList() ?? [stop]);
+
+  // The map page's big map shows the stop and its neighbourhood.
+  $effect(() =>
+    focusMap({
+      stops: mapStops,
+      selected: stop.id,
+      focusLines: linesOf(stop.name),
+      focusStops: mapStops.filter((s) => near.includes(s.name)).map((s) => s.id),
+      fit: near.map((name) => POSITIONS[name]).filter(Boolean),
+      onselect: (other) =>
+        other.id !== stop.id && goto(resolve('/(map)/stops/[id]', { id: String(other.id) }))
+    })
+  );
 </script>
 
 <!-- Wikipedia-style: the board is the article, the stop facts sit in a sticky infobox. -->
@@ -43,7 +56,7 @@
           {@const line = LINES[id]}
           <li>
             {#if line}
-              <a class="line" href={resolve('/lines/[id]', { id: String(line.apiId) })}>
+              <a class="line" href={resolve('/(map)/lines/[id]', { id: String(line.apiId) })}>
                 <LineBadge {id} size="lg" />
                 {#if line.stops.length > 1}
                   <span class="terminals"
@@ -71,20 +84,6 @@
           </li>
         {/each}
       </ul>
-      <div class="map">
-        <TransitMap
-          compact
-          label={`Mapa okolí zastávky ${stop.name}`}
-          stops={mapStops}
-          selected={stop.id}
-          focusLines={linesOf(stop.name)}
-          focusStops={mapStops.filter((s) => near.includes(s.name)).map((s) => s.id)}
-          fit={near.map((name) => POSITIONS[name]).filter(Boolean)}
-          legend={false}
-          onselect={(other) =>
-            other.id !== stop.id && goto(resolve('/stops/[id]', { id: String(other.id) }))}
-        />
-      </div>
       <Button href={plannerHref({ to: stop.id })} size="lg" class="w-full">
         <Route aria-hidden="true" /> Trasa
       </Button>
@@ -130,9 +129,6 @@
   }
   .photo {
     position: relative;
-  }
-  .map {
-    --map-ratio: 1 / 1;
   }
   .info-heading {
     font-size: var(--fs-base);
@@ -216,7 +212,7 @@
     font-weight: var(--weight-strong);
     line-height: 1;
   }
-  @media (max-width: 1023px) {
+  @container (max-width: 1023px) {
     .stop-detail {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas: 'info' 'main';
@@ -242,9 +238,6 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem 0.75rem;
-    }
-    .map {
-      --map-ratio: 16 / 10;
     }
     .amenities .icon {
       width: 1.75rem;

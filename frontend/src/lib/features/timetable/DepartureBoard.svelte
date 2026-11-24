@@ -200,7 +200,7 @@
   }
 
   const tripHref = (tripId: number) =>
-    withQuery(resolve('/trips/[id]', { id: String(tripId) }), { od: stopId });
+    withQuery(resolve('/(map)/trips/[id]', { id: String(tripId) }), { od: stopId });
 
   function rowLabel(row: Shown, by: string[] | undefined) {
     const waits = row.dep - row.arr;
@@ -843,7 +843,7 @@
     font-weight: var(--weight-strong);
     vertical-align: 0.25em;
   }
-  @media (max-width: 639px) {
+  @container (max-width: 639px) {
     .time .day {
       display: block;
       margin: 0;
@@ -900,7 +900,7 @@
       background-position: -200% 0;
     }
   }
-  @media (max-width: 639px) {
+  @container (max-width: 639px) {
     .board-wrap {
       /* Clear of the fixed bottom tab bar; keeps the page gutter like every other card. */
       margin-bottom: 5rem;

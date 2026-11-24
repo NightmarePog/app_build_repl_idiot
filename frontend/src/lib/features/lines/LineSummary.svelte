@@ -37,7 +37,7 @@
     <ul class="next" aria-label="Nejbližší odjezdy">
       {#each next as { trip } (trip.id)}
         <li>
-          <a href={resolve('/trips/[id]', { id: String(trip.id) })}>
+          <a href={resolve('/(map)/trips/[id]', { id: String(trip.id) })}>
             <span class="time tabular">{trip.departure_time}</span>
             <ArrowRight size={14} aria-hidden="true" />
             <span class="dest">{trip.destination.name}</span>
@@ -46,7 +46,7 @@
       {/each}
     </ul>
   {/if}
-  <Button href={resolve('/lines/[id]', { id: String(line.apiId) })} class="self-start">
+  <Button href={resolve('/(map)/lines/[id]', { id: String(line.apiId) })} class="self-start">
     Detail linky <ArrowRight data-icon="inline-end" aria-hidden="true" />
   </Button>
 </article>
